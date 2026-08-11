@@ -22,8 +22,17 @@
        and money-600 only 3.45:1. */
     --money-ink:#15794F; --danger-ink:#A6362C; --gold-ink:#8A5A0F;
     /* Neutrals (warm) */
-    --sand-50:#FBF5EC; --sand-100:#F4EADB; --surface:#FFFFFF;
-    --line:#E7DCC9; --text:#241C15; --text-muted:#7A6B58; --text-faint:#A2917C;
+    /* "Warm Refined" — still warm, but the original cream (#FBF5EC, 65%
+       saturation) with brown greys (--text-muted #7A6B58, 17%) rendered as
+       hospitality rather than finance. Saturation is 29% now and the grey ramp
+       is near-neutral at 5%. The old --text-faint #A2917C also failed WCAG
+       outright at 2.82:1, and each tier moved down one step to fix it. */
+    --sand-50:#FAF9F6; --sand-100:#F4F2EC; --surface:#FFFFFF;
+    --line:#E8E3DA; --text:#1C1917; --text-muted:#57534E; --text-faint:#706963;
+    /* The one dark surface: the admin nav rail. Deepened from the brand's
+       #000066, which stays exact on the logo mark but reads harsh across a
+       full-height panel. */
+    --rail:#0A1140;
     --r-sm:12px; --r:16px; --r-lg:22px;
     --shadow:0 12px 30px rgba(36,28,21,.10);
     --shadow-sm:0 4px 14px rgba(36,28,21,.07);

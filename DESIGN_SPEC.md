@@ -55,15 +55,22 @@ Pending was moved off amber deliberately. Sea Buckthorn is the action colour use
 
 **Ink variants.** The values above are *fill* colours. Three of them are illegible as small text on a light ground — Sea Buckthorn is 1.90:1 on white and `--money-600` only 3.45:1 — so pill labels and coloured body text use darkened pairs of the same hue instead: `--money-ink #15794F`, `--danger-ink #A6362C`, `--gold-ink #8A5A0F`. `--indigo-600` (6.62:1) and `--pending-700` (7.60:1) need no variant. Verify any new colour numerically before using it as type; several of the brand's own values fail.
 
-Neutrals (warm-tinted, never pure gray):
-| Token | Hex |
-|---|---|
-| `--sand-50` (app bg) | `#FBF5EC` |
-| `--sand-100` (surface) | `#F4EADB` |
-| `--surface` (card) | `#FFFFFF` |
-| `--line` | `#E7DCC9` |
-| `--text` | `#241C15` |
-| `--text-muted` | `#7A6B58` |
+Neutrals — **"Warm Refined"**. Still warm-tinted, never pure gray:
+| Token | Hex | Note |
+|---|---|---|
+| `--sand-50` (app bg) | `#FAF9F6` | 29% saturation |
+| `--sand-100` (recessed) | `#F4F2EC` | quiet pill fills, hover wells |
+| `--surface` (card) | `#FFFFFF` | |
+| `--line` | `#E8E3DA` | hairline |
+| `--line-2` | `#D8D1C4` | input borders, stronger edges |
+| `--text` | `#1C1917` | 16.61:1 on app bg |
+| `--text-muted` | `#57534E` | 7.25:1 — near-neutral, **not brown** |
+| `--text-faint` | `#706963` | 5.13:1 — placeholders, hints |
+| `--rail` | `#0A1140` | the one dark surface; see below |
+
+The first light build used cream (`#FBF5EC`, **65% saturation**) with brown greys (`--text-muted` was `#5F5344`, 17% saturation). On screen that read as hospitality rather than finance: warm cream surfaces and brown-grey body text are the two clearest "dated" tells in a dashboard. This revision keeps the warm cast §0.3 asks for while dropping page saturation to 29% and making the grey ramp near-neutral at 5%. Cool-neutral and navy-forward alternatives were rendered side by side and rejected in favour of keeping the brand's character.
+
+**The nav rail is the one dark surface in a light app.** A sand rail was tried first and read as washed out for a measurable reason: every tone in the warm family sits within a few percent luminance of every other, so a sand rail against the sand page separated at only **1.10:1** — and white would have given 1.084:1, no better. Navy separates at **17.1:1** and gives Sea Buckthorn a dark ground to be an accent against. `--rail` is `#0A1140` rather than the brand's `#000066`: that hex stays exact on the logo mark, but a fully saturated pure blue-violet reads harsh across a full-height panel. The **topbar deliberately stays light** — dark left rail plus light top bar is the familiar shape, and darkening both walls in the content. Rail-scoped text tokens: `--rail-text #FAF9F6` (17.09:1), `--rail-muted #A1A5C4` (7.45:1), `--rail-faint #878CAF` (5.48:1).
 
 **Status → color → word (canonical):**
 - `Pending` → violet → "Awaiting approval"
