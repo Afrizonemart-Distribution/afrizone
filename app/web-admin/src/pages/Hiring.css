@@ -153,7 +153,7 @@
   z-index: 20;
   padding: 6px;
   min-width: 160px;
-  background: rgba(12, 23, 20, 0.96);
+  background: var(--surface-3);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;

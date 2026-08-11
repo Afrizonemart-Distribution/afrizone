@@ -33,7 +33,7 @@
   border-radius: 100px;
   background: var(--grad);
   transition: width 1.1s var(--ease);
-  box-shadow: 0 0 14px -2px rgba(233, 162, 59, 0.5);
+  box-shadow: 0 0 14px -2px rgba(251, 172, 52, 0.5);
 }
 
 /* ===== tax summary ===== */

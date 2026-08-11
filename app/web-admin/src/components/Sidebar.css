@@ -6,7 +6,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(8, 15, 13, 0.55);
+  background: var(--surface-1);
   backdrop-filter: blur(22px) saturate(150%);
   -webkit-backdrop-filter: blur(22px) saturate(150%);
   border-right: 1px solid var(--line);
@@ -89,8 +89,8 @@
 }
 .nav.on {
   color: var(--text);
-  background: linear-gradient(100deg, rgba(210, 105, 30, 0.22), rgba(233, 162, 59, 0.08));
-  border: 1px solid rgba(233, 162, 59, 0.25);
+  background: linear-gradient(100deg, rgba(251, 172, 52, 0.2), rgba(251, 172, 52, 0.05));
+  border: 1px solid rgba(251, 172, 52, 0.28);
 }
 .nav.on::before {
   content: '';

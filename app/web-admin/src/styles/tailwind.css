@@ -50,9 +50,9 @@
   --sd-foreground: var(--text);
 
   /* Elevated glass surfaces (cards, dialogs, popovers). */
-  --sd-card: rgba(12, 23, 20, 0.92);
+  --sd-card: var(--surface-2);
   --sd-card-foreground: var(--text);
-  --sd-popover: rgba(12, 23, 20, 0.96);
+  --sd-popover: var(--surface-3);
   --sd-popover-foreground: var(--text);
 
   /* Sea Buckthorn on Deep Navy-dark text — the brand's primary action pair. */
@@ -135,7 +135,7 @@
 /* `<DialogContent>` renders its own overlay with a flat `bg-black/50`; these
    are the tinted, blurred values the admin's backdrop has always used. */
 [data-slot='dialog-overlay'] {
-  background: rgba(4, 8, 7, 0.6);
+  background: var(--scrim);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }

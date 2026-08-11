@@ -26,7 +26,10 @@
   height: 380px;
   bottom: -140px;
   left: -110px;
-  background: var(--clay, #c98518);
+  /* --clay resolves to Sea Buckthorn since the rebrand, which made this glow
+     identical to --splash-glow-gold. Use the deepened stop so the two glows
+     still read as a pair rather than one flat wash. */
+  background: var(--clay-deep, #c98518);
   opacity: 0.2;
 }
 .splash-motif {

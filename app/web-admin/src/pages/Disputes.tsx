@@ -191,8 +191,8 @@ export default function Disputes() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
             <div
               style={{
-                background: 'rgba(194,80,46,.08)',
-                border: '1px solid rgba(194,80,46,.25)',
+                background: 'rgba(251,172,52,.08)',
+                border: '1px solid rgba(251,172,52,.25)',
                 borderRadius: 10,
                 padding: '12px 14px',
               }}

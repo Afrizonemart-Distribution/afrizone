@@ -47,7 +47,7 @@ a {
   text-decoration: none;
 }
 ::selection {
-  background: rgba(233, 162, 59, 0.3);
+  background: rgba(251, 172, 52, 0.3);
 }
 :focus-visible {
   outline: 2px solid var(--gold);
@@ -173,13 +173,16 @@ a {
   transform: none !important;
 }
 .btn-primary {
-  color: #fff;
+  /* White on Sea Buckthorn is 1.9:1 — it failed WCAG badly and only looked
+     passable back when the gradient ran over the darker terracotta. Navy ink
+     on the orange is 10:1 and is the brand's own primary pairing. */
+  color: #0a0a2e;
   background: var(--grad);
   box-shadow: var(--grad-glow);
 }
 .btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 18px 46px -8px rgba(210, 105, 30, 0.75);
+  box-shadow: var(--grad-glow-hover);
 }
 .btn-glass {
   background: var(--glass-2);
@@ -218,7 +221,7 @@ a {
    the standard rounded radius elsewhere — a signature asymmetric shape
    used everywhere .glass is used (cards, panels, tables, modals). No
    overflow:hidden here — .glass wraps popovers/menus/dropdowns in several
-   places (e.g. Hiring's kc-menu, Modal) that must not be clipped. */
+   places (e.g. Hiring's kc-menu) that must not be clipped. */
 .glass {
   position: relative;
   background: var(--glass);
@@ -344,10 +347,12 @@ a {
   background: rgba(232, 161, 58, 0.12);
   border-color: rgba(232, 161, 58, 0.3);
 }
+/* Active carried the retired terracotta; it is the brand action colour and
+   belongs on Sea Buckthorn. */
 .pill.active {
-  color: #f0a17e;
-  background: rgba(210, 105, 30, 0.14);
-  border-color: rgba(210, 105, 30, 0.32);
+  color: #fbc574;
+  background: rgba(251, 172, 52, 0.16);
+  border-color: rgba(251, 172, 52, 0.38);
 }
 .pill.review {
   color: #9bb6ff;
@@ -562,7 +567,7 @@ table.dt tbody tr:last-child td {
   outline: none;
   border-color: var(--gold);
   background: var(--glass-2);
-  box-shadow: 0 0 0 3px rgba(233, 162, 59, 0.15);
+  box-shadow: 0 0 0 3px rgba(251, 172, 52, 0.18);
 }
 .input::placeholder,
 .textarea::placeholder {
@@ -581,55 +586,11 @@ table.dt tbody tr:last-child td {
   grid-column: 1 / -1;
 }
 
-/* ===== modal ===== */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: rgba(4, 8, 7, 0.6);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 18px;
-  overflow: auto;
-  animation: fadein 0.25s var(--ease);
-}
-.modal {
-  width: 100%;
-  max-width: 620px;
-  padding: 26px;
-  background: rgba(12, 23, 20, 0.92);
-  animation: rise 0.32s var(--ease);
-}
-.modal-h {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-.modal-h h3 {
-  font-size: 21px;
-  font-weight: 800;
-}
-.modal-h .sub {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 4px;
-}
-@keyframes fadein {
-  from {
-    opacity: 0;
-  }
-}
-@keyframes rise {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-}
+/* ===== modal =====
+   The dialog surface now lives in `components/ui/Modal.tsx`, built on the
+   shadcn/Radix Dialog. Its backdrop tint is the one rule that has to stay in
+   CSS (shadcn renders the overlay internally) — see the `[data-slot=
+   dialog-overlay]` block in `tailwind.css`. */
 
 /* money math row */
 .math {

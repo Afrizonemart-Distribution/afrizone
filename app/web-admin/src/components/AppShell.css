@@ -39,7 +39,7 @@
     position: fixed;
     inset: 0;
     z-index: 70;
-    background: rgba(4, 8, 7, 0.5);
+    background: var(--scrim);
   }
   .content {
     padding: 22px 16px 50px;

@@ -18,7 +18,7 @@
 .otp-cell:focus {
   border-color: var(--gold);
   background: var(--glass-2);
-  box-shadow: 0 0 0 3px rgba(233, 162, 59, 0.18);
+  box-shadow: 0 0 0 3px rgba(251, 172, 52, 0.18);
 }
 
 @media (max-width: 420px) {

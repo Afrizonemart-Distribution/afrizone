@@ -6,7 +6,7 @@
   align-items: center;
   gap: 16px;
   padding: 14px 28px;
-  background: rgba(8, 15, 13, 0.5);
+  background: var(--surface-1);
   backdrop-filter: blur(20px) saturate(150%);
   -webkit-backdrop-filter: blur(20px) saturate(150%);
   border-bottom: 1px solid var(--line);
@@ -73,7 +73,7 @@
   top: calc(100% + 8px);
   left: 0;
   right: 0;
-  background: rgba(12, 23, 20, 0.97);
+  background: var(--surface-3);
   backdrop-filter: blur(24px) saturate(140%);
   -webkit-backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid var(--line-2);

@@ -18,7 +18,7 @@
   transition: opacity 0.35s;
   background: radial-gradient(
     340px circle at var(--mx, 50%) var(--my, 0%),
-    rgba(233, 162, 59, 0.12),
+    rgba(251, 172, 52, 0.12),
     transparent 60%
   );
 }

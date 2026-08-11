@@ -21,6 +21,17 @@
   --muted: #9bab9f;
   --faint: #697a6f;
 
+  /* Composed surfaces. These were hand-copied rgba() literals scattered across
+     a dozen stylesheets — every one a re-derivation of --bg/--bg2 that had to
+     be found and updated by hand. They live here now so the ramp above is the
+     single source of truth. Values are unchanged from the literals they
+     replace, except AppShell's mobile scrim (0.5 → 0.6, matching the dialog
+     overlay it sits alongside). */
+  --scrim: rgba(4, 8, 7, 0.6);
+  --surface-1: rgba(8, 15, 13, 0.55); /* sidebar / topbar glass */
+  --surface-2: rgba(12, 23, 20, 0.92); /* modals, drawers */
+  --surface-3: rgba(12, 23, 20, 0.97); /* popovers, dropdown menus */
+
   /* Glass */
   --glass: rgba(255, 255, 255, 0.045);
   --glass-2: rgba(255, 255, 255, 0.07);
@@ -38,8 +49,12 @@
 
   /* Motion + effects */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --grad: linear-gradient(120deg, var(--clay), var(--gold));
-  --grad-glow: 0 14px 40px -10px rgba(210, 105, 30, 0.6);
+  /* --clay and --gold both resolve to Sea Buckthorn since the rebrand, so the
+     old two-stop gradient rendered as a flat fill. Ramp to --clay-deep instead
+     to keep the dimensional CTA the design called for. */
+  --grad: linear-gradient(120deg, var(--gold), var(--clay-deep));
+  --grad-glow: 0 14px 40px -10px rgba(251, 172, 52, 0.45);
+  --grad-glow-hover: 0 18px 46px -8px rgba(251, 172, 52, 0.6);
   --shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
 
   /* "Sunrise Cut" chevron motif — repeating geometric pattern echoing the
