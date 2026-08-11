@@ -16,6 +16,11 @@
     --forest-900:#14302B; --forest-700:#1E4B41;
     /* Semantic */
     --money-600:#1F9D6B; --indigo-600:#2D5BA8; --amber-500:#E08A1E; --danger-600:#C8453A;
+    --pending-700:#6B3F94;
+    /* Ink variants — the fills above are for surfaces; these are the darkened
+       pairs used for small text on white, where Sea Buckthorn is only 1.90:1
+       and money-600 only 3.45:1. */
+    --money-ink:#15794F; --danger-ink:#A6362C; --gold-ink:#8A5A0F;
     /* Neutrals (warm) */
     --sand-50:#FBF5EC; --sand-100:#F4EADB; --surface:#FFFFFF;
     --line:#E7DCC9; --text:#241C15; --text-muted:#7A6B58; --text-faint:#A2917C;
@@ -116,7 +121,7 @@
   /* Status pills */
   .pill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:5px 12px;border-radius:100px;border:1px solid transparent}
   .pill svg{width:14px;height:14px}
-  .pill.pending{color:#9a5e07;background:rgba(224,138,30,.12);border-color:rgba(224,138,30,.3)}
+  .pill.pending{color:var(--pending-700);background:rgba(107,63,148,.1);border-color:rgba(107,63,148,.28)}
   .pill.active{color:#9a3a18;background:rgba(251,172,52,.1);border-color:rgba(251,172,52,.28)}
   .pill.review{color:#234a86;background:rgba(45,91,168,.1);border-color:rgba(45,91,168,.28)}
   .pill.ready{color:#0f6a47;background:rgba(31,157,107,.12);border-color:rgba(31,157,107,.3)}
@@ -239,7 +244,8 @@
     <div class="grid swatches">
       <div class="sw"><div class="chip" style="background:var(--money-600)">Available · Paid</div><div class="meta"><div class="name">Money 600</div><div class="hex">#1F9D6B</div></div></div>
       <div class="sw"><div class="chip" style="background:var(--indigo-600)">In review · Info</div><div class="meta"><div class="name">Indigo 600</div><div class="hex">#2D5BA8</div></div></div>
-      <div class="sw"><div class="chip" style="background:var(--amber-500)">Pending · Warn</div><div class="meta"><div class="name">Amber 500</div><div class="hex">#E08A1E</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--pending-700)">Pending · Awaiting</div><div class="meta"><div class="name">Pending 700</div><div class="hex">#6B3F94</div></div></div>
+      <div class="sw"><div class="chip" style="background:var(--amber-500)">Warning</div><div class="meta"><div class="name">Amber 500</div><div class="hex">#E08A1E</div></div></div>
       <div class="sw"><div class="chip" style="background:var(--danger-600)">Rejected · Error</div><div class="meta"><div class="name">Danger 600</div><div class="hex">#C8453A</div></div></div>
     </div>
 

@@ -2,7 +2,9 @@
 
 **Companion to:** Product Blueprint v1.0
 **Covers:** Brand & design system, information architecture, key flows, component inventory, and screen-by-screen specs for the **Worker mobile app** and the **Admin web dashboard**.
-**Status:** Visual direction for kickoff — to be validated against the live `design-system.html` showcase before screen production.
+**Status:** Shipped and evolving. The code in `app/web-admin` and `app/mobile` is the source of truth; where this document and the code disagree, the code is right and this document is stale.
+
+**On the root HTML mocks:** `design-system.html` remains the reference for **brand and status language only — not layout**. It is a palette and component showcase, not a screen spec. `admin-premium.html` has been **deleted**: it was the dark mock the admin dashboard was originally built from, and it kept the pre-rebrand forest-black palette long after the code moved on, so validating against it actively misled. Neither file has ever been generated from the real tokens, so treat both as illustrative.
 
 ---
 
@@ -45,8 +47,13 @@ Functional / semantic (shared status language):
 |---|---|---|
 | `--money-600` | `#1F9D6B` | Available balance, Paid, success |
 | `--indigo-600` | `#2D5BA8` | Info, links, "in review" (adire indigo) |
-| `--amber-500` | `#E08A1E` | Pending, warning, awaiting approval |
+| `--pending-700` | `#6B3F94` | Pending, awaiting approval |
+| `--amber-500` | `#E08A1E` | Warnings and alerts **only** — no longer the Pending status |
 | `--danger-600` | `#C8453A` | Errors, rejected, disputes |
+
+Pending was moved off amber deliberately. Sea Buckthorn is the action colour used for `Active`, and amber sits close enough to it on the hue wheel that the two statuses read as one signal. Violet sits 53° from the nearest other status hue; slate and steel were both rejected for landing within 10° of `--indigo-600`. `--amber-500` survives because most of its call sites are genuine warnings (banners, contract alerts, disputed timesheets), not status pills.
+
+**Ink variants.** The values above are *fill* colours. Three of them are illegible as small text on a light ground — Sea Buckthorn is 1.90:1 on white and `--money-600` only 3.45:1 — so pill labels and coloured body text use darkened pairs of the same hue instead: `--money-ink #15794F`, `--danger-ink #A6362C`, `--gold-ink #8A5A0F`. `--indigo-600` (6.62:1) and `--pending-700` (7.60:1) need no variant. Verify any new colour numerically before using it as type; several of the brand's own values fail.
 
 Neutrals (warm-tinted, never pure gray):
 | Token | Hex |
@@ -59,14 +66,16 @@ Neutrals (warm-tinted, never pure gray):
 | `--text-muted` | `#7A6B58` |
 
 **Status → color → word (canonical):**
-- `Pending` → amber → "Awaiting approval"
+- `Pending` → violet → "Awaiting approval"
 - `Active` → orange (Sea Buckthorn) → "In progress"
 - `In review` → indigo → "Under review"
 - `Approved / Available` → money green → "Ready to withdraw"
 - `Paid / Withdrawn` → forest → "Paid out"
 - `Rejected / Dispute` → danger → "Needs attention"
 
-Dark mode: forest-900 / navy base, sand text, Sea Buckthorn orange accents retained. Designed as a pair (per blueprint §9 `dark-mode-pairing`).
+**Both apps are light.** The admin dashboard ran a dark glassmorphic theme until August 2026 and now uses the same light sand system as the worker app: white cards on `--sand-50`, separated by a `--line` hairline and a soft warm shadow. This was the change that finally made §0.4 achievable — while the two grounds differed in lightness, no single hex could be legible on both, so the four semantic colours had silently diverged between the apps.
+
+There is deliberately **no dark mode and no theme switch.** Supporting both was considered and rejected: it doubles the QA surface on every screen forever, and no user has asked for it. `--navy` / `--navy-deep` remain in the palette for the logo lockup and the splash screen, which does still sit on brand navy.
 
 ### 1.4 Typography
 - **Display / headings:** `Raleway` (700/800, extrabold) — the official brand typeface; geometric, confident, works across mobile and web.

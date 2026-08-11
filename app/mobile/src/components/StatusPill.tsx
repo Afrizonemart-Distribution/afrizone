@@ -20,7 +20,7 @@ const MAP: Record<
   CanonicalStatus,
   { word: string; fg: string; bg: string; icon: IconName }
 > = {
-  pending: { word: 'Awaiting approval', fg: colors.amber, bg: colors.amberSoft, icon: 'clock' },
+  pending: { word: 'Awaiting approval', fg: colors.pending, bg: colors.pendingSoft, icon: 'clock' },
   active: { word: 'In progress', fg: colors.clay, bg: colors.claySoft, icon: 'play' },
   review: { word: 'Under review', fg: colors.indigo, bg: colors.indigoSoft, icon: 'shield' },
   available: { word: 'Ready to withdraw', fg: colors.money, bg: colors.moneySoft, icon: 'check-circle' },

@@ -19,8 +19,16 @@ export const colors = {
   // Functional / semantic (shared status language)
   money: '#1F9D6B', // --money-600 available / paid / success
   indigo: '#2D5BA8', // --indigo-600 info / in review
-  amber: '#E08A1E', // --amber-500 pending / awaiting
+  amber: '#E08A1E', // --amber-500 warnings / alerts (no longer the Pending status)
   danger: '#C8453A', // --danger-600 errors / rejected
+  /**
+   * Pending / awaiting. Deliberately violet rather than amber: Sea Buckthorn is
+   * the action colour used for Active, and amber sits close enough to it that
+   * the two statuses read as the same signal. Violet is 53° from the nearest
+   * other status hue — slate and steel were rejected for colliding with indigo.
+   * `amber` above is kept for genuine warnings, which is most of its call sites.
+   */
+  pending: '#6B3F94',
 
   // Neutrals (warm-tinted, never pure gray)
   bg: '#FBF5EC', // --sand-50 app background
@@ -33,6 +41,7 @@ export const colors = {
 
   // Tints for status pill backgrounds (semi-opaque feel without alpha math)
   amberSoft: '#FBEBD3',
+  pendingSoft: '#EDE8F2',
   claySoft: '#FDECD1',
   indigoSoft: '#DDE6F4',
   moneySoft: '#D6F0E4',
