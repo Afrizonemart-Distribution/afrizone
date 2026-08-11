@@ -23,7 +23,7 @@
 .catbar {
   height: 9px;
   border-radius: 100px;
-  background: rgba(36, 28, 21, 0.09);
+  background: var(--track);
   overflow: hidden;
 }
 .catbar i {

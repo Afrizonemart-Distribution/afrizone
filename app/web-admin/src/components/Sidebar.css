@@ -6,8 +6,11 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--surface-1);
-  border-right: 1px solid var(--line);
+  background: var(--rail);
+  /* Required, not decorative: without it the rail inherits body's dark --text
+     and every label in here would be near-invisible on navy. */
+  color: var(--rail-text);
+  border-right: 1px solid var(--rail-line);
   overflow-y: auto;
 }
 .side nav {
@@ -52,13 +55,13 @@
 }
 .brand .sub {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--rail-muted);
 }
 .navlabel {
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.1em;
-  color: var(--faint);
+  color: var(--rail-faint);
   text-transform: uppercase;
   padding: 14px 12px 6px;
 }
@@ -69,12 +72,14 @@
   padding: 10px 12px;
   border-radius: 12px;
   border-top-right-radius: var(--cut);
-  color: var(--muted);
+  color: var(--rail-muted);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, transform 0.15s var(--ease);
   position: relative;
+  /* Transparent by default so gaining a border on .on doesn't shift the row. */
+  border: 1px solid transparent;
 }
 .nav svg {
   width: 18px;
@@ -82,13 +87,16 @@
   flex: none;
 }
 .nav:hover {
-  background: var(--glass);
-  color: var(--text);
+  background: var(--rail-hover);
+  color: var(--rail-text);
 }
+/* A flat tint rather than the old 20%->5% gradient: fading to near-nothing on
+   the right made the active row look unfinished, and on a dark ground the tint
+   carries on its own. Sea Buckthorn is 9.98:1 here. */
 .nav.on {
-  color: var(--text);
-  background: linear-gradient(100deg, rgba(251, 172, 52, 0.2), rgba(251, 172, 52, 0.05));
-  border: 1px solid rgba(251, 172, 52, 0.28);
+  color: var(--gold);
+  background: var(--rail-active);
+  border-color: var(--rail-active-line);
 }
 .nav.on::before {
   content: '';
@@ -103,9 +111,11 @@
 }
 .nav .badge {
   margin-left: auto;
-  /* --clay-deep would only reach 3.2:1 behind white 11px bold; --gold-ink is 6.2:1. */
-  background: var(--gold-ink);
-  color: #fff;
+  /* On the navy rail the badge can carry full Sea Buckthorn with navy ink
+     (9.98:1); the darkened --gold-ink it used on the sand rail would have been
+     dark-on-dark here. */
+  background: var(--gold);
+  color: var(--rail);
   font-size: 11px;
   font-weight: 700;
   padding: 2px 8px;
@@ -119,8 +129,8 @@
   padding: 10px;
   border-radius: 13px;
   border-top-right-radius: var(--cut);
-  background: var(--glass);
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--rail-line);
 }
 .avatar {
   width: 34px;

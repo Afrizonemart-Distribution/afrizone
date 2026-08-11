@@ -38,7 +38,14 @@
 .az-tag {
   font-size: 11px;
   font-style: italic;
-  color: var(--muted);
   margin-top: 3px;
   letter-spacing: 0.01em;
+}
+/* Tone-aware for the same reason the wordmark is: --muted is a dark ink now, so
+   a single value here left the tagline at ~1.6:1 on the navy splash and rail. */
+.az-tag-dark {
+  color: var(--rail-muted);
+}
+.az-tag-light {
+  color: var(--muted);
 }

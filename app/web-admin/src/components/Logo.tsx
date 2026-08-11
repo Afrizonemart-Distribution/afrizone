@@ -63,7 +63,11 @@ export default function Logo({
               Part&nbsp;Time
             </span>
           </span>
-          {tagline && <span className="az-tag">Made in Africa, delivered worldwide</span>}
+          {tagline && (
+            <span className={`az-tag ${tone === 'dark' ? 'az-tag-dark' : 'az-tag-light'}`}>
+              Made in Africa, delivered worldwide
+            </span>
+          )}
         </span>
       )}
     </span>

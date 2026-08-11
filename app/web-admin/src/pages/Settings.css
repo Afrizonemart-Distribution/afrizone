@@ -68,7 +68,7 @@
   width: 44px;
   height: 25px;
   border-radius: 100px;
-  background: rgba(36, 28, 21, 0.16);
+  background: rgba(28, 25, 23, 0.16);
   border: 1px solid var(--line-2);
   position: relative;
   transition: background 0.22s var(--ease);

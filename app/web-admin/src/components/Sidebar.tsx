@@ -53,7 +53,7 @@ export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigat
   return (
     <aside className={`side ${open ? 'open' : ''}`}>
       <div className="brand">
-        <Logo size={38} tone="light" tagline />
+        <Logo size={38} tone="dark" tagline />
       </div>
 
       <nav aria-label="Primary">
@@ -81,7 +81,7 @@ export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigat
         <span className="avatar">{user ? initials(user.name) : 'AZ'}</span>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{user?.name ?? 'Admin'}</div>
-          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+          <div style={{ fontSize: 11, color: 'var(--rail-muted)' }}>
             {user ? ROLE_LABEL[user.role] ?? user.role : '—'}
             {user?.location ? ` · ${user.location}` : ''}
           </div>

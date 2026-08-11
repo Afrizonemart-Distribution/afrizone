@@ -73,7 +73,7 @@
   margin-top: 15px;
   height: 6px;
   border-radius: 6px;
-  background: rgba(36, 28, 21, 0.09);
+  background: var(--track);
   overflow: hidden;
   position: relative;
 }

@@ -85,7 +85,7 @@ function Donut({ pct, filled, open }: { pct: number; filled: number; open: numbe
           Filled · {filled}
         </div>
         <div className="li">
-          <span className="sw" style={{ background: 'rgba(36,28,21,.12)' }} />
+          <span className="sw" style={{ background: 'var(--line-2)' }} />
           Open · {open}
         </div>
       </div>
