@@ -1,0 +1,141 @@
+/* ============================================================================
+   Tailwind v4 + shadcn/ui — layered *underneath* the hand-written Afrizone CSS
+   so the two systems can coexist while we migrate incrementally.
+
+   Two deliberate deviations from a stock shadcn install:
+
+   1. **No Preflight.** `global.css` already ships its own reset (`* { margin:0 }`,
+      `button { border:none; background:none }`, …). Loading Tailwind's Preflight
+      on top of it would fight that reset and restyle every existing page. We
+      import only the `theme` (design tokens) and `utilities` layers. The one
+      thing Preflight gives us that we still need — a default `border-style` so
+      `border`/`border-b` utilities actually paint — is re-added in `@layer base`
+      below.
+
+   2. **`global.css` is imported into its own `app` layer**, declared *before*
+      `utilities`. Unlayered CSS always beats layered CSS, so leaving it
+      unlayered would let bare element selectors (`button { background:none }`)
+      silently override Tailwind utilities on shadcn components. Layering it
+      fixes the cascade order: tokens → base → app CSS → utilities.
+
+   Per-component stylesheets (AppShell.css, Sidebar.css, …) stay unlayered and
+   therefore still win over utilities — intentional, so this file cannot change
+   how any existing screen renders.
+   ========================================================================== */
+
+@layer theme, base, app, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+@import './global.css' layer(app);
+@import 'tailwindcss/utilities.css' layer(utilities);
+/* Not layered: it defines its `animate-in`/`fade-in-…` helpers with `@utility`,
+   which Tailwind refuses to nest inside a `layer(...)` import. It registers
+   itself into the `utilities` layer regardless. */
+@import 'tw-animate-css';
+
+@source '../';
+
+/* ---------------------------------------------------------------------------
+   shadcn semantic tokens.
+
+   Namespaced `--sd-*` on purpose: shadcn's vocabulary collides with ours
+   (its `--muted` is a *surface*, ours is a *text* colour used app-wide), so
+   raw values live under the prefix and only the Tailwind `--color-*` mapping
+   below exposes them as `bg-muted` / `text-muted-foreground` / etc.
+   Every value is expressed in terms of an existing token from tokens.css —
+   nothing here introduces a new colour to the brand.
+   ------------------------------------------------------------------------ */
+:root {
+  --sd-background: var(--bg);
+  --sd-foreground: var(--text);
+
+  /* Elevated glass surfaces (cards, dialogs, popovers). */
+  --sd-card: rgba(12, 23, 20, 0.92);
+  --sd-card-foreground: var(--text);
+  --sd-popover: rgba(12, 23, 20, 0.96);
+  --sd-popover-foreground: var(--text);
+
+  /* Sea Buckthorn on Deep Navy-dark text — the brand's primary action pair. */
+  --sd-primary: var(--gold);
+  --sd-primary-foreground: #0b0f0e;
+
+  --sd-secondary: var(--glass-2);
+  --sd-secondary-foreground: var(--text);
+
+  --sd-muted: var(--glass);
+  --sd-muted-foreground: var(--muted);
+
+  --sd-accent: var(--glass-2);
+  --sd-accent-foreground: var(--text);
+
+  --sd-destructive: var(--danger);
+  --sd-destructive-foreground: #fff;
+
+  --sd-border: var(--line);
+  --sd-input: var(--line-2);
+  --sd-ring: var(--gold);
+
+  /* `--r-sm` (13px) is the radius the form controls already use, so shadcn's
+     `rounded-md`/`rounded-lg` land on the existing rhythm. */
+  --radius: var(--r-sm);
+}
+
+@theme inline {
+  --color-background: var(--sd-background);
+  --color-foreground: var(--sd-foreground);
+  --color-card: var(--sd-card);
+  --color-card-foreground: var(--sd-card-foreground);
+  --color-popover: var(--sd-popover);
+  --color-popover-foreground: var(--sd-popover-foreground);
+  --color-primary: var(--sd-primary);
+  --color-primary-foreground: var(--sd-primary-foreground);
+  --color-secondary: var(--sd-secondary);
+  --color-secondary-foreground: var(--sd-secondary-foreground);
+  --color-muted: var(--sd-muted);
+  --color-muted-foreground: var(--sd-muted-foreground);
+  --color-accent: var(--sd-accent);
+  --color-accent-foreground: var(--sd-accent-foreground);
+  --color-destructive: var(--sd-destructive);
+  --color-destructive-foreground: var(--sd-destructive-foreground);
+  --color-border: var(--sd-border);
+  --color-input: var(--sd-input);
+  --color-ring: var(--sd-ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --font-sans: 'Raleway', system-ui, sans-serif;
+
+  --ease-brand: var(--ease);
+}
+
+@layer base {
+  /* Preflight substitute — see note 1 at the top of this file. Scoped to the
+     `base` layer so every rule in `global.css` and the component stylesheets
+     still overrides it. */
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-width: 0;
+    border-style: solid;
+    border-color: var(--sd-border);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Unlayered overrides for shadcn internals we can't reach through a `className`
+   prop (so they must outrank the `utilities` layer). Keyed off the `data-slot`
+   attributes shadcn puts on every part, which keeps the generated files in
+   `components/shadcn/` byte-for-byte stock and safe to regenerate.
+   ------------------------------------------------------------------------ */
+
+/* `<DialogContent>` renders its own overlay with a flat `bg-black/50`; these
+   are the tinted, blurred values the admin's backdrop has always used. */
+[data-slot='dialog-overlay'] {
+  background: rgba(4, 8, 7, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
