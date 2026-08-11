@@ -90,19 +90,19 @@ function KycDocsModal({
                           key={doc.id}
                           onClick={() => setLightbox(doc)}
                           style={{
-                            border: '2px solid rgba(255,255,255,.12)',
+                            border: '2px solid var(--line-2)',
                             borderRadius: 10,
                             overflow: 'hidden',
                             cursor: 'pointer',
                             padding: 0,
-                            background: 'rgba(255,255,255,.04)',
+                            background: 'var(--bg2)',
                             transition: 'border-color .15s',
                             width: 110,
                             height: 110,
                             flexShrink: 0,
                           }}
-                          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--gold)')}
-                          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,.12)')}
+                          onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--clay-deep)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--line-2)')}
                           title={doc.originalName}
                         >
                           <img
@@ -120,7 +120,7 @@ function KycDocsModal({
           )}
 
           {isPending && (
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,.08)' }}>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
               <Button
                 variant="danger"
                 size="sm"

@@ -46,7 +46,7 @@ export default function Modal({ open, title, subtitle, onClose, children }: Prop
         // Radix warns when a dialog has no description; opt out explicitly for
         // the subtitle-less ones rather than shipping an empty description node.
         {...(subtitle ? {} : { 'aria-describedby': undefined })}
-        className="top-12 max-h-[calc(100dvh-96px)] w-full max-w-[calc(100%-36px)] translate-y-0 gap-0 overflow-y-auto rounded-[var(--r)] rounded-tr-[var(--cut)] border-border bg-card p-[26px] shadow-[var(--shadow)] backdrop-blur-[16px] backdrop-saturate-[1.3] data-[state=open]:slide-in-from-top-4 sm:max-w-[620px]"
+        className="top-12 max-h-[calc(100dvh-96px)] w-full max-w-[calc(100%-36px)] translate-y-0 gap-0 overflow-y-auto rounded-[var(--r)] rounded-tr-[var(--cut)] border-border bg-card p-[26px] shadow-[var(--shadow)] data-[state=open]:slide-in-from-top-4 sm:max-w-[620px]"
       >
         <DialogHeader className="mb-5 flex-row items-start justify-between gap-4 text-left sm:text-left">
           <div>

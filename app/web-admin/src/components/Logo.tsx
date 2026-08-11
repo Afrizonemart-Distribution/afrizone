@@ -59,7 +59,9 @@ export default function Logo({
         <span className="az-words">
           <span className="az-word">
             <span className={tone === 'dark' ? 'az-afri-dark' : 'az-afri-light'}>Afrizone</span>
-            <span className="az-part">Part&nbsp;Time</span>
+            <span className={tone === 'dark' ? 'az-part-dark' : 'az-part-light'}>
+              Part&nbsp;Time
+            </span>
           </span>
           {tagline && <span className="az-tag">Made in Africa, delivered worldwide</span>}
         </span>

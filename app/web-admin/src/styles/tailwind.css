@@ -134,6 +134,9 @@
 
 /* `<DialogContent>` renders its own overlay with a flat `bg-black/50`; these
    are the tinted, blurred values the admin's backdrop has always used. */
+/* The one backdrop-filter kept when the admin went light. Everything else was
+   blurring an opaque surface — a no-op. This is a scrim over live page content,
+   so the blur still does real work. */
 [data-slot='dialog-overlay'] {
   background: var(--scrim);
   backdrop-filter: blur(6px);

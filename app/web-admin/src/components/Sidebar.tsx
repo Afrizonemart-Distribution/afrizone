@@ -53,7 +53,7 @@ export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigat
   return (
     <aside className={`side ${open ? 'open' : ''}`}>
       <div className="brand">
-        <Logo size={38} tone="dark" tagline />
+        <Logo size={38} tone="light" tagline />
       </div>
 
       <nav aria-label="Primary">

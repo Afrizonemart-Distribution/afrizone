@@ -227,8 +227,8 @@ export default function Disputes() {
                 rows={3}
                 style={{
                   width: '100%',
-                  background: 'rgba(255,255,255,.05)',
-                  border: '1px solid rgba(255,255,255,.12)',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--line-2)',
                   borderRadius: 8,
                   color: 'var(--text)',
                   fontSize: 14,

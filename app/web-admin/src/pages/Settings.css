@@ -27,7 +27,7 @@
   transform: translateY(-1px);
 }
 .tab.on {
-  color: #fff;
+  color: var(--on-gold);
   background: var(--grad);
   border-color: transparent;
   box-shadow: var(--grad-glow);
@@ -68,8 +68,8 @@
   width: 44px;
   height: 25px;
   border-radius: 100px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid var(--line);
+  background: rgba(36, 28, 21, 0.16);
+  border: 1px solid var(--line-2);
   position: relative;
   transition: background 0.22s var(--ease);
   flex: none;
@@ -145,13 +145,13 @@
   background: var(--faint);
 }
 .twofa-status.on {
-  color: #8ee0b9;
-  border-color: rgba(39, 192, 138, 0.32);
-  background: rgba(39, 192, 138, 0.1);
+  color: var(--money-ink);
+  border-color: rgba(31, 157, 107, 0.3);
+  background: rgba(31, 157, 107, 0.1);
 }
 .twofa-status.on .dot {
   background: var(--money);
-  box-shadow: 0 0 0 3px rgba(39, 192, 138, 0.18);
+  box-shadow: 0 0 0 3px rgba(31, 157, 107, 0.2);
 }
 
 .twofa-setup {

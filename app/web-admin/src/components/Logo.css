@@ -26,8 +26,14 @@
 .az-afri-light {
   color: var(--navy);
 }
-.az-part {
+/* "Part Time" has to be tone-aware the same way "Afrizone" is: Sea Buckthorn
+   is only 1.90:1 on white, which fails even the 3:1 large-text bar this 19px/800
+   wordmark qualifies for. --clay-deep keeps the hue and clears it at 3.4:1. */
+.az-part-dark {
   color: var(--gold-bright);
+}
+.az-part-light {
+  color: var(--clay-deep);
 }
 .az-tag {
   font-size: 11px;

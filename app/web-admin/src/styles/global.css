@@ -59,83 +59,16 @@ a {
   height: 9px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(36, 28, 21, 0.18);
   border-radius: 10px;
 }
 
-/* ===== animated mesh background ===== */
-.mesh {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  overflow: hidden;
-}
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.5;
-  will-change: transform;
-}
-.b1 {
-  width: 520px;
-  height: 520px;
-  background: var(--clay-deep);
-  top: -130px;
-  left: -100px;
-  animation: f1 24s var(--ease) infinite;
-}
-.b2 {
-  width: 460px;
-  height: 460px;
-  background: var(--gold);
-  top: -80px;
-  right: 6%;
-  opacity: 0.35;
-  animation: f2 28s var(--ease) infinite;
-}
-.b3 {
-  width: 440px;
-  height: 440px;
-  background: var(--money);
-  bottom: -160px;
-  left: 34%;
-  opacity: 0.28;
-  animation: f3 32s var(--ease) infinite;
-}
-.b4 {
-  width: 380px;
-  height: 380px;
-  background: #1f6f5c;
-  bottom: 8%;
-  right: -120px;
-  opacity: 0.3;
-  animation: f1 30s var(--ease) infinite reverse;
-}
-@keyframes f1 {
-  50% {
-    transform: translate(70px, 60px) scale(1.12);
-  }
-}
-@keyframes f2 {
-  50% {
-    transform: translate(-80px, 50px) scale(1.06);
-  }
-}
-@keyframes f3 {
-  50% {
-    transform: translate(60px, -70px) scale(1.14);
-  }
-}
-.grain {
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  opacity: 0.5;
-  background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 3px 3px;
-}
+/* The animated gradient-mesh blobs and the grain overlay lived here to give a
+   near-black page some depth. On a sand ground they have nothing to do: blurred
+   colour fields read as stains rather than atmosphere, and white-dot grain is
+   invisible. A light UI gets its depth from whitespace and hairlines instead.
+   Removed along with their keyframes and their markup in Background.tsx. */
+
 /* Faint chevron field across the whole app shell, well under any content —
    the "Sunrise Cut" motif as an ambient texture rather than a hero-only accent. */
 .app-motif {
@@ -143,7 +76,9 @@ a {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.025;
+  /* 0.06 on light, matching design-system.html's .motif — the dark theme's
+     0.025 is invisible against sand. */
+  opacity: 0.06;
   background-image: var(--motif);
   background-repeat: repeat;
   background-size: 36px 36px;
@@ -173,10 +108,7 @@ a {
   transform: none !important;
 }
 .btn-primary {
-  /* White on Sea Buckthorn is 1.9:1 — it failed WCAG badly and only looked
-     passable back when the gradient ran over the darker terracotta. Navy ink
-     on the orange is 10:1 and is the brand's own primary pairing. */
-  color: #0a0a2e;
+  color: var(--on-gold);
   background: var(--grad);
   box-shadow: var(--grad-glow);
 }
@@ -185,12 +117,12 @@ a {
   box-shadow: var(--grad-glow-hover);
 }
 .btn-glass {
-  background: var(--glass-2);
+  background: var(--surface);
   border: 1px solid var(--line-2);
   color: var(--text);
 }
 .btn-glass:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.13);
+  background: var(--bg2);
   transform: translateY(-2px);
 }
 .btn-sm {
@@ -200,20 +132,20 @@ a {
   border-radius: 10px;
 }
 .btn-money {
-  background: rgba(39, 192, 138, 0.16);
-  border: 1px solid rgba(39, 192, 138, 0.4);
-  color: #7be9c0;
+  background: rgba(31, 157, 107, 0.12);
+  border: 1px solid rgba(31, 157, 107, 0.32);
+  color: var(--money-ink);
 }
 .btn-money:hover:not(:disabled) {
-  background: rgba(39, 192, 138, 0.26);
+  background: rgba(31, 157, 107, 0.2);
 }
 .btn-danger {
-  background: rgba(255, 107, 94, 0.14);
-  border: 1px solid rgba(255, 107, 94, 0.36);
-  color: #ff9f96;
+  background: rgba(200, 69, 58, 0.1);
+  border: 1px solid rgba(200, 69, 58, 0.3);
+  color: var(--danger-ink);
 }
 .btn-danger:hover:not(:disabled) {
-  background: rgba(255, 107, 94, 0.24);
+  background: rgba(200, 69, 58, 0.18);
 }
 
 /* ===== glass card ===== */
@@ -222,14 +154,18 @@ a {
    used everywhere .glass is used (cards, panels, tables, modals). No
    overflow:hidden here — .glass wraps popovers/menus/dropdowns in several
    places (e.g. Hiring's kc-menu) that must not be clipped. */
+/* No longer literally glass: an opaque white card, separated from the sand
+   ground by a warm hairline and a soft shadow rather than by translucency.
+   The class name is kept because it has 53 call sites and still means "the
+   standard raised surface"; renaming it is a mechanical follow-up, not a
+   design decision. */
 .glass {
   position: relative;
-  background: var(--glass);
-  backdrop-filter: blur(16px) saturate(130%);
-  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r);
   border-top-right-radius: var(--cut);
+  box-shadow: var(--shadow-sm);
 }
 /* Branded clay->gold edge — opt in with .glass-accent on hero/primary
    surfaces only (ones known not to host overflowing children). */
@@ -245,12 +181,14 @@ a {
 }
 
 /* ===== motif utilities ===== */
+/* Opacities follow the light-theme values the mobile theme already defines
+   (motif.dividerOpacityLight / watermarkOpacityLight). */
 .motif-divider {
   height: 10px;
   background-image: var(--motif);
   background-repeat: repeat-x;
   background-size: 24px 24px;
-  opacity: 0.4;
+  opacity: 0.5;
 }
 .motif-bg {
   position: absolute;
@@ -258,7 +196,7 @@ a {
   background-image: var(--motif);
   background-repeat: repeat;
   background-size: 32px 32px;
-  opacity: 0.08;
+  opacity: 0.05;
   pointer-events: none;
 }
 
@@ -314,15 +252,15 @@ a {
   height: 7px;
   border-radius: 50%;
   background: var(--money);
-  box-shadow: 0 0 0 0 rgba(39, 192, 138, 0.6);
+  box-shadow: 0 0 0 0 rgba(31, 157, 107, 0.55);
   animation: pulse 2s infinite;
 }
 @keyframes pulse {
   70% {
-    box-shadow: 0 0 0 7px rgba(39, 192, 138, 0);
+    box-shadow: 0 0 0 7px rgba(31, 157, 107, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(39, 192, 138, 0);
+    box-shadow: 0 0 0 0 rgba(31, 157, 107, 0);
   }
 }
 
@@ -342,37 +280,40 @@ a {
   width: 13px;
   height: 13px;
 }
+/* Each pill is its status colour at ~12% over the card, labelled in the
+   darkened ink of the same hue. Every combination below clears 4.5:1 against
+   its own fill. Pending is violet rather than amber so Sea Buckthorn means
+   only one thing — see tokens.css. */
 .pill.pending {
-  color: #f0b765;
-  background: rgba(232, 161, 58, 0.12);
-  border-color: rgba(232, 161, 58, 0.3);
+  color: var(--pending);
+  background: rgba(107, 63, 148, 0.1);
+  border-color: rgba(107, 63, 148, 0.28);
 }
-/* Active carried the retired terracotta; it is the brand action colour and
-   belongs on Sea Buckthorn. */
 .pill.active {
-  color: #fbc574;
+  color: var(--gold-ink);
   background: rgba(251, 172, 52, 0.16);
-  border-color: rgba(251, 172, 52, 0.38);
+  border-color: rgba(251, 172, 52, 0.4);
 }
 .pill.review {
-  color: #9bb6ff;
-  background: rgba(91, 139, 255, 0.13);
-  border-color: rgba(91, 139, 255, 0.3);
+  color: var(--indigo);
+  background: rgba(45, 91, 168, 0.1);
+  border-color: rgba(45, 91, 168, 0.28);
 }
 .pill.ready {
-  color: #7be9c0;
-  background: rgba(39, 192, 138, 0.13);
-  border-color: rgba(39, 192, 138, 0.32);
+  color: var(--money-ink);
+  background: rgba(31, 157, 107, 0.12);
+  border-color: rgba(31, 157, 107, 0.3);
 }
+/* Settled/terminal — deliberately the quietest pill, carrying no hue at all. */
 .pill.paid {
-  color: #b9cfc4;
-  background: rgba(20, 48, 43, 0.4);
-  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--muted);
+  background: var(--bg2);
+  border-color: var(--line);
 }
 .pill.danger {
-  color: #ff9f96;
-  background: rgba(255, 107, 94, 0.12);
-  border-color: rgba(255, 107, 94, 0.32);
+  color: var(--danger-ink);
+  background: rgba(200, 69, 58, 0.1);
+  border-color: rgba(200, 69, 58, 0.28);
 }
 
 /* ===== tables ===== */
@@ -523,8 +464,8 @@ table.dt tbody tr:last-child td {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: var(--gold);
+  border: 3px solid rgba(36, 28, 21, 0.12);
+  border-top-color: var(--clay-deep);
   animation: spin 0.8s linear infinite;
 }
 @keyframes spin {
@@ -550,8 +491,8 @@ table.dt tbody tr:last-child td {
   font-size: 14px;
   padding: 11px 14px;
   border-radius: var(--r-sm);
-  border: 1px solid var(--line);
-  background: var(--glass);
+  border: 1px solid var(--line-2);
+  background: var(--surface);
   color: var(--text);
   min-height: 44px;
   width: 100%;
@@ -565,9 +506,9 @@ table.dt tbody tr:last-child td {
 .textarea:focus,
 .select:focus {
   outline: none;
-  border-color: var(--gold);
-  background: var(--glass-2);
-  box-shadow: 0 0 0 3px rgba(251, 172, 52, 0.18);
+  border-color: var(--clay-deep);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px rgba(251, 172, 52, 0.28);
 }
 .input::placeholder,
 .textarea::placeholder {

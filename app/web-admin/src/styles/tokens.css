@@ -5,43 +5,72 @@
   --clay-deep: #c98518;
   --gold: #fbac34;
   --gold-soft: #fdd9a0;
-  --money: #27c08a;
-  --indigo: #5b8bff;
-  --amber: #e8a13a;
-  --danger: #ff6b5e;
-  --forest: #14302b;
+  --gold-bright: #fbac34;
   --navy: #000066;
   --navy-deep: #00004d;
-  --gold-bright: #fbac34;
+  --forest: #14302b;
 
-  /* Surfaces */
-  --bg: #080f0d;
-  --bg2: #0c1714;
-  --text: #f1ede3;
-  --muted: #9bab9f;
-  --faint: #697a6f;
+  /* Semantic status colours. These are now the *exact* values from
+     design-system.html, which the mobile app already uses — so a worker and a
+     manager finally see the same hue for the same state (DESIGN_SPEC §0.4).
+     Before this they diverged on all four, because the admin's dark ground
+     forced lightened variants. */
+  --money: #1f9d6b; /* available / paid / success */
+  --indigo: #2d5ba8; /* info / in review */
+  --amber: #e08a1e; /* reserved: warnings, not status */
+  --danger: #c8453a; /* errors / rejected */
+  /* Pending moved off orange entirely. Sea Buckthorn is the action colour and
+     shouldn't also mean "waiting"; violet sits 53° from the nearest other
+     status hue, where slate/steel would have collided with --indigo. */
+  --pending: #6b3f94;
 
-  /* Composed surfaces. These were hand-copied rgba() literals scattered across
-     a dozen stylesheets — every one a re-derivation of --bg/--bg2 that had to
-     be found and updated by hand. They live here now so the ramp above is the
-     single source of truth. Values are unchanged from the literals they
-     replace, except AppShell's mobile scrim (0.5 → 0.6, matching the dialog
-     overlay it sits alongside). */
-  --scrim: rgba(4, 8, 7, 0.6);
-  --surface-1: rgba(8, 15, 13, 0.55); /* sidebar / topbar glass */
-  --surface-2: rgba(12, 23, 20, 0.92); /* modals, drawers */
-  --surface-3: rgba(12, 23, 20, 0.97); /* popovers, dropdown menus */
+  /* Ink variants. The fills above are the shared cross-app values, but three of
+     them are illegible as *small text* on a light ground — Sea Buckthorn is
+     1.90:1 on white and --money only 3.45:1. These darkened pairs carry the
+     same hue at >=4.7:1 and are used for pill labels and coloured body text.
+     --indigo (6.62:1) and --pending (7.60:1) need no variant. */
+  --money-ink: #15794f;
+  --danger-ink: #a6362c;
+  --gold-ink: #8a5a0f;
 
-  /* Glass */
-  --glass: rgba(255, 255, 255, 0.045);
-  --glass-2: rgba(255, 255, 255, 0.07);
-  --line: rgba(255, 255, 255, 0.09);
-  --line-2: rgba(255, 255, 255, 0.15);
+  /* Surfaces — the showcase's light system: white cards on a sand ground,
+     separated by a warm hairline rather than by elevation alone. */
+  --bg: #fbf5ec; /* --sand-50, page ground */
+  --bg2: #f4eadb; /* --sand-100, recessed/secondary */
+  --surface: #ffffff; /* cards, panels, tables */
 
-  /* Radii */
-  --r: 18px;
-  --r-sm: 13px;
-  --r-lg: 26px;
+  --text: #241c15;
+  /* The showcase's own ramp is too tight to use as-is: its --text-muted only
+     reaches 4.76:1 and --text-faint fails outright at 2.82:1. Each tier moves
+     down one step so all three clear AA on both --bg and --surface. */
+  --muted: #5f5344;
+  --faint: #7a6b58;
+  /* Ink for text sitting *on* Sea Buckthorn (primary CTAs, badges). */
+  --on-gold: #241c15;
+
+  /* Composed surfaces — single source of truth for the values that used to be
+     hand-copied rgba() literals across a dozen stylesheets. */
+  --scrim: rgba(36, 28, 21, 0.45);
+  /* Chrome is now opaque and separated by its --line border, the way the
+     showcase's admin mock does it — so the sidebar/topbar backdrop blurs that
+     the dark theme leaned on have nothing left to do and are gone. */
+  --surface-1: #fbf5ec; /* sidebar / topbar */
+  --surface-2: #ffffff; /* modals, drawers */
+  --surface-3: #ffffff; /* popovers, dropdown menus */
+
+  /* Wash tints. These keep the names the dark theme used (32 call sites) but
+     now read as subtle warm-grey washes for hover and inset states rather than
+     as translucent glass. */
+  --glass: rgba(36, 28, 21, 0.035);
+  --glass-2: rgba(36, 28, 21, 0.06);
+  --line: #e7dcc9;
+  --line-2: #d9cbb4;
+
+  /* Radii — aligned to the showcase and the mobile app, which already agreed
+     with each other (16/12/22); the admin was the outlier at 18/13/26. */
+  --r: 16px;
+  --r-sm: 12px;
+  --r-lg: 22px;
   /* "Sunrise Cut" signature: the sharp corner every surface pairs with --r/
      --r-sm/--r-lg on the opposite corner for an asymmetric, angular
      silhouette instead of a uniform rounded rectangle. */
@@ -49,13 +78,15 @@
 
   /* Motion + effects */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  /* --clay and --gold both resolve to Sea Buckthorn since the rebrand, so the
-     old two-stop gradient rendered as a flat fill. Ramp to --clay-deep instead
-     to keep the dimensional CTA the design called for. */
+  /* --clay and --gold both resolve to Sea Buckthorn since the rebrand, so a
+     two-stop gradient between them rendered as a flat fill. Ramp to
+     --clay-deep instead to keep the dimensional CTA the design called for. */
   --grad: linear-gradient(120deg, var(--gold), var(--clay-deep));
-  --grad-glow: 0 14px 40px -10px rgba(251, 172, 52, 0.45);
-  --grad-glow-hover: 0 18px 46px -8px rgba(251, 172, 52, 0.6);
-  --shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  --grad-glow: 0 10px 26px -10px rgba(251, 172, 52, 0.55);
+  --grad-glow-hover: 0 14px 32px -8px rgba(251, 172, 52, 0.7);
+  /* Warm-tinted shadows — a neutral black shadow reads as dirty grey on sand. */
+  --shadow-sm: 0 4px 14px rgba(36, 28, 21, 0.07);
+  --shadow: 0 12px 30px rgba(36, 28, 21, 0.1);
 
   /* "Sunrise Cut" chevron motif — repeating geometric pattern echoing the
      angular lines of the Africa+cart logo mark (DESIGN_SPEC §1.5). Used only

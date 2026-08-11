@@ -27,5 +27,5 @@
   color: var(--faint);
 }
 .gbtn-note.err {
-  color: #ff9f96;
+  color: var(--danger-ink);
 }

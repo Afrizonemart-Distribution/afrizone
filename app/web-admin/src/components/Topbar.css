@@ -7,8 +7,6 @@
   gap: 16px;
   padding: 14px 28px;
   background: var(--surface-1);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
   border-bottom: 1px solid var(--line);
 }
 .search {
@@ -74,11 +72,9 @@
   left: 0;
   right: 0;
   background: var(--surface-3);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
   border: 1px solid var(--line-2);
   border-radius: 14px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow);
   overflow: hidden;
   z-index: 200;
   max-height: 380px;

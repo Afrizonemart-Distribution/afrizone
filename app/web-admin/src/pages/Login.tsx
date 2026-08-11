@@ -67,7 +67,7 @@ export default function Login() {
     <div className="login-screen">
       <div className="glass glass-accent login-card rv in">
         <div className="login-brand">
-          <Logo size={46} tone="dark" tagline />
+          <Logo size={46} tone="light" tagline />
         </div>
 
         {challenge ? (
