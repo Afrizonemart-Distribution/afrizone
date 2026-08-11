@@ -12,6 +12,12 @@ import PageHeader from '../components/PageHeader'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
 import Icon from '../components/Icon'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/shadcn/dropdown-menu'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/StateView'
 import './Hiring.css'
 
@@ -59,7 +65,6 @@ function CandidateCard({
   onMove: (c: Candidate, stage: Stage) => void
   delay: string
 }) {
-  const [menuOpen, setMenuOpen] = useState(false)
   const others = STAGES.filter((s) => s !== c.stage)
   const idx = STAGES.indexOf(c.stage)
   const next = idx >= 0 && idx < 3 ? STAGES[idx + 1] : null // SCREENING→INTERVIEW→OFFER→HIRED
@@ -97,37 +102,32 @@ function CandidateCard({
             {STAGE_LABELS[c.stage]}
           </span>
         )}
-        <div className="kc-menuwrap">
-          <Button
-            variant="glass"
-            size="sm"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label="Move candidate to another stage"
-            disabled={busy}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <Icon name="arrow-up" />
-          </Button>
-          {menuOpen && (
-            <div className="kc-menu glass" role="menu">
-              {others.map((s) => (
-                <button
-                  key={s}
-                  role="menuitem"
-                  className="kc-mi"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    onMove(c, s)
-                  }}
-                >
-                  <span className="d" style={{ background: STAGE_COLOR[s] }} />
-                  {STAGE_LABELS[s]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Radix supplies what the hand-rolled version was missing: arrow-key
+            navigation, typeahead, Escape and outside-click to dismiss, and
+            focus returned to the trigger on close. It also owns the open state
+            and the aria-haspopup/aria-expanded wiring, so both are gone from
+            here. Positioning moves from .kc-menu's absolute offsets to Radix's
+            collision-aware popper via side/align. */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="glass"
+              size="sm"
+              aria-label="Move candidate to another stage"
+              disabled={busy}
+            >
+              <Icon name="arrow-up" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="end" className="kc-menu">
+            {others.map((s) => (
+              <DropdownMenuItem key={s} className="kc-mi" onSelect={() => onMove(c, s)}>
+                <span className="d" style={{ background: STAGE_COLOR[s] }} />
+                {STAGE_LABELS[s]}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   )

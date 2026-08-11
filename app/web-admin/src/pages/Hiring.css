@@ -142,18 +142,16 @@
   font-size: 12px;
   font-weight: 700;
 }
-.kc-menuwrap {
-  position: relative;
-  flex: none;
-}
+/* .kc-menuwrap and the absolute offsets that lived here are gone: Radix owns
+   positioning (collision-aware), stacking and dismissal now. What remains is
+   only the visual shell, which the .glass class used to supply. */
 .kc-menu {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 6px);
-  z-index: 20;
   padding: 6px;
   min-width: 160px;
   background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  border-top-right-radius: var(--cut);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
@@ -168,9 +166,14 @@
   font-size: 13px;
   padding: 9px 11px;
   border-radius: 9px;
+  cursor: pointer;
+  outline: none;
   transition: background 0.15s;
 }
-.kc-mi:hover {
+/* [data-highlighted] is how Radix marks the keyboard-focused item — without it
+   arrow-key navigation would move focus invisibly. */
+.kc-mi:hover,
+.kc-mi[data-highlighted] {
   background: var(--glass-2);
 }
 .kc-mi .d {
