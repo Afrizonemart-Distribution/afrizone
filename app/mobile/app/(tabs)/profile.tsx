@@ -325,7 +325,7 @@ function EditProfileSheet({
                 value={name}
                 onChangeText={setName}
                 placeholder="Your full name"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 autoCapitalize="words"
               />
@@ -337,7 +337,7 @@ function EditProfileSheet({
                 keyboardType="email-address"
                 autoCapitalize="none"
                 placeholder="you@email.com"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
               />
             </SheetField>
@@ -421,7 +421,7 @@ function EditBankSheet({
                 onChangeText={(t) => setAcct(t.replace(/\D/g, '').slice(0, 10))}
                 keyboardType="number-pad"
                 placeholder="0123456789"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 maxLength={10}
               />
@@ -513,7 +513,7 @@ function EditTinSheet({
                 value={tin}
                 onChangeText={setTin}
                 placeholder="12345678-0001"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 autoCapitalize="none"
               />

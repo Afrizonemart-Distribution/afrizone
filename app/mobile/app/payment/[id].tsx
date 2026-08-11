@@ -240,7 +240,7 @@ function DisputeSheet({
                 value={reason}
                 onChangeText={setReason}
                 placeholder="e.g. I worked 6 hours but was paid for 4."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"

@@ -175,7 +175,7 @@ export default function HomeScreen() {
           <View style={styles.vline} />
           <View style={styles.snapItem}>
             <Text style={styles.snapLabel}>Pending</Text>
-            <MoneyText amount={wallet.pending} size={type.size.xl} color={colors.amber} />
+            <MoneyText amount={wallet.pending} size={type.size.xl} color={colors.pending} />
           </View>
         </View>
       </Card>
@@ -189,7 +189,7 @@ export default function HomeScreen() {
             value={q}
             onChangeText={setQ}
             placeholder="Search tasks…"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={colors.textFaint}
             returnKeyType="search"
             clearButtonMode="while-editing"
             autoCapitalize="none"

@@ -245,7 +245,7 @@ export default function KycScreen() {
                 value={name}
                 onChangeText={setName}
                 placeholder="Amaka Obi"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 autoCapitalize="words"
               />
@@ -258,7 +258,7 @@ export default function KycScreen() {
                 autoCapitalize="none"
                 autoComplete="email"
                 placeholder="you@email.com"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
               />
             </Field>
@@ -358,7 +358,7 @@ export default function KycScreen() {
               onChangeText={setTin}
               keyboardType="number-pad"
               placeholder="12345678-0001 (optional)"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
             />
           </Field>
@@ -385,7 +385,7 @@ export default function KycScreen() {
                 onChangeText={(t) => setAcct(t.replace(/\D/g, '').slice(0, 10))}
                 keyboardType="number-pad"
                 placeholder="0123456789"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.input}
                 maxLength={10}
               />

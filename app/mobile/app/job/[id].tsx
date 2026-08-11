@@ -234,7 +234,7 @@ function ApplySheet({
               value={name}
               onChangeText={setName}
               placeholder="Your full name"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
               autoCapitalize="words"
             />
@@ -246,7 +246,7 @@ function ApplySheet({
               keyboardType="email-address"
               autoCapitalize="none"
               placeholder="you@email.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
             />
           </SheetField>
@@ -256,7 +256,7 @@ function ApplySheet({
               onChangeText={setPhone}
               keyboardType="phone-pad"
               placeholder="+234 800 000 0000"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
             />
           </SheetField>
@@ -267,7 +267,7 @@ function ApplySheet({
                 onChangeText={setCvNote}
                 multiline
                 placeholder="Tell us why you're a great fit…"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.pitch}
                 textAlignVertical="top"
               />

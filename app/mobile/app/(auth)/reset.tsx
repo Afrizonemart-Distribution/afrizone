@@ -76,7 +76,7 @@ export default function ResetScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   placeholder="Paste your token"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={colors.textFaint}
                   style={styles.input}
                   accessibilityLabel="Reset token"
                 />

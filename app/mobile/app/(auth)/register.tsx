@@ -69,7 +69,7 @@ export default function RegisterScreen() {
               autoComplete="name"
               textContentType="name"
               placeholder="Amaka Obi"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
               accessibilityLabel="Full name"
               autoFocus
@@ -89,7 +89,7 @@ export default function RegisterScreen() {
               autoCapitalize="none"
               autoComplete="email"
               placeholder="you@email.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
               accessibilityLabel="Email"
             />

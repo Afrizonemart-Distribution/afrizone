@@ -130,7 +130,7 @@ export default function LoginScreen() {
                 keyboardType="phone-pad"
                 autoComplete="tel"
                 placeholder="803 000 0001"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.phoneInput}
                 accessibilityLabel="Phone number"
                 autoFocus
@@ -169,7 +169,7 @@ export default function LoginScreen() {
               autoCapitalize="none"
               autoComplete="email"
               placeholder="you@email.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={colors.textFaint}
               style={styles.input}
               accessibilityLabel="Email"
             />

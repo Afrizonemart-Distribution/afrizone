@@ -48,7 +48,7 @@ export function PasswordField({
           autoComplete={autoComplete}
           textContentType={textContentType}
           placeholder={placeholder}
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textFaint}
           style={styles.input}
           accessibilityLabel={accessibilityLabel ?? label}
           autoFocus={autoFocus}

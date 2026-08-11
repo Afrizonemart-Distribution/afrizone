@@ -226,7 +226,7 @@ function ApplySheet({
           onChangeText={setPitch}
           multiline
           placeholder="Why you’re a good fit, and when you’re free…"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={colors.textFaint}
           style={styles.pitch}
           accessibilityLabel="Pitch"
         />

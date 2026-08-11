@@ -256,7 +256,7 @@ function WithdrawSheet({
                 onChangeText={(t) => setAmount(t.replace(/\D/g, ''))}
                 keyboardType="number-pad"
                 placeholder="0"
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 style={styles.amountInput}
                 autoFocus
               />

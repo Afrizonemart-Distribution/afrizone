@@ -30,23 +30,46 @@ export const colors = {
    */
   pending: '#6B3F94',
 
-  // Neutrals (warm-tinted, never pure gray)
-  bg: '#FBF5EC', // --sand-50 app background
-  surfaceSand: '#F4EADB', // --sand-100 surface
+  /**
+   * Ink variants, shared verbatim with web-admin. The fills above are surface
+   * colours and three of them are illegible as small text on a light ground —
+   * the Active pill shipped at 1.64:1 (Sea Buckthorn on claySoft), Available at
+   * 2.86:1 and Rejected at 3.65:1. These carry the same hues at >= 4.7:1.
+   * `indigo` (5.26:1) and `pending` (6.31:1) need no variant.
+   */
+  moneyInk: '#15794F',
+  dangerInk: '#A6362C',
+  goldInk: '#8A5A0F',
+
+  /**
+   * Neutrals — "Warm Refined", matching web-admin's tokens.css.
+   *
+   * Still warm-tinted, never pure grey (DESIGN_SPEC §0.3), but the original
+   * values were cream at 65% saturation with a brown `textMuted` (#7A6B58, 17%
+   * saturation). Rendered, warm cream surfaces plus brown-grey type read as
+   * hospitality rather than finance. Saturation is now 29% and the grey ramp is
+   * near-neutral at 5%: same intent, sober delivery.
+   */
+  bg: '#FAF9F6', // app background — 16.61:1 against `text`
+  surfaceSand: '#F4F2EC', // recessed surface
   surface: '#FFFFFF', // card
-  line: '#E7DCC9', // hairline / border
-  text: '#241C15', // primary text
-  textMuted: '#7A6B58', // muted text
+  line: '#E8E3DA', // hairline / border
+  text: '#1C1917', // primary text
+  textMuted: '#57534E', // secondary text — 7.25:1
+  textFaint: '#706963', // placeholders and hints — 5.13:1
   white: '#FFFFFF',
 
   // Tints for status pill backgrounds (semi-opaque feel without alpha math)
-  amberSoft: '#FBEBD3',
-  pendingSoft: '#EDE8F2',
-  claySoft: '#FDECD1',
-  indigoSoft: '#DDE6F4',
-  moneySoft: '#D6F0E4',
-  forestSoft: '#D6E2DE',
-  dangerSoft: '#F6DAD7',
+  /* Pill fills. These are now the exact tints web-admin composes (each status
+     colour at 10–16% over white), so a pill renders identically in both apps
+     rather than merely similarly — which is what DESIGN_SPEC §0.4 asks for. */
+  amberSoft: '#FBF1E4',
+  pendingSoft: '#F0ECF4',
+  claySoft: '#FFF5E7',
+  indigoSoft: '#E6EBF5',
+  moneySoft: '#E4F3ED',
+  forestSoft: '#E3E6E5',
+  dangerSoft: '#F8E9E7',
 } as const;
 
 export const spacing = {
@@ -87,14 +110,14 @@ export const motif = {
 export const shadow = {
   // Soft warm shadow — restrained (fintech, not glass) per §1.5
   card: {
-    shadowColor: '#241C15',
+    shadowColor: '#1C1917',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
     shadowRadius: 30,
     elevation: 4,
   },
   soft: {
-    shadowColor: '#241C15',
+    shadowColor: '#1C1917',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 14,

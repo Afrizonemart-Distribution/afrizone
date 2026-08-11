@@ -164,7 +164,7 @@ function DisputeSheet({
                 value={reason}
                 onChangeText={setReason}
                 placeholder="e.g. I clocked 8 hours but only 6 were recorded. GPS dropped during the last shift."
-                placeholderTextColor={colors.textMuted}
+                placeholderTextColor={colors.textFaint}
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"

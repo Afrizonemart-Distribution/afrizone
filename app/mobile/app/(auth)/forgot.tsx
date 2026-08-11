@@ -78,7 +78,7 @@ export default function ForgotScreen() {
                   autoCapitalize="none"
                   autoComplete="email"
                   placeholder="you@email.com"
-                  placeholderTextColor={colors.textMuted}
+                  placeholderTextColor={colors.textFaint}
                   style={styles.input}
                   accessibilityLabel="Email"
                   autoFocus
