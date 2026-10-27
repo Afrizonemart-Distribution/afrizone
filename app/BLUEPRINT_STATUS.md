@@ -321,10 +321,20 @@ order themselves.** Everything below is in the order it is worth doing:
    per-minute cron only sends the "your turn" push and sweeps stale presence.
    Code: `services/ranking.ts`, `routes/presence.ts`, migration
    `0021_ranked_offers.sql`, 25 tests in `test/ranking.test.ts`.
-   **Still open:** no "pass" button (a courier who does not want it just lets
-   the two minutes run), no background location (put the app away and you drop
-   off after 30 minutes), and the weights are constants until there is real
-   order data to tune them against. Other task kinds still have no ranking.
+   **Built 27 October 2026, not yet deployed:** a "Pass to the next courier"
+   button (`POST /api/deliveries/:id/pass`, `passTurn` in `services/ranking.ts`).
+   The unused rest of the window is stored in `Delivery.rankedSkippedSeconds`
+   (migration `0023_ranked_pass.sql`) and shifts the turn clock, so whose turn
+   it is stays arithmetic; escalation still reads the real time waited. The next
+   candidate is told at once; the last one passing opens the circle. And
+   **background location**: going online asks for "Allow all the time" and
+   starts an `expo-location` background task (`src/lib/presence.ts`), which
+   Android runs as a foreground service with a notification for as long as the
+   rider is online; it sends the same heartbeat every three minutes and stops on
+   going offline, sign-out, or a 401/403. Refusing keeps the old in-app
+   heartbeat. Needs a new APK; not yet tried on a real phone.
+   **Still open:** the weights are constants until there is real order data to
+   tune them against. Other task kinds still have no ranking.
 
    What the blueprint asked for, for the record: the build gated qualified / not qualified; the
    blueprint wants candidates scored on skill, proximity, reliability and load.
@@ -387,10 +397,19 @@ expensive to guess at. Verified 23 October 2026 against the live account and
 database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
-**Everything described in this document is deployed.** D1 is at migration
-`0022_evidence.sql`; the API worker is version
-`21342ee0-788b-40d7-9211-0a6a8136af47`, deployed 8 October 22:52 UTC, four
-minutes after `25a9dca`. The deploy before it, `6b3e171c` (22:51), also
+**Everything described in this document is deployed** (verified 27 October
+2026). D1 is at migration `0023_ranked_pass.sql`; the API worker is version
+`bf46417c-7d72-4594-bda4-5992ecf29318`, deployed 27 October 11:03 UTC from the
+working tree that became the pass and background-location commits; the live
+`/api/deliveries/:id/pass` answers 401, not 404. A deploy ten minutes earlier,
+`c65bce3b`, carried the rename and possibly part of the pass work, so it is
+not a clean rollback target. Roll back to `21342ee0-788b-40d7-9211-0a6a8136af47`
+(8 October, `25a9dca`): migration 0023 only adds a column with a default, so
+the database is fine with it. The admin console and the portal were both
+uploaded by hand from `7d497f8` the same morning.
+
+History: `21342ee0` was deployed 8 October 22:52 UTC, four minutes after
+`25a9dca`. The deploy before it, `6b3e171c` (22:51), also
 postdates that commit and almost certainly carries the photo code too, so the
 rollback target from before photos is `10e6c453-6b8c-4d2e-b099-c771ef126e76`
 (22:29, after `a043caf`); migration 0022 only adds, so rolling back to it
@@ -413,7 +432,11 @@ so pushes to `main` build nothing (none for `211a241`). Reconnect it in the
 dashboard (Settings → Builds → Git repository) before trusting a push.
 
 **`app/mobile` ships as a sideloaded APK, not through a store.** The current
-build is EAS `ebafdda6` (`preview` profile, version code 7), made from
+build being made is EAS `613be38a` (version code 9, started 27 October 2026
+from the working tree on `7d497f8`: the rename, the pass button and background
+location); `cc69db2a` (version code 8) is a duplicate of the same run. Until
+it is installed and checked on a phone, the last build known to work is
+EAS `ebafdda6` (`preview` profile, version code 7), made from
 `25a9dca` on 23 October 2026 and pointed at the live API; its download link
 expires 6 November 2026. It is the same code as version code 6 (EAS
 `aa909456`, 8 October), rebuilt only because that build's link expired after

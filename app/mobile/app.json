@@ -30,6 +30,15 @@
       "expo-secure-store",
       "expo-font",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "AfriZone PartTime uses your location to offer you delivery jobs near you.",
+          "locationAlwaysAndWhenInUsePermission": "While you are online for deliveries, AfriZone PartTime keeps sharing your location with the app closed, so you stay first in line for orders near you. Go offline to stop.",
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/logo-mark-reversed.png",

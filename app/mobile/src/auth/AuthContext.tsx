@@ -9,6 +9,7 @@ import React, {
 import { api } from '../api/client';
 import { SECURE_TOKEN_KEY, SECURE_USER_KEY } from '../api/config';
 import { getItem, setItem, deleteItem } from '../lib/storage';
+import { stopBackground } from '../lib/presence';
 import {
   isTwoFactorRequired,
   type AccountType,
@@ -206,6 +207,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    // Whoever signs in next must not be located on this account's behalf.
+    await stopBackground();
     await deleteItem(SECURE_TOKEN_KEY);
     await deleteItem(SECURE_USER_KEY);
     setToken(null);
