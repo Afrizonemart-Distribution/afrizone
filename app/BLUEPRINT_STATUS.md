@@ -9,8 +9,8 @@ built, delivery — the first item of Phase 2 — is built end to end, and a cou
 can claim an order without waiting for an admin.** All of it is deployed and was
 exercised against the live API on 2 September 2026; see §10. **Ranked matching
 for deliveries is built and deployed** (8 October 2026; see §9). **Every
-other task now ranks its applicants for the manager** (27 October 2026, not yet
-deployed; see §9). What remains is the rest of §14,
+other task now ranks its applicants for the manager** (deployed 27 October
+2026; see §9). What remains is the rest of §14,
 and the operational work of switching Mart on.
 
 Three things are built to a deliberate limit, and pretending otherwise would be
@@ -332,7 +332,7 @@ order themselves.** Everything below is in the order it is worth doing:
    heartbeat. Not yet tried on a real phone.
    **Still open:** the weights are constants until there is real order data to
    tune them against.
-   **Every other task kind, built 27 October 2026, not yet deployed:** still
+   **Every other task kind, deployed 27 October 2026 (API and admin console):** still
    apply-then-approve, on purpose - nobody is offered or picked by the
    platform - but the admin review queue (`GET /api/applications`) now comes
    back grouped by task and best applicant first in each, with a `rank`
@@ -424,13 +424,15 @@ below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed** (verified 27 October
 2026). D1 is at migration `0024_signatures.sql`; the API worker is version
-`a0475f74-8893-453b-880e-074e81879d60`, deployed 27 October 12:56 UTC with the
-audit results route (`/api/admin/audits` answers 401, not 404). Roll back to
-`bf6c86bd-6683-4780-9ae5-dbb9d9ffd357` (11:47 UTC, `dd36a6e`, signatures but
-no audit list) - nothing in the database depends on the difference. Rolling
-back further, past signatures, leaves a `Signature` table nothing reads, which
-is harmless. The admin console was uploaded by hand with the audit screen at
-the same hour; the portal from `7d497f8` that morning.
+`9fe19990-3de7-464f-8713-be64b5b3fc77`, deployed 27 October 14:56 UTC from
+`5d228b5` with applicant ranking (computed on read, no migration). Roll back to
+`a0475f74-8893-453b-880e-074e81879d60` (12:56 UTC, audit results route, no
+ranking) - nothing in the database depends on the difference, and the queue
+simply returns to newest-first. Before that, `bf6c86bd-6683-4780-9ae5-dbb9d9ffd357`
+(11:47 UTC, `dd36a6e`, signatures but no audit list). Rolling back past
+signatures leaves a `Signature` table nothing reads, which is harmless. The
+admin console was uploaded by hand from `5d228b5` at 14:58 UTC (Pages
+deployment `30f02cf0`, with the Rank column); the portal from `7d497f8` that morning.
 
 Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
 and `c65bce3b` (10:53, the rename and possibly part of the pass work).
