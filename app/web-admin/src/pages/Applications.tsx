@@ -4,6 +4,7 @@ import type { Blocker } from '../api/types'
 import { useApi } from '../lib/useApi'
 import { TIER_COLORS, TIER_LABELS, appPill, avatarGradient, initials, kycPill } from '../lib/format'
 import PageHeader from '../components/PageHeader'
+import StandingBadge from '../components/StandingBadge'
 import Glass from '../components/ui/Glass'
 import Button from '../components/ui/Button'
 import StatusPill from '../components/ui/StatusPill'
@@ -162,7 +163,10 @@ export default function Applications() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          {name}
+                          <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {name}
+                            <StandingBadge standing={a.worker?.standing} />
+                          </span>
                           {a.rank && a.rank.reasons.length > 0 && (
                             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
                               {a.rank.reasons.join(' · ')}

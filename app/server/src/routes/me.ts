@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireEvidence } from "../services/evidence";
+import { loadStanding } from "../services/standing";
 import { requireAuth, AuthedRequest } from "../auth";
 import { tiersToArray, tiersToString, Tier, TIERS } from "../types";
 import { isSmileConfigured, submitDocumentVerification, NgIdType, NG_ID_TYPES } from "../services/smileIdentity";
@@ -74,7 +75,10 @@ function formatUser(user: any) {
 router.get("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   if (!user) return res.status(404).json({ error: "User not found" });
-  res.json(formatUser(user));
+  // Standing is shown to the Tasker with what the next level needs; staff
+  // accounts have no work record, so they get none.
+  const standing = user.role === "WORKER" ? await loadStanding(user) : null;
+  res.json({ ...formatUser(user), standing });
 });
 
 // PATCH /api/me → update profile fields: name, email, tin, bank details.

@@ -266,10 +266,6 @@ distinguishable from a quiet week.
 
 ## 7. Substantial features not started
 
-- **Reputation tiers and badges** (§9). Note this is a *third* meaning of "tier"
-  in the project — bronze/silver/gold reputation standing, distinct from both the
-  work-category tiers (`STUDENT`, `DISPATCH`…) and any store tier from §14.
-  Naming needs settling before it is built.
 - **Surge pay, crew contracts, referral loop** (§10, §14).
 - **CallyValley** as the certification feeder and **VOLTRON** as a labour
   consumer (§2). Neither system has been discussed before.
@@ -382,8 +378,20 @@ order themselves.** Everything below is in the order it is worth doing:
    store, auditor, notes and a proof column (photos, signed or not, failed
    checks) that opens the photos and signature. The store dialog now shows the
    latest audit beside the approval, which the API had been sending unused.
-3. **Reputation tiers and badges** (§9). Note this is a *third* meaning of
-   "tier"; the naming needs settling before it is built.
+3. **Reputation standing and badges (§9) — built 27 October 2026, not yet
+   deployed.** Named *standing*, not tier: tier is the work a Tasker is cleared
+   for and is granted; standing is earned. New → Bronze (1 finished job) →
+   Silver (10 finished, 85% of taken jobs finished, 4.0+ over 5+ ratings) →
+   Gold (30, 95%, 4.5+ over 15+). Every level carries what the next one still
+   needs, in words. Badges: "<Category> specialist" at 5 finished in one
+   category, "Finishes every job" at 10 finished and none cancelled. Derived on
+   read from contracts and ratings, no migration. **Display only**: the
+   rankings already read the same record and do not read standing. Shown in
+   `GET /api/me` (null for staff), `GET /api/workers` and `/:id`, and on each
+   applicant in `GET /api/applications`; the Standing column on the admin
+   Workers page, a badge on Applications, a card on the mobile Profile (needs
+   an APK after version code 10). Thresholds are constants until there is real
+   history. Code: `services/standing.ts`, 9 tests in `test/standing.test.ts`.
 4. **Surge pay, crew contracts, referral loop** (§10, §14), **shared identity
    with AZM** (§13, blocked on Mart exposing an identity provider), and
    **offline-tolerant mobile flows** (§16).

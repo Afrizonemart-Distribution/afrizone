@@ -1,6 +1,7 @@
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest, publicUser } from "../auth";
+import { loadStanding, loadStandings } from "../services/standing";
 import { tiersToArray, tiersToString, TIERS, Tier, isCredentialValid, isCredentialExpiring } from "../types";
 import { writeAudit, userActor } from "../util/audit";
 import { resolveUrl } from "../services/storage";
@@ -32,6 +33,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGE
     where: { role: "WORKER" },
     orderBy: { name: "asc" },
   });
+  const standings = await loadStandings(workers);
   res.json(
     workers.map((w) => ({
       id: w.id,
@@ -41,6 +43,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGE
       kycStatus: w.kycStatus,
       completedCount: w.completedCount,
       rating: w.rating,
+      standing: standings.get(w.id) ?? null,
     }))
   );
 });
@@ -65,6 +68,7 @@ router.get("/:id", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN", "TASK_MAN
 
   res.json({
     ...publicUser(worker),
+    standing: await loadStanding(worker),
     applications: worker.applications.map((a) => ({
       id: a.id,
       taskId: a.taskId,

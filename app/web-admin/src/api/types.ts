@@ -224,6 +224,20 @@ export interface WorkerSummary {
   tiers?: Tier[]
   kycStatus?: KycStatus
   rating?: number | null
+  standing?: Standing | null
+}
+
+/**
+ * Earned from the work record, never granted - not a Tier. Display only: the
+ * rankings do not read it. Derived by the server on every read.
+ */
+export type StandingLevel = 'NEW' | 'BRONZE' | 'SILVER' | 'GOLD'
+
+export interface Standing {
+  level: StandingLevel
+  label: string
+  next: { level: StandingLevel; label: string; needs: string[] } | null
+  badges: { key: string; label: string }[]
 }
 
 export interface TaskSummary {
@@ -289,6 +303,7 @@ export interface Worker {
   kycStatus: KycStatus
   completedCount: number
   rating?: number | null
+  standing?: Standing | null
 }
 
 export interface WorkerDetail extends Worker {

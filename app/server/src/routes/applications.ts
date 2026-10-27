@@ -6,6 +6,7 @@ import { notifyWorker } from "../services/push";
 import { userActor } from "../util/audit";
 import { assignWorker } from "../services/assignment";
 import { rankApplications, type ApplicantRank } from "../services/applicantRanking";
+import { loadStandings } from "../services/standing";
 import {
   blockingBlockers,
   decide,
@@ -39,6 +40,9 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
   } catch (e) {
     console.error(`[applicantRanking] ${e instanceof Error ? e.message : String(e)}`);
   }
+
+  // Display only: the rank above does not read it. See services/standing.ts.
+  const standings = await loadStandings([...new Map(apps.map((a) => [a.worker.id, a.worker])).values()]);
 
   // findMany is newest-first, so a task's first appearance is its newest application.
   const taskOrder = new Map<string, number>();
@@ -75,6 +79,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
         tiers: tiersToArray(a.worker.tiers),
         kycStatus: a.worker.kycStatus,
         rating: a.worker.rating,
+        standing: standings.get(a.worker.id) ?? null,
       },
       task: { id: a.task.id, title: a.task.title },
     }))

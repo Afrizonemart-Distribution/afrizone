@@ -160,6 +160,31 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {user?.standing ? (
+          <View style={styles.infoCard}>
+            <View style={styles.infoHead}>
+              <Text style={styles.infoHeadTitle}>{user.standing.label} standing</Text>
+            </View>
+            {user.standing.badges.length > 0 ? (
+              <Text style={[styles.infoValue, { marginTop: 0, marginBottom: 8 }]}>
+                {user.standing.badges.map((b) => b.label).join(' · ')}
+              </Text>
+            ) : null}
+            <View style={{ paddingBottom: 12 }}>
+              {user.standing.next ? (
+                <>
+                  <Text style={styles.infoLabel}>For {user.standing.next.label}:</Text>
+                  {user.standing.next.needs.map((n) => (
+                    <Text key={n} style={styles.infoValue}>{`• ${n}`}</Text>
+                  ))}
+                </>
+              ) : (
+                <Text style={styles.infoLabel}>The highest standing there is.</Text>
+              )}
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.infoCard}>
           <View style={styles.infoHead}>
             <Text style={styles.infoHeadTitle}>Personal info</Text>

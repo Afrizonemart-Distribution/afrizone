@@ -11,6 +11,7 @@ import {
   kycPill,
 } from '../lib/format'
 import PageHeader from '../components/PageHeader'
+import StandingBadge from '../components/StandingBadge'
 import Glass from '../components/ui/Glass'
 import Button from '../components/ui/Button'
 import StatusPill from '../components/ui/StatusPill'
@@ -429,6 +430,7 @@ export default function Workers() {
               <TableRow>
                 <TableHead>Worker</TableHead>
                 <TableHead>Tiers</TableHead>
+                <TableHead>Standing</TableHead>
                 <TableHead>KYC</TableHead>
                 <TableHead>Completed</TableHead>
                 <TableHead>Rating</TableHead>
@@ -462,6 +464,9 @@ export default function Workers() {
                           </Badge>
                         ))}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <StandingBadge standing={w.standing} />
                     </TableCell>
                     <TableCell>
                       <StatusPill variant={pill.variant} label={pill.label} />

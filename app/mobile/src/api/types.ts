@@ -48,6 +48,8 @@ export interface User {
   location?: string | null;
   rating?: number | null;
   completedCount?: number;
+  /** Earned from the work record (server/src/services/standing.ts); null for staff. */
+  standing?: Standing | null;
   bankMasked?: string | null;
   bankCode?: string | null;
   bankName?: string | null;
@@ -789,4 +791,14 @@ export interface DeliveryOffers {
    *  approval, as they were before self-claim existed. */
   selfClaim: boolean;
   offers: DeliveryOffer[];
+}
+
+/** Not a Tier: earned, never granted, and display only. */
+export type StandingLevel = 'NEW' | 'BRONZE' | 'SILVER' | 'GOLD';
+
+export interface Standing {
+  level: StandingLevel;
+  label: string;
+  next: { level: StandingLevel; label: string; needs: string[] } | null;
+  badges: { key: string; label: string }[];
 }
