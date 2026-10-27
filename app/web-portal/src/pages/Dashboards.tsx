@@ -514,7 +514,7 @@ export function IndividualLanding() {
       <p className="lede">
         {user ? `You are signed in, ${user.name.split(' ')[0]}. ` : ''}
         Finding tasks, clocking in on site, submitting proof of work and tracking what you have
-        earned all happen in the AfriZone Part Time app. This portal is for stores and courier
+        earned all happen in the AfriZone PartTime app. This portal is for stores and courier
         companies; there is nothing here you need.
       </p>
 

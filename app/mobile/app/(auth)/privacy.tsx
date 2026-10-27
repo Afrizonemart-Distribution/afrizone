@@ -9,7 +9,7 @@ const LAST_UPDATED = '20 August 2026';
 const SUPPORT_EMAIL = 'support@afrizonemart.com';
 
 /**
- * Privacy Policy: a real first draft describing what Afrizone Part Time
+ * Privacy Policy: a real first draft describing what AfriZone PartTime
  * actually collects and why, written for the pilot launch - not
  * lawyer-reviewed (in particular, no NDPR compliance review has been done),
  * so it stays clearly flagged as a draft rather than presented as final
@@ -77,7 +77,7 @@ export default function PrivacyScreen() {
       </Section>
 
       <Section title="7. Children">
-        Afrizone Part Time is not intended for anyone under 18. We don't
+        AfriZone PartTime is not intended for anyone under 18. We don't
         knowingly collect data from minors.
       </Section>
 

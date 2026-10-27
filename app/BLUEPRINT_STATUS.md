@@ -283,12 +283,13 @@ distinguishable from a quiet week.
 
 ## 8. Terminology
 
-The blueprint's vocabulary should win, and the code does not use it yet.
+The blueprint's vocabulary should win. The user-facing strings were switched
+on 27 October 2026; the schema and code names were left alone.
 
 | Blueprint | Code today |
 |---|---|
-| **PartTime** | "Afrizone Part-Time" |
-| **Tasker** | "Worker" / `INDIVIDUAL` |
+| **PartTime** | "AfriZone PartTime" in every UI, the agreement, the WHT statement and the Paystack payout reason. Expo slug, bundle ids and domains unchanged on purpose |
+| **Tasker** | "Tasker" in the mobile app, the portal and the API messages a Tasker reads ("New Tasker", "Tasker not found"). The admin console keeps "Worker" for staff, by choice. Code: `WORKER` / `INDIVIDUAL` |
 | **AZM Store** | `Organization { kind: STORE }` |
 | **Skill role** (Sourcing Agent, Auditor, Courier, Field & Media) | `Skill` + `Tier`, no role concept |
 | **Contract** | Split across `Application`, `Contract` and `Task` |
@@ -389,9 +390,11 @@ below for why that distinction is not pedantry.
 **Everything described in this document is deployed.** D1 is at migration
 `0022_evidence.sql`; the API worker is version
 `21342ee0-788b-40d7-9211-0a6a8136af47`, deployed 8 October 22:52 UTC, four
-minutes after `25a9dca` (the deploy before it, `6b3e171c`, went out a minute
-earlier the same night, so confirm which code it carries before treating it as
-the rollback target); `/api/me/evidence` answers 401 on the live API, not 404.
+minutes after `25a9dca`. The deploy before it, `6b3e171c` (22:51), also
+postdates that commit and almost certainly carries the photo code too, so the
+rollback target from before photos is `10e6c453-6b8c-4d2e-b099-c771ef126e76`
+(22:29, after `a043caf`); migration 0022 only adds, so rolling back to it
+leaves the database fine; `/api/me/evidence` answers 401 on the live API, not 404.
 The admin console's production deployment on Pages is built from `25a9dca`,
 and the live bundle carries the evidence screens. The nightly customer-data purge from §5 is registered as
 `17 3 * * *`.
@@ -404,6 +407,10 @@ deploy came from `wrangler`. **`app/server` must be deployed by hand with
 rebuilds against an API that has not learned the routes it is about to call.
 `app/web-admin` is the opposite: GitHub-connected, so pushing is the deploy and
 deploying by hand is wrong. `app/web-portal` is direct-upload only.
+**As of 27 October 2026 that connection is broken:** the Pages project still
+points at `allianewase/afrizone`, which moved to `Afrizonemart-Distribution`,
+so pushes to `main` build nothing (none for `211a241`). Reconnect it in the
+dashboard (Settings → Builds → Git repository) before trusting a push.
 
 **`app/mobile` ships as a sideloaded APK, not through a store.** The current
 build is EAS `ebafdda6` (`preview` profile, version code 7), made from

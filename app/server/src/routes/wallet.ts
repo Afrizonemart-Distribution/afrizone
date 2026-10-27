@@ -108,7 +108,7 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
         amountNaira: amt,
         recipientCode,
         reference,
-        reason: "Afrizone Part Time earnings payout",
+        reason: "AfriZone PartTime earnings payout",
       });
       const updated = await prisma.withdrawal.update({
         where: { id: withdrawal.id },

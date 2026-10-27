@@ -67,10 +67,10 @@ export default function Logo({
   className?: string
 }) {
   return (
-    <span className={`az-logo ${className}`} aria-label="AfriZone Part Time">
+    <span className={`az-logo ${className}`} aria-label="AfriZone PartTime">
       <LogoMark size={size} />
       <span className="az-word">
-        AfriZone <b>Part Time</b>
+        AfriZone <b>PartTime</b>
       </span>
     </span>
   )

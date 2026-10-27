@@ -164,7 +164,7 @@ router.post("/google", async (req, res) => {
     isNewUser = true;
     user = await prisma.user.create({
       data: {
-        name: verified.name || "New worker", // placeholder when Google has no name
+        name: verified.name || "New Tasker", // placeholder when Google has no name
         email: verified.email,
         passwordHash: null,
         googleId: verified.sub,

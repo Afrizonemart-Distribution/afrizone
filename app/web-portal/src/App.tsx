@@ -5,7 +5,7 @@ import { CourierDashboard, IndividualLanding, StoreDashboard } from './pages/Das
 import { homeFor, useAuth } from './lib/auth'
 
 /**
- * Routes for the Part-Time portal.
+ * Routes for the PartTime portal.
  *
  * `/` is the three-way front door and stays reachable while signed out. Someone
  * already signed in is sent to whichever dashboard their SERVER-side account

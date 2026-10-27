@@ -78,7 +78,7 @@ export const paystack = {
       amount: input.amountNaira * 100,
       recipient: input.recipientCode,
       reference: input.reference,
-      reason: input.reason || "Afrizone Part Time payout",
+      reason: input.reason || "AfriZone PartTime payout",
     });
     return { status: data.status as string, transferCode: data.transfer_code as string };
   },

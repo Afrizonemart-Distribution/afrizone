@@ -26,7 +26,7 @@ export default function AuthSplitShell({ children }: { children: ReactNode }) {
             <br />
             <span className="accent">across Africa.</span>
           </h2>
-          <p>The operations console for Afrizone Part Time.</p>
+          <p>The operations console for AfriZone PartTime.</p>
           <div className="auth-panel-points">
             {POINTS.map((point) => (
               <div className="auth-panel-point" key={point}>

@@ -371,7 +371,7 @@ router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: R
     loadTaskRequirements(prisma, tasks),
     isEnforcing(prisma),
   ]);
-  if (!profile) return res.status(404).json({ error: "Worker not found" });
+  if (!profile) return res.status(404).json({ error: "Tasker not found" });
 
   const offers = open.flatMap((d) => {
     const task = byTaskId.get(d.taskId!);

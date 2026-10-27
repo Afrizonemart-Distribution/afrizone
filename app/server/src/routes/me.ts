@@ -491,7 +491,7 @@ function buildContractSections(
   return [
     {
       heading: "1. Parties",
-      body: `This Independent Contractor Service Agreement ("Agreement") is entered into between:\n\n• Afrizone Part Time ("Afrizone", "the Platform"), acting as the service marketplace; and\n• ${workerName} ("Contractor"), contact: ${workerContact}.\n\nThis Agreement governs the Contractor's engagement on the task described below.`,
+      body: `This Independent Contractor Service Agreement ("Agreement") is entered into between:\n\n• AfriZone PartTime ("Afrizone", "the Platform"), acting as the service marketplace; and\n• ${workerName} ("Contractor"), contact: ${workerContact}.\n\nThis Agreement governs the Contractor's engagement on the task described below.`,
     },
     {
       heading: "2. Scope of Work",
@@ -801,8 +801,8 @@ router.get("/tax-statement", requireAuth, async (req: AuthedRequest, res: Respon
   const totalNet = payments.reduce((s, p) => s + p.net, 0);
 
   const rows = [
-    "Afrizone Part Time - Annual WHT Statement",
-    `Worker:,${user.name ?? "-"}`,
+    "AfriZone PartTime - Annual WHT Statement",
+    `Tasker:,${user.name ?? "-"}`,
     `Email/Phone:,${user.email ?? user.phone ?? "-"}`,
     `TIN:,${user.tin ?? "Not provided"}`,
     `Year:,${year}`,

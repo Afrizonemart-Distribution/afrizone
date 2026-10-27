@@ -9,7 +9,7 @@ const LAST_UPDATED = '20 August 2026';
 const SUPPORT_EMAIL = 'support@afrizonemart.com';
 
 /**
- * Terms of Service: a real first draft describing how Afrizone Part Time
+ * Terms of Service: a real first draft describing how AfriZone PartTime
  * actually works, written for the pilot launch - not lawyer-reviewed, so it
  * stays clearly flagged as a draft rather than presented as final legal
  * copy. Have this reviewed by counsel before any wider/public rollout.
@@ -28,9 +28,9 @@ export default function TermsScreen() {
 
       <Text style={styles.updated}>Last updated: {LAST_UPDATED}</Text>
 
-      <Section title="1. Who can use Afrizone Part Time">
+      <Section title="1. Who can use AfriZone PartTime">
         You must be at least 18 years old and legally able to work in Nigeria to
-        register as a worker. You must provide accurate information when you
+        register as a Tasker. You must provide accurate information when you
         register and complete identity verification (KYC), including a
         government-issued ID and a selfie for comparison. We may review your KYC
         submission manually, and some submissions are also checked by an
@@ -39,7 +39,7 @@ export default function TermsScreen() {
 
       <Section title="2. Tasks, applications, and approval">
         Tasks are posted by Afrizone admins. You may apply to any task that
-        matches your verified worker tier. An admin reviews and approves or
+        matches your verified Tasker tier. An admin reviews and approves or
         rejects applications; approval isn't guaranteed. Once approved, you're
         expected to complete the task as described, including clocking in and
         out for time-tracked tasks (which may use location to confirm you're at
@@ -72,7 +72,7 @@ export default function TermsScreen() {
       </Section>
 
       <Section title="6. Limitation of liability">
-        Afrizone Part Time is provided during an early pilot phase. We do our
+        AfriZone PartTime is provided during an early pilot phase. We do our
         best to keep the service reliable and payments accurate, but we don't
         guarantee the app will always be available or error-free, and we're not
         liable for losses arising from task availability, third-party payment
@@ -82,7 +82,7 @@ export default function TermsScreen() {
       <Section title="7. Changes to these terms">
         We may update these terms as the app develops, especially as it moves
         beyond this pilot phase. We'll do our best to notify you of significant
-        changes in the app. Continuing to use Afrizone Part Time after a change
+        changes in the app. Continuing to use AfriZone PartTime after a change
         means you accept the updated terms.
       </Section>
 

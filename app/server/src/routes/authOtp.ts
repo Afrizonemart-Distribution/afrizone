@@ -271,7 +271,7 @@ router.post("/otp/verify", async (req, res) => {
     isNewUser = true;
     user = await prisma.user.create({
       data: {
-        name: "New worker",
+        name: "New Tasker",
         email: `${phone.replace(/\D/g, "")}@phone.afrizone.local`, // placeholder, set in KYC
         phone,
         passwordHash: null,

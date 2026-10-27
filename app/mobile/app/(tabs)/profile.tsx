@@ -146,7 +146,7 @@ export default function ProfileScreen() {
               <Icon name="edit" size={12} color={obColors.navyPress} />
             </Pressable>
           </View>
-          <Text style={styles.name}>{user?.name ?? 'Worker'}</Text>
+          <Text style={styles.name}>{user?.name ?? 'Tasker'}</Text>
           {user?.rating != null ? (
             <Pressable onPress={() => router.push('/ratings')} style={styles.stars} accessibilityLabel="View my ratings">
               <StarRating score={user.rating} size={13} gap={2} color={obColors.goldDeep} />
@@ -241,7 +241,7 @@ export default function ProfileScreen() {
         <View style={{ marginTop: 24 }}>
           <AppPrimaryButton label="Log out" icon="logout" variant="outline" onPress={confirmLogout} />
         </View>
-        <Text style={styles.version}>Afrizone Part Time · v1.0.0</Text>
+        <Text style={styles.version}>AfriZone PartTime · v1.0.0</Text>
       </ScrollView>
 
       <EditProfileSheet visible={editProfileOpen} user={user} onClose={() => setEditProfileOpen(false)} onSaved={onSaved} />

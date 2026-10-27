@@ -5,10 +5,10 @@ import Logo from '../components/Logo'
 import './Landing.css'
 
 /**
- * The front door of the Part-Time portal.
+ * The front door of the PartTime portal.
  *
  * It used to be a bare account-type picker: a question, three cards, done. That
- * is the right shape for somebody who already knows what Afrizone Part Time is
+ * is the right shape for somebody who already knows what AfriZone PartTime is
  * and has been sent here to sign up. It is the wrong shape for the larger group
  * — a shop owner who followed a link, or a rider who heard about it from
  * another rider — because it asks them to commit before it has said what they
@@ -224,10 +224,10 @@ export default function Landing() {
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <section className="lp-hero">
           <div className="lp-hero-in">
-            <p className="lp-eyebrow">Afrizone Part Time</p>
+            <p className="lp-eyebrow">AfriZone PartTime</p>
             <h1>Work that finds you, and pay that is set aside before you start</h1>
             <p className="lp-sub">
-              Afrizone Part Time connects the shops, riders and workers behind AfriZoneMart. Sell
+              AfriZone PartTime connects the shops, riders and Taskers behind AfriZoneMart. Sell
               from your counter, deliver across your city, or take on paid tasks near you — verified
               once, paid on completion.
             </p>
@@ -255,7 +255,7 @@ export default function Landing() {
         <section className="lp-sec" id="choose">
           <div className="lp-sec-in">
             <p className="lp-eyebrow">Create an account</p>
-            <h2 className="lp-h2">How will you use AfriZone Part Time?</h2>
+            <h2 className="lp-h2">How will you use AfriZone PartTime?</h2>
             <p className="lp-lede">
               Choose the option that describes you. It determines the account we set up, the work you
               are shown, and how you are paid. If your situation changes later, our team can move you.

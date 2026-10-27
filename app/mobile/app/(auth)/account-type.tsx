@@ -1,5 +1,5 @@
 /**
- * "How are you using Afrizone Part Time?" - the front door.
+ * "How are you using AfriZone PartTime?" - the front door.
  *
  * WHAT THIS CHOICE DOES AND, MORE IMPORTANTLY, WHAT IT DOES NOT:
  *

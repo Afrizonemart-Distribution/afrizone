@@ -368,7 +368,7 @@ router.get("/:id/eligibility", requireAuth, async (req: AuthedRequest, res: Resp
     loadWorkerProfile(prisma, workerId),
     loadTaskRequirements(prisma, [task]),
   ]);
-  if (!profile) return res.status(404).json({ error: "Worker not found" });
+  if (!profile) return res.status(404).json({ error: "Tasker not found" });
 
   const reqs = requirements.get(task.id)!;
   res.json({
