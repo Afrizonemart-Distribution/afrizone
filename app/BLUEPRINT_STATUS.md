@@ -330,7 +330,8 @@ order themselves.** Everything below is in the order it is worth doing:
    The delivery offer answers a crude version of proximity — inside the circle or
    not — and nothing orders the couriers inside it. "Who is nearest and free?" is
    the question an order asks, and until this it was first-come.
-2. **Proof-of-work photos — built 9 October 2026, not yet deployed.** Camera-only
+2. **Proof-of-work photos — built and deployed 9 October 2026** (D1 migration
+   0022, the API, the admin console and APK version code 6). Camera-only
    photos with position and time, checked on arrival (`services/evidence.ts`):
    distance from the site, accuracy of the fix, age, phone clock. A failed
    check is a flag in words for the reviewer, never a refusal; only a missing
@@ -381,15 +382,18 @@ one of those refusals is the intended behaviour rather than a fault to debug.
 A separate axis from everything above. The rest of this file reconciles the
 blueprint against the code; this section reconciles the code against what is
 deployed, because those drift apart in a way that is invisible from the repo and
-expensive to guess at. Verified 2 September 2026 against the live account and
+expensive to guess at. Verified 23 October 2026 against the live account and
 database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed.** D1 is at migration
-`0020_delivery_offer.sql`; the API worker is version
-`07ff447c-3d15-4dad-9b75-2107ad782159` (roll back to
-`cb6dadec-48f3-4455-8b64-cdc5087231dd`); the admin console is built from the
-current commit. The nightly customer-data purge from §5 is registered as
+`0022_evidence.sql`; the API worker is version
+`21342ee0-788b-40d7-9211-0a6a8136af47`, deployed 8 October 22:52 UTC, four
+minutes after `25a9dca` (the deploy before it, `6b3e171c`, went out a minute
+earlier the same night, so confirm which code it carries before treating it as
+the rollback target); `/api/me/evidence` answers 401 on the live API, not 404.
+The admin console's production deployment on Pages is built from `25a9dca`,
+and the live bundle carries the evidence screens. The nightly customer-data purge from §5 is registered as
 `17 3 * * *`.
 
 **`README.md` is wrong about how the API deploys.** It claims Workers Builds
@@ -402,9 +406,12 @@ rebuilds against an API that has not learned the routes it is about to call.
 deploying by hand is wrong. `app/web-portal` is direct-upload only.
 
 **`app/mobile` ships as a sideloaded APK, not through a store.** The current
-build is EAS `82dce36b` (`preview` profile, version code 4), made from
-`25db605` on 8 October 2026 and pointed at the live API. It was installed and
-opened on a real Android phone the same day. **The courier's self-claim screen
+build is EAS `ebafdda6` (`preview` profile, version code 7), made from
+`25a9dca` on 23 October 2026 and pointed at the live API; its download link
+expires 6 November 2026. It is the same code as version code 6 (EAS
+`aa909456`, 8 October), rebuilt only because that build's link expired after
+two weeks. Version code 4 was installed and opened on a real Android phone on
+8 October. **The courier's self-claim screen
 is therefore in a rider's hands**, but only for whoever has been sent the APK
 link, and nobody gets updates automatically: each new build means sending a
 new link. The link is an EAS artifact, which does not last forever. There is
