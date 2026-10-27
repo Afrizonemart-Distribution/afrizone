@@ -91,7 +91,11 @@ export default function Applications() {
       <PageHeader
         crumb="Operations / Applications"
         title="Application review queue"
-        sub={loading ? 'Loading…' : `${apps.length} applications awaiting approval`}
+        sub={
+          loading
+            ? 'Loading…'
+            : `${apps.length} applications awaiting approval, best applicant first within each task`
+        }
       />
 
       {actionError && (
@@ -118,6 +122,7 @@ export default function Applications() {
           <Table className="dt">
             <TableHeader>
               <TableRow>
+                <TableHead>Rank</TableHead>
                 <TableHead>Applicant</TableHead>
                 <TableHead>Task</TableHead>
                 <TableHead>Tier</TableHead>
@@ -135,6 +140,20 @@ export default function Applications() {
                 const kyc = a.worker?.kycStatus ? kycPill(a.worker.kycStatus) : null
                 return (
                   <TableRow key={a.id}>
+                    <TableCell style={{ whiteSpace: 'nowrap' }}>
+                      {a.rank?.eligible ? (
+                        <span title="Score from fit, reliability, rating and current load. It orders the queue; you still decide.">
+                          <strong>#{a.rank.position}</strong>
+                          <span style={{ color: 'var(--muted)', marginLeft: 6 }}>
+                            {Math.round(a.rank.score * 100)}%
+                          </span>
+                        </span>
+                      ) : a.rank ? (
+                        <StatusPill variant="danger" label="Not qualified" />
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div className="wname">
                         <Avatar className="wav">
@@ -142,7 +161,14 @@ export default function Applications() {
                             {initials(name)}
                           </AvatarFallback>
                         </Avatar>
-                        {name}
+                        <div>
+                          {name}
+                          {a.rank && a.rank.reasons.length > 0 && (
+                            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
+                              {a.rank.reasons.join(' · ')}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>{a.task?.title ?? '—'}</TableCell>

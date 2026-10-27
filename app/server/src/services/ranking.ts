@@ -85,25 +85,41 @@ export function scoreCandidate(f: CandidateFacts, rule: Pick<OfferRule, "maxRadi
       ? 0.5
       : Math.max(0, 1 - f.distanceMetres / rule.maxRadiusMetres);
 
-  // Laplace-smoothed: no history reads as 50%, and one cancelled job out of one
-  // is not treated the same as ten out of ten.
-  const reliability = (f.completed + 1) / (f.completed + f.cancelled + 2);
-
-  // A 1-5 scale onto 0-1. Unrated sits at 3.5, the middle of what real ratings
-  // look like rather than the middle of the scale.
-  const rating = ((f.rating ?? 3.5) - 1) / 4;
-
-  // One job in hand halves it, two or more and they should finish what they
-  // have. Not an exclusion: in a quiet hour a busy courier is still better than
-  // nobody, and the eligibility gate - not this - is what says who may work.
-  const load = f.activeLoad <= 0 ? 1 : f.activeLoad === 1 ? 0.5 : 0;
-
   const score =
     WEIGHTS.distance * distance +
-    WEIGHTS.reliability * reliability +
-    WEIGHTS.rating * Math.min(1, Math.max(0, rating)) +
-    WEIGHTS.load * load;
+    WEIGHTS.reliability * reliabilityScore(f.completed, f.cancelled) +
+    WEIGHTS.rating * ratingScore(f.rating) +
+    WEIGHTS.load * loadScore(f.activeLoad);
   return Math.round(score * 1000) / 1000;
+}
+
+// The three parts of the score that are about the worker rather than the job.
+// Shared with services/applicantRanking.ts, so a courier and an applicant with
+// the same record are judged on it the same way.
+
+/**
+ * Laplace-smoothed: no history reads as 50%, and one cancelled job out of one
+ * is not treated the same as ten out of ten.
+ */
+export function reliabilityScore(completed: number, cancelled: number): number {
+  return (completed + 1) / (completed + cancelled + 2);
+}
+
+/**
+ * A 1-5 scale onto 0-1. Unrated sits at 3.5, the middle of what real ratings
+ * look like rather than the middle of the scale.
+ */
+export function ratingScore(rating: number | null): number {
+  return Math.min(1, Math.max(0, ((rating ?? 3.5) - 1) / 4));
+}
+
+/**
+ * One job in hand halves it, two or more and they should finish what they
+ * have. Not an exclusion: in a quiet hour a busy worker is still better than
+ * nobody, and the eligibility gate - not this - is what says who may work.
+ */
+export function loadScore(activeLoad: number): number {
+  return activeLoad <= 0 ? 1 : activeLoad === 1 ? 0.5 : 0;
 }
 
 export interface RankedCandidate {
@@ -145,6 +161,45 @@ export async function sweepPresence(now: Date = new Date()): Promise<number> {
 const DONE_STATES = ["VERIFIED", "PAID", "CLOSED"];
 const LIVE_STATES = ["CLAIMED", "IN_PROGRESS", "REWORK"];
 
+export interface ContractHistory {
+  completed: number;
+  cancelled: number;
+  live: number;
+  /** Completed contracts per task category, for "has done this kind of work". */
+  completedByCategory: Map<string, number>;
+}
+
+export const NO_HISTORY: ContractHistory = {
+  completed: 0,
+  cancelled: 0,
+  live: 0,
+  completedByCategory: new Map(),
+};
+
+/** History for a whole pool in one query rather than one per worker. */
+export async function loadContractHistory(workerIds: string[]): Promise<Map<string, ContractHistory>> {
+  const history = new Map<string, ContractHistory>();
+  if (workerIds.length === 0) return history;
+  const contracts = await prisma.contract.findMany({
+    where: { workerId: { in: workerIds } },
+    select: { workerId: true, status: true, task: { select: { category: true } } },
+  });
+  for (const c of contracts) {
+    let h = history.get(c.workerId);
+    if (!h) {
+      h = { completed: 0, cancelled: 0, live: 0, completedByCategory: new Map() };
+      history.set(c.workerId, h);
+    }
+    if (DONE_STATES.includes(c.status)) {
+      h.completed += 1;
+      const cat = c.task?.category;
+      if (cat) h.completedByCategory.set(cat, (h.completedByCategory.get(cat) ?? 0) + 1);
+    } else if (c.status === "CANCELLED") h.cancelled += 1;
+    else if (LIVE_STATES.includes(c.status)) h.live += 1;
+  }
+  return history;
+}
+
 /**
  * Score every online courier who may take this posting.
  *
@@ -180,21 +235,8 @@ export async function rankCouriers(
 
   const pool = online.filter((p) => p.user.role === "WORKER" && !excluded.has(p.userId));
   if (pool.length === 0) return [];
-  const ids = pool.map((p) => p.userId);
 
-  // History for the whole pool in one query rather than one per courier.
-  const contracts = await prisma.contract.findMany({
-    where: { workerId: { in: ids } },
-    select: { workerId: true, status: true },
-  });
-  const history = new Map<string, { completed: number; cancelled: number; live: number }>();
-  for (const c of contracts) {
-    const h = history.get(c.workerId) ?? { completed: 0, cancelled: 0, live: 0 };
-    if (DONE_STATES.includes(c.status)) h.completed += 1;
-    else if (c.status === "CANCELLED") h.cancelled += 1;
-    else if (LIVE_STATES.includes(c.status)) h.live += 1;
-    history.set(c.workerId, h);
-  }
+  const history = await loadContractHistory(pool.map((p) => p.userId));
 
   const ranked: RankedCandidate[] = [];
   for (const p of pool) {
@@ -212,7 +254,7 @@ export async function rankCouriers(
     if (!profile) continue;
     if (blockingBlockers(decide(profile, reqs).blockers, enforcing).length > 0) continue;
 
-    const h = history.get(p.userId) ?? { completed: 0, cancelled: 0, live: 0 };
+    const h = history.get(p.userId) ?? NO_HISTORY;
     ranked.push({
       workerId: p.userId,
       distanceMetres: distanceMetres === null ? null : Math.round(distanceMetres),

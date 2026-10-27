@@ -8,8 +8,9 @@ out what is done.
 built, delivery — the first item of Phase 2 — is built end to end, and a courier
 can claim an order without waiting for an admin.** All of it is deployed and was
 exercised against the live API on 2 September 2026; see §10. **Ranked matching
-for deliveries is built and deployed** (8 October 2026; see §9). What
-remains is ranked matching for other work, evidence capture and the rest of §14,
+for deliveries is built and deployed** (8 October 2026; see §9). **Every
+other task now ranks its applicants for the manager** (27 October 2026, not yet
+deployed; see §9). What remains is the rest of §14,
 and the operational work of switching Mart on.
 
 Three things are built to a deliberate limit, and pretending otherwise would be
@@ -265,8 +266,6 @@ distinguishable from a quiet week.
 
 ## 7. Substantial features not started
 
-- **Ranked matching for anything but deliveries** (§11). Deliveries are done
-  (§9); every other task is still apply-then-approve with no ordering.
 - **Reputation tiers and badges** (§9). Note this is a *third* meaning of "tier"
   in the project — bronze/silver/gold reputation standing, distinct from both the
   work-category tiers (`STUDENT`, `DISPATCH`…) and any store tier from §14.
@@ -332,7 +331,20 @@ order themselves.** Everything below is in the order it is worth doing:
    going offline, sign-out, or a 401/403. Refusing keeps the old in-app
    heartbeat. Not yet tried on a real phone.
    **Still open:** the weights are constants until there is real order data to
-   tune them against. Other task kinds still have no ranking.
+   tune them against.
+   **Every other task kind, built 27 October 2026, not yet deployed:** still
+   apply-then-approve, on purpose - nobody is offered or picked by the
+   platform - but the admin review queue (`GET /api/applications`) now comes
+   back grouped by task and best applicant first in each, with a `rank`
+   (position, score, and the reasons in words) on every pending application.
+   Fit 35% (finished work in the task's category, self-reported years on the
+   required skills; both can only lift, so somebody new sits in the middle),
+   reliability 30%, rating 20%, load 15% - the last three are the delivery
+   ranking's own functions, shared. Applicants who no longer pass the gate are
+   not scored and are listed last with the blocker. No distance: only couriers
+   send a position, and `User.location` is free text. Computed on read, no
+   migration. Code: `services/applicantRanking.ts`, 9 tests in
+   `test/applicantRanking.test.ts`; the Rank column on the admin Applications page.
 
    What the blueprint asked for, for the record: the build gated qualified / not qualified; the
    blueprint wants candidates scored on skill, proximity, reliability and load.

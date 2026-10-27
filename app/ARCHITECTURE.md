@@ -392,8 +392,8 @@ so the decision stays cheap.
 ## 13. Known gaps
 
 **Not built at all**
-- Ranked matching — the build gates qualified / not qualified and nothing orders
-  the candidates who pass
+- Proximity in applicant ranking — non-courier Taskers have no coordinates, so
+  `services/applicantRanking.ts` orders applicants on fit, record and load only
 - Proof-of-work evidence: geo-tagged photos, signatures, timestamps
 - The standing courier agreement
 - Store/organization settlement

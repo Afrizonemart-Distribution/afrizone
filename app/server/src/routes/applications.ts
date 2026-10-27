@@ -5,6 +5,7 @@ import { tiersToArray } from "../types";
 import { notifyWorker } from "../services/push";
 import { userActor } from "../util/audit";
 import { assignWorker } from "../services/assignment";
+import { rankApplications, type ApplicantRank } from "../services/applicantRanking";
 import {
   blockingBlockers,
   decide,
@@ -15,17 +16,51 @@ import {
 
 const router = Router();
 
-// GET /api/applications?status=APPLIED → joined with worker + task
+// GET /api/applications?status=APPLIED&taskId=... → joined with worker + task
 // Admin-only: the worker's own view is GET /api/me/applications, already scoped.
+//
+// Pending applications carry a `rank` (services/applicantRanking.ts) and come
+// back grouped by task - the task with the newest application first - and best
+// applicant first within each. Decided ones keep newest-first and `rank: null`.
 router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (req: AuthedRequest, res: Response) => {
   const status = req.query.status ? String(req.query.status) : undefined;
+  const taskId = req.query.taskId ? String(req.query.taskId) : undefined;
   const apps = await prisma.application.findMany({
-    where: status ? { status } : undefined,
+    where: { ...(status ? { status } : {}), ...(taskId ? { taskId } : {}) },
     orderBy: { createdAt: "desc" },
     include: { worker: true, task: true },
   });
+
+  // NEVER FATAL, like the delivery ranking: a queue without an order is the
+  // queue as it always was, and one that fails to load is not.
+  let ranks = new Map<string, ApplicantRank>();
+  try {
+    ranks = await rankApplications(apps.filter((a) => a.status === "APPLIED"));
+  } catch (e) {
+    console.error(`[applicantRanking] ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // findMany is newest-first, so a task's first appearance is its newest application.
+  const taskOrder = new Map<string, number>();
+  apps.forEach((a) => {
+    if (!taskOrder.has(a.taskId)) taskOrder.set(a.taskId, taskOrder.size);
+  });
+  const slot = (a: (typeof apps)[number]) => {
+    const r = ranks.get(a.id);
+    return r ? (r.position ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER;
+  };
+  const ordered = apps
+    .map((a, i) => ({ a, i }))
+    .sort(
+      (x, y) =>
+        taskOrder.get(x.a.taskId)! - taskOrder.get(y.a.taskId)! ||
+        slot(x.a) - slot(y.a) ||
+        x.i - y.i
+    )
+    .map((x) => x.a);
+
   res.json(
-    apps.map((a) => ({
+    ordered.map((a) => ({
       id: a.id,
       taskId: a.taskId,
       workerId: a.workerId,
@@ -33,6 +68,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
       status: a.status,
       reason: a.reason,
       createdAt: a.createdAt,
+      rank: ranks.get(a.id) ?? null,
       worker: {
         id: a.worker.id,
         name: a.worker.name,

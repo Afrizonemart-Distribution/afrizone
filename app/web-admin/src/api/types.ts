@@ -239,9 +239,18 @@ export interface Application {
   status: AppStatus
   reason?: string | null
   createdAt?: string
+  /**
+   * Set on pending applications: where this applicant stands among the others
+   * for the same task, best first. Null when decided, or if ranking failed.
+   */
+  rank?: ApplicantRank | null
   worker?: WorkerSummary
   task?: TaskSummary
 }
+
+export type ApplicantRank =
+  | { eligible: true; position: number; score: number; reasons: string[] }
+  | { eligible: false; position: null; score: null; reasons: string[] }
 
 export interface Timesheet {
   id: string
