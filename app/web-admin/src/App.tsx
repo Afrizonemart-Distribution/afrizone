@@ -15,6 +15,7 @@ import Hiring from './pages/Hiring'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Disputes from './pages/Disputes'
+import Audits from './pages/Audits'
 import Verification from './pages/Verification'
 import Mart from './pages/Mart'
 import Deliveries from './pages/Deliveries'
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/timesheets" element={<Timesheets />} />
         <Route path="/payments" element={<Payments />} />
         <Route path="/disputes" element={<Disputes />} />
+        <Route path="/audits" element={<Audits />} />
         <Route path="/verification" element={<Verification />} />
         <Route path="/workers" element={<Workers />} />
         <Route path="/organizations" element={<Organizations />} />

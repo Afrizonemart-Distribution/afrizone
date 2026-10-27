@@ -1,7 +1,8 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
-import { formatDate, orgPill } from '../lib/format'
+import { auditPill, formatDate, orgPill } from '../lib/format'
+import { Link } from 'react-router-dom'
 import type { CacStatus, CreateOrgBody, OrgKind, OrgStatus, Organization } from '../api/types'
 import PageHeader from '../components/PageHeader'
 import Glass from '../components/ui/Glass'
@@ -544,6 +545,39 @@ function OrgDetailModal({
                 trade - even though nothing forces them to. */}
             {org.kind === 'STORE' && (
               <CacBlock org={org} canReview={canReview} onChanged={onChanged} onDone={reload} />
+            )}
+
+            {/* The premises audit, beside the decision it informs. The server
+                has sent the latest finding with the record all along; this is
+                the first screen to show it. */}
+            {org.kind === 'STORE' && (
+              <div className="orgblock">
+                <span className="orgblock-t">Premises audit</span>
+                {org.latestAudit ? (
+                  <>
+                    <DetailRow
+                      label="Latest"
+                      value={
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                          <b>{org.latestAudit.score}</b>
+                          <StatusPill
+                            variant={auditPill(org.latestAudit.outcome).variant}
+                            label={auditPill(org.latestAudit.outcome).label}
+                          />
+                        </span>
+                      }
+                    />
+                    <DetailRow label="Auditor" value={org.latestAudit.auditorName ?? 'Recorded by staff'} />
+                    <DetailRow label="Filed" value={formatDate(org.latestAudit.createdAt)} />
+                    {org.latestAudit.notes ? <p className="orgnote">{org.latestAudit.notes}</p> : null}
+                    <p className="orgnote small">
+                      <Link to="/audits">Every audit, with photos and signatures</Link>
+                    </p>
+                  </>
+                ) : (
+                  <p className="orgnote">Not audited yet.</p>
+                )}
+              </div>
             )}
 
             <div className="orgblock">

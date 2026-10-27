@@ -319,7 +319,7 @@ order themselves.** Everything below is in the order it is worth doing:
    per-minute cron only sends the "your turn" push and sweeps stale presence.
    Code: `services/ranking.ts`, `routes/presence.ts`, migration
    `0021_ranked_offers.sql`, 25 tests in `test/ranking.test.ts`.
-   **Built 27 October 2026, not yet deployed:** a "Pass to the next courier"
+   **Deployed 27 October 2026 (API, APK version code 9 and later):** a "Pass to the next courier"
    button (`POST /api/deliveries/:id/pass`, `passTurn` in `services/ranking.ts`).
    The unused rest of the window is stored in `Delivery.rankedSkippedSeconds`
    (migration `0023_ranked_pass.sql`) and shifts the turn clock, so whose turn
@@ -330,7 +330,7 @@ order themselves.** Everything below is in the order it is worth doing:
    Android runs as a foreground service with a notification for as long as the
    rider is online; it sends the same heartbeat every three minutes and stops on
    going offline, sign-out, or a 401/403. Refusing keeps the old in-app
-   heartbeat. Needs a new APK; not yet tried on a real phone.
+   heartbeat. Not yet tried on a real phone.
    **Still open:** the weights are constants until there is real order data to
    tune them against. Other task kinds still have no ranking.
 
@@ -353,8 +353,9 @@ order themselves.** Everything below is in the order it is worth doing:
    The worker app gained the photo panel and an audit-filing form (there was
    none); the admin site shows photos, flagged first, from Timesheets,
    Deliveries and each task card. Migration `0022_evidence.sql`, 21 tests in
-   `test/evidence.test.ts`. **Signatures, built 27 October 2026, not yet
-   deployed:** every step that needs a photo except clocking also needs the
+   `test/evidence.test.ts`. **Signatures, deployed 27 October 2026** (migration
+   0024, API, APK version code 10; earlier APKs cannot take one, so a Tasker on
+   one is stopped at the handover): every step that needs a photo except clocking also needs the
    other side of the handover to sign on the Tasker's phone - the shop at
    pickup, the customer at the door, the store manager on an audit, the site
    contact on field work (`signatureRequired`). Signer's typed name plus SVG
@@ -363,8 +364,12 @@ order themselves.** Everything below is in the order it is worth doing:
    code `SIGNATURE_REQUIRED`; signing again replaces. Door signatures are
    customer data and go with the §5 purge. Migration `0024_signatures.sql`,
    `POST /api/me/evidence/signature`; shown in the admin's proof-of-work
-   dialog. **Not built:** an admin screen for store audit results generally
-   (photos and signatures are reviewed from the task card).
+   dialog. **Audit results screen, deployed 27 October 2026:**
+   `/audits` in the admin console (`GET /api/admin/audits`, `routes/audits.ts`)
+   lists every finding newest first, filterable to passed or failed, with the
+   store, auditor, notes and a proof column (photos, signed or not, failed
+   checks) that opens the photos and signature. The store dialog now shows the
+   latest audit beside the approval, which the API had been sending unused.
 3. **Reputation tiers and badges** (§9). Note this is a *third* meaning of
    "tier"; the naming needs settling before it is built.
 4. **Surge pay, crew contracts, referral loop** (§10, §14), **shared identity
@@ -406,15 +411,17 @@ database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed** (verified 27 October
-2026). D1 is at migration `0023_ranked_pass.sql`; the API worker is version
-`bf46417c-7d72-4594-bda4-5992ecf29318`, deployed 27 October 11:03 UTC from the
-working tree that became the pass and background-location commits; the live
-`/api/deliveries/:id/pass` answers 401, not 404. A deploy ten minutes earlier,
-`c65bce3b`, carried the rename and possibly part of the pass work, so it is
-not a clean rollback target. Roll back to `21342ee0-788b-40d7-9211-0a6a8136af47`
-(8 October, `25a9dca`): migration 0023 only adds a column with a default, so
-the database is fine with it. The admin console and the portal were both
-uploaded by hand from `7d497f8` the same morning.
+2026). D1 is at migration `0024_signatures.sql`; the API worker is version
+`a0475f74-8893-453b-880e-074e81879d60`, deployed 27 October 12:56 UTC with the
+audit results route (`/api/admin/audits` answers 401, not 404). Roll back to
+`bf6c86bd-6683-4780-9ae5-dbb9d9ffd357` (11:47 UTC, `dd36a6e`, signatures but
+no audit list) - nothing in the database depends on the difference. Rolling
+back further, past signatures, leaves a `Signature` table nothing reads, which
+is harmless. The admin console was uploaded by hand with the audit screen at
+the same hour; the portal from `7d497f8` that morning.
+
+Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
+and `c65bce3b` (10:53, the rename and possibly part of the pass work).
 
 History: `21342ee0` was deployed 8 October 22:52 UTC, four minutes after
 `25a9dca`. The deploy before it, `6b3e171c` (22:51), also
@@ -440,10 +447,13 @@ so pushes to `main` build nothing (none for `211a241`). Reconnect it in the
 dashboard (Settings → Builds → Git repository) before trusting a push.
 
 **`app/mobile` ships as a sideloaded APK, not through a store.** The current
-build being made is EAS `613be38a` (version code 9, started 27 October 2026
-from the working tree on `7d497f8`: the rename, the pass button and background
-location); `cc69db2a` (version code 8) is a duplicate of the same run. Until
-it is installed and checked on a phone, the last build known to work is
+build to send out is EAS `874f27cd` (version code 10, from `dd36a6e` on
+27 October 2026: the rename, the pass button, background location and
+signatures; its link expires two weeks after). It is the only build that can
+take a signature, which the live API requires. Versions 8 and 9 (`cc69db2a`,
+`613be38a`, the same day from the working tree on `7d497f8`) lack signatures
+and should not be sent to anyone. Until version 10 is checked on a phone, the
+last build known to work is
 EAS `ebafdda6` (`preview` profile, version code 7), made from
 `25a9dca` on 23 October 2026 and pointed at the live API; its download link
 expires 6 November 2026. It is the same code as version code 6 (EAS

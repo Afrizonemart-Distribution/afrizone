@@ -39,6 +39,7 @@ import evidenceRouter, {
   handleEvidenceUpload,
   handleEvidenceFileGet,
 } from "./routes/evidence";
+import adminAuditsRouter from "./routes/audits";
 
 /** Must match wrangler.jsonc's triggers.crons entry character for character. */
 const EVERY_MINUTE = "* * * * *";
@@ -219,6 +220,8 @@ app.use("/api/me/presence", presenceRouter);
 // like KYC documents - see the fetch handler below.
 app.use("/api/me/evidence", evidenceRouter);
 app.use("/api/admin/evidence", adminEvidenceRouter);
+// Every store audit finding, for the admin screen.
+app.use("/api/admin/audits", adminAuditsRouter);
 app.use("/api/me", meRouter);
 // Skills + credentials, also under /api/me (see routes/meTalent.ts).
 app.use("/api/me", meTalentRouter);

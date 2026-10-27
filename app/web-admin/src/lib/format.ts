@@ -162,6 +162,18 @@ export function kycPill(s: string): { variant: PillVariant; label: string } {
   }
 }
 
+/** A store audit's finding. A failure is a fact about a shop, not an error, but it needs acting on. */
+export function auditPill(s: string): { variant: PillVariant; label: string } {
+  switch (s) {
+    case 'PASS':
+      return { variant: 'ready', label: 'Passed' }
+    case 'FAIL':
+      return { variant: 'danger', label: 'Failed' }
+    default:
+      return { variant: 'pending', label: s }
+  }
+}
+
 /**
  * Approval standing of a store or courier company.
  *

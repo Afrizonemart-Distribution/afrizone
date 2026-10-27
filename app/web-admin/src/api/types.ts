@@ -111,6 +111,36 @@ export interface Organization {
   memberCount?: number
   /** Added by the admin detail endpoint. */
   members?: OrgMember[]
+  /** Added by the admin detail endpoint: the finding an approval is made on. */
+  latestAudit?: {
+    id: string
+    score: number
+    outcome: AuditOutcome
+    notes: string | null
+    createdAt: string
+    auditorName: string | null
+  } | null
+}
+
+export type AuditOutcome = 'PASS' | 'FAIL'
+
+/** One store audit finding, as the admin audit screen lists it. */
+export interface AuditResult {
+  id: string
+  score: number
+  outcome: AuditOutcome
+  notes: string | null
+  createdAt: string
+  taskId: string | null
+  organization: { id: string; name: string; status: OrgStatus; address: string | null }
+  auditor: { id: string; name: string | null } | null
+  /** What the auditor left behind, counted: open the proof dialog for the rest. */
+  proof: { photos: number; signed: boolean; flagged: number }
+}
+
+export interface AuditResults {
+  counts: { ALL: number; PASS: number; FAIL: number }
+  audits: AuditResult[]
 }
 
 export interface OrgMember {

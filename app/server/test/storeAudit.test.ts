@@ -307,3 +307,89 @@ describe("what the approver sees", () => {
     expect(detail.body.latestAudit.score).toBe(91);
   });
 });
+
+describe("the audit results screen", () => {
+  /** A filed audit with its task, and whatever proof the auditor left on it. */
+  async function filedAudit(opts: { score: number; outcome: "PASS" | "FAIL"; photos?: number; flagged?: boolean; signed?: boolean }) {
+    const admin = await createUserWithToken("SUPER_ADMIN");
+    const auditor = await createUserWithToken("WORKER");
+    const org = await makeOrg("PENDING");
+    const task = await prisma().task.create({
+      data: {
+        title: `Audit ${org.name}`,
+        description: "x",
+        category: "Field",
+        tier: "STUDENT",
+        kind: "STORE_AUDIT",
+        payModel: "FIXED",
+        budget: 5000,
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 864e5),
+        locationType: "PHYSICAL",
+        slots: 1,
+        status: "FILLED",
+        deadline: new Date(Date.now() + 864e5),
+        createdById: admin.user.id,
+        organizationId: org.id,
+      },
+    });
+    for (let i = 0; i < (opts.photos ?? 0); i++) {
+      await prisma().evidence.create({
+        data: {
+          taskId: task.id,
+          workerId: auditor.user.id,
+          stage: "AUDIT",
+          objectKey: `${task.id}/${auditor.user.id}/${i}-${Date.now()}.png`,
+          contentType: "image/png",
+          sizeBytes: 10,
+          flags: JSON.stringify(opts.flagged && i === 0 ? ["Taken 2.1 km from the store"] : []),
+        },
+      });
+    }
+    if (opts.signed) {
+      await prisma().signature.create({
+        data: { taskId: task.id, workerId: auditor.user.id, stage: "AUDIT", signerName: "Manager", path: "M0 0 L1 1", width: 300, height: 150 },
+      });
+    }
+    const audit = await prisma().storeAudit.create({
+      data: { organizationId: org.id, taskId: task.id, auditorId: auditor.user.id, score: opts.score, outcome: opts.outcome, notes: "Shelves dusty" },
+    });
+    return { admin, org, task, auditor, audit };
+  }
+
+  it("lists every finding newest first, with the store, the auditor and what they left behind", async () => {
+    const first = await filedAudit({ score: 82, outcome: "PASS", photos: 3, signed: true });
+    const second = await filedAudit({ score: 40, outcome: "FAIL", photos: 3, flagged: true });
+
+    const res = await apiGet("/api/admin/audits", second.admin.token);
+    expect(res.status).toBe(200);
+    const ids = res.body.audits.map((a: any) => a.id);
+    expect(ids.indexOf(second.audit.id)).toBeLessThan(ids.indexOf(first.audit.id));
+
+    const row = res.body.audits.find((a: any) => a.id === second.audit.id);
+    expect(row).toMatchObject({
+      score: 40,
+      outcome: "FAIL",
+      notes: "Shelves dusty",
+      organization: { id: second.org.id, name: second.org.name, status: "PENDING" },
+      auditor: { id: second.auditor.user.id },
+      taskId: second.task.id,
+      proof: { photos: 3, signed: false, flagged: 1 },
+    });
+    const passed = res.body.audits.find((a: any) => a.id === first.audit.id);
+    expect(passed.proof).toEqual({ photos: 3, signed: true, flagged: 0 });
+  });
+
+  it("filters to passes or failures", async () => {
+    const { admin } = await filedAudit({ score: 30, outcome: "FAIL" });
+    const res = await apiGet("/api/admin/audits?outcome=FAIL", admin.token);
+    expect(res.body.audits.length).toBeGreaterThan(0);
+    expect(res.body.audits.every((a: any) => a.outcome === "FAIL")).toBe(true);
+    expect(res.body.counts.FAIL).toBeGreaterThan(0);
+  });
+
+  it("is for staff", async () => {
+    const worker = await createUserWithToken("WORKER");
+    expect((await apiGet("/api/admin/audits", worker.token)).status).toBe(403);
+  });
+});

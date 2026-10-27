@@ -12,6 +12,8 @@ import type {
   Category,
   DashboardStats,
   Dispute,
+  AuditOutcome,
+  AuditResults,
   DisputeStatus,
   Funding,
   HealthConfig,
@@ -358,6 +360,10 @@ export const api = {
   }) => request<Candidate>('/candidates', { method: 'POST', body }),
   moveCandidate: (id: string, stage: Stage) =>
     request<Candidate>(`/candidates/${id}/move`, { method: 'POST', body: { stage } }),
+
+  // Store audit findings (admin)
+  audits: (outcome?: AuditOutcome | 'ALL', signal?: AbortSignal) =>
+    request<AuditResults>(`/admin/audits${outcome && outcome !== 'ALL' ? `?outcome=${outcome}` : ''}`, { signal }),
 
   // Disputes (admin)
   disputes: (status?: DisputeStatus | 'ALL', signal?: AbortSignal) =>
