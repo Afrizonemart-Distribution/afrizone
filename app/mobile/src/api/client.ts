@@ -44,6 +44,7 @@ import type {
   Evidence,
   EvidenceList,
   EvidenceStage,
+  Signature,
   Presence,
 } from './types';
 
@@ -589,6 +590,31 @@ export const api = {
   /** GET /api/me/evidence?taskId=: my photos for a job, and what it still asks for. */
   myEvidence(taskId: string, signal?: AbortSignal): Promise<EvidenceList> {
     return request<EvidenceList>(`/me/evidence?taskId=${encodeURIComponent(taskId)}`, { signal });
+  },
+
+  /**
+   * POST /api/me/evidence/signature: the other side of a handover signed on
+   * this phone. Signing again for the same step replaces it.
+   */
+  sendSignature(input: {
+    taskId: string;
+    stage: EvidenceStage;
+    signerName: string;
+    path: string;
+    width: number;
+    height: number;
+    at: { lat: number; lng: number; accuracy: number | null } | null;
+    capturedAt: Date;
+  }): Promise<Signature> {
+    const { at, capturedAt, ...rest } = input;
+    return request<Signature>('/me/evidence/signature', {
+      method: 'POST',
+      body: {
+        ...rest,
+        ...(at ? { lat: at.lat, lng: at.lng, accuracy: at.accuracy } : {}),
+        capturedAt: capturedAt.toISOString(),
+      },
+    });
   },
 
   /** POST /api/me/audits: file a store audit. Needs its photos first. */

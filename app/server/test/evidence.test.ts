@@ -16,12 +16,17 @@
 //   cannot clock somebody in for the rest of the month.
 //
 //   A DOOR PHOTO IS DELETED WITH THE REST OF THE CUSTOMER'S DATA (§5).
+//
+// And signatures, which sit beside the photos at every handover - the shop at
+// pickup, the customer at the door, the store manager on an audit, the site
+// contact on field work - and go through the same checks, the same switch and,
+// at the door, the same purge.
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import crypto from "crypto";
 import { SELF } from "cloudflare:test";
 import { apiGet, apiPost } from "./http";
 import { createUserWithToken, testPrisma } from "./helpers";
-import { checkEvidence, required, type Site } from "../src/services/evidence";
+import { checkEvidence, required, signatureRequired, type Site } from "../src/services/evidence";
 import { purgeCustomerData, RETENTION_DAYS } from "../src/services/deliveryPurge";
 import { SYSTEM_ACTORS } from "../src/util/audit";
 
@@ -86,6 +91,30 @@ async function sendPhoto(
     body: form,
   });
   return { status: res.status, body: (await res.json().catch(() => undefined)) as any };
+}
+
+// A tick, drawn on a 300x150 pad.
+const TICK = "M10 80 L60 130 L290 20";
+
+async function sendSignature(
+  token: string,
+  fields: { taskId: string; stage: string; signerName?: string; path?: string; at?: { lat: number; lng: number } | null }
+) {
+  const at = fields.at === undefined ? SHOP : fields.at;
+  return apiPost(
+    "/api/me/evidence/signature",
+    {
+      taskId: fields.taskId,
+      stage: fields.stage,
+      signerName: fields.signerName ?? "Bola Ade",
+      path: fields.path ?? TICK,
+      width: 300,
+      height: 150,
+      ...(at ? { lat: at.lat, lng: at.lng, accuracy: 10 } : {}),
+      capturedAt: new Date().toISOString(),
+    },
+    token
+  );
 }
 
 let seq = 0;
@@ -195,6 +224,15 @@ describe("what each kind of work asks for", () => {
     expect(required(t("GENERAL", "HOURLY", "REMOTE"), "CLOCK_IN")).toBe(0);
     expect(required(t("GENERAL", "FIXED"), "CLOCK_IN")).toBe(0);
   });
+
+  it("asks for a signature at every handover, and not to clock in or out", () => {
+    expect(signatureRequired(t("DELIVERY"), "PICKUP")).toBe(true);
+    expect(signatureRequired(t("DELIVERY"), "DROPOFF")).toBe(true);
+    expect(signatureRequired(t("STORE_AUDIT"), "AUDIT")).toBe(true);
+    expect(signatureRequired(t("MEDIA", "FIXED", "REMOTE"), "WORK")).toBe(true);
+    expect(signatureRequired(t("GENERAL", "HOURLY"), "CLOCK_IN")).toBe(false);
+    expect(signatureRequired(t("GENERAL"), "WORK")).toBe(false);
+  });
 });
 
 describe("the checks a photo goes through", () => {
@@ -295,6 +333,54 @@ describe("who may see a photo", () => {
   });
 });
 
+describe("taking a signature", () => {
+  it("accepts one from the assigned worker, with the signer's name, and checks it on arrival", async () => {
+    const { worker, task } = await assignedTask({ kind: "STORE_AUDIT" });
+    const res = await sendSignature(worker.token, { taskId: task.id, stage: "AUDIT", at: AWAY });
+    expect(res.status).toBe(201);
+    expect(res.body.signerName).toBe("Bola Ade");
+    expect(res.body.path).toBe(TICK);
+    expect(res.body.flags[0]).toMatch(/^Signed 2\.\d km from the store$/);
+  });
+
+  it("needs the signer's name and an actual drawing", async () => {
+    const { worker, task } = await assignedTask({ kind: "STORE_AUDIT" });
+    expect((await sendSignature(worker.token, { taskId: task.id, stage: "AUDIT", signerName: "  " })).status).toBe(400);
+    expect((await sendSignature(worker.token, { taskId: task.id, stage: "AUDIT", path: "" })).status).toBe(400);
+  });
+
+  it("refuses anything but path data, so it is safe to draw for a reviewer", async () => {
+    const { worker, task } = await assignedTask({ kind: "STORE_AUDIT" });
+    const res = await sendSignature(worker.token, {
+      taskId: task.id,
+      stage: "AUDIT",
+      path: 'M0 0"/><script>alert(1)</script>',
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("refuses a stranger and a step that takes no signature", async () => {
+    const { worker, task } = await assignedTask({ kind: "GENERAL", payModel: "HOURLY", rate: 2000, budget: null });
+    expect((await sendSignature(worker.token, { taskId: task.id, stage: "CLOCK_IN" })).status).toBe(400);
+    const stranger = await createUserWithToken("WORKER");
+    const audit = await assignedTask({ kind: "STORE_AUDIT" });
+    expect((await sendSignature(stranger.token, { taskId: audit.task.id, stage: "AUDIT" })).status).toBe(403);
+  });
+
+  it("keeps one per step: signing again replaces it", async () => {
+    const { worker, task, admin } = await assignedTask({ kind: "STORE_AUDIT" });
+    await sendSignature(worker.token, { taskId: task.id, stage: "AUDIT", signerName: "First try" });
+    await sendSignature(worker.token, { taskId: task.id, stage: "AUDIT", signerName: "Second try" });
+
+    const mine = await apiGet(`/api/me/evidence?taskId=${task.id}`, worker.token);
+    expect(mine.body.requirements).toEqual([expect.objectContaining({ stage: "AUDIT", signature: true, signed: true })]);
+    expect(mine.body.signatures.map((s: any) => s.signerName)).toEqual(["Second try"]);
+
+    const staff = await apiGet(`/api/admin/evidence?taskId=${task.id}`, admin.token);
+    expect(staff.body.signatures).toHaveLength(1);
+  });
+});
+
 // ── The gates ────────────────────────────────────────────────────────────────
 
 describe("the steps that need a photo", () => {
@@ -307,6 +393,14 @@ describe("the steps that need a photo", () => {
 
     const photo = await sendPhoto(courier.token, { taskId: delivery.taskId, stage: "PICKUP", at: SHOP });
     expect(photo.body.flags).toEqual([]);
+
+    // The photo shows the goods; the signature shows the shop handed them over.
+    const unsigned = await apiPost(`/api/deliveries/${delivery.id}/picked-up`, {}, courier.token);
+    expect(unsigned.status).toBe(400);
+    expect(unsigned.body.code).toBe("SIGNATURE_REQUIRED");
+    expect(unsigned.body.stage).toBe("PICKUP");
+
+    await sendSignature(courier.token, { taskId: delivery.taskId, stage: "PICKUP" });
     const ok = await apiPost(`/api/deliveries/${delivery.id}/picked-up`, {}, courier.token);
     expect(ok.status).toBe(200);
   });
@@ -314,6 +408,7 @@ describe("the steps that need a photo", () => {
   it("asks for the door photo before the customer's code is spent", async () => {
     const { delivery, courier } = await claimedDelivery();
     await sendPhoto(courier.token, { taskId: delivery.taskId, stage: "PICKUP", at: SHOP });
+    await sendSignature(courier.token, { taskId: delivery.taskId, stage: "PICKUP" });
     await apiPost(`/api/deliveries/${delivery.id}/picked-up`, {}, courier.token);
 
     const bare = await apiPost(`/api/deliveries/${delivery.id}/complete`, { code: "123456" }, courier.token);
@@ -322,6 +417,13 @@ describe("the steps that need a photo", () => {
     // Nothing was asked of Mart: the attempt count is untouched.
     const after = await prisma().delivery.findUnique({ where: { id: delivery.id } });
     expect(after.status).toBe("PICKED_UP");
+
+    // The customer signs before the code is spent too.
+    await sendPhoto(courier.token, { taskId: delivery.taskId, stage: "DROPOFF", at: DOOR });
+    const unsigned = await apiPost(`/api/deliveries/${delivery.id}/complete`, { code: "123456" }, courier.token);
+    expect(unsigned.status).toBe(400);
+    expect(unsigned.body.code).toBe("SIGNATURE_REQUIRED");
+    expect(unsigned.body.stage).toBe("DROPOFF");
   });
 
   it("will not file an audit with fewer than three photos", async () => {
@@ -333,6 +435,11 @@ describe("the steps that need a photo", () => {
 
     await sendPhoto(worker.token, { taskId: task.id, stage: "AUDIT", at: SHOP });
     await sendPhoto(worker.token, { taskId: task.id, stage: "AUDIT", at: SHOP });
+    const unsigned = await apiPost("/api/me/audits", { taskId: task.id, score: 80 }, worker.token);
+    expect(unsigned.status).toBe(400);
+    expect(unsigned.body.code).toBe("SIGNATURE_REQUIRED");
+
+    await sendSignature(worker.token, { taskId: task.id, stage: "AUDIT", signerName: "Store manager" });
     const filed = await apiPost("/api/me/audits", { taskId: task.id, score: 80 }, worker.token);
     expect(filed.status).toBe(201);
   });
@@ -342,6 +449,8 @@ describe("the steps that need a photo", () => {
     const sheet = { taskId: task.id, periodStart: new Date().toISOString(), periodEnd: new Date().toISOString(), hours: 1 };
     expect((await apiPost("/api/timesheets", sheet, worker.token)).status).toBe(400);
     await sendPhoto(worker.token, { taskId: task.id, stage: "WORK", at: SHOP });
+    expect((await apiPost("/api/timesheets", sheet, worker.token)).body.code).toBe("SIGNATURE_REQUIRED");
+    await sendSignature(worker.token, { taskId: task.id, stage: "WORK" });
     expect((await apiPost("/api/timesheets", sheet, worker.token)).status).toBe(201);
   });
 
@@ -377,6 +486,8 @@ describe("door photos and the customer-data promise", () => {
     const { delivery, courier } = await claimedDelivery();
     await sendPhoto(courier.token, { taskId: delivery.taskId, stage: "PICKUP", at: SHOP });
     await sendPhoto(courier.token, { taskId: delivery.taskId, stage: "DROPOFF", at: DOOR });
+    await sendSignature(courier.token, { taskId: delivery.taskId, stage: "PICKUP" });
+    await sendSignature(courier.token, { taskId: delivery.taskId, stage: "DROPOFF", signerName: "Ada O.", at: DOOR });
 
     const when = new Date(Date.now() - (RETENTION_DAYS + 1) * 864e5);
     await prisma().$executeRawUnsafe(
@@ -389,5 +500,8 @@ describe("door photos and the customer-data promise", () => {
 
     const left = await prisma().evidence.findMany({ where: { taskId: delivery.taskId } });
     expect(left.map((e: any) => e.stage)).toEqual(["PICKUP"]);
+    // The customer's signature carries their name and goes with the rest.
+    const signed = await prisma().signature.findMany({ where: { taskId: delivery.taskId } });
+    expect(signed.map((s: any) => s.stage)).toEqual(["PICKUP"]);
   });
 });

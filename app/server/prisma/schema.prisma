@@ -94,6 +94,7 @@ model User {
   courierProfile      CourierProfile?
   courierPresence     CourierPresence?
   evidence            Evidence[]
+  signatures          Signature[]
   credentials         Credential[]         @relation("WorkerCredentials")
   credentialsReviewed Credential[]         @relation("CredentialsReviewed")
   orgMemberships      OrganizationMember[]
@@ -169,6 +170,7 @@ model Task {
   /// At most one: a delivery posting has one slot and one order behind it.
   delivery               Delivery?
   evidence               Evidence[]
+  signatures             Signature[]
 
   @@index([status])
   /// "Which audit tasks are open?" and "what is this store's task?" are both
@@ -1050,6 +1052,48 @@ model Evidence {
   @@index([taskId, workerId, stage])
   /// The upload quota counts on this.
   @@index([workerId, createdAt])
+}
+
+/// A signature taken on the Tasker's phone at a handover (services/evidence.ts):
+/// the shop at pickup, the customer at the door, the store manager on an
+/// audit, the site contact on field work.
+///
+/// Stored as SVG path data in the row, not as an image in R2: a few kilobytes
+/// of strokes, which a reviewer's screen draws directly. Only M, L, Q, C and Z
+/// commands and numbers are accepted, so what is drawn can never be anything
+/// but lines.
+///
+/// One per Tasker per step: signing again replaces it. A DROPOFF signature is
+/// customer data and is deleted by the delivery purge.
+model Signature {
+  id       String @id @default(cuid())
+  taskId   String
+  workerId String
+  /// PICKUP | DROPOFF | AUDIT | WORK.
+  stage    String
+
+  /// Typed by the signer or the Tasker. A scrawl alone does not say who.
+  signerName String
+  /// SVG path data in the pad's own coordinates, `width` by `height`.
+  path       String
+  width      Float
+  height     Float
+
+  /// Where and when, as the phone reports them; checked like a photo's.
+  lat            Float?
+  lng            Float?
+  accuracyMetres Float?
+  capturedAt     DateTime?
+  distanceMetres Float?
+  /// JSON array of sentences, one per check that failed.
+  flags          String?
+
+  createdAt DateTime @default(now())
+
+  task   Task @relation(fields: [taskId], references: [id])
+  worker User @relation(fields: [workerId], references: [id])
+
+  @@unique([taskId, workerId, stage])
 }
 
 /// A courier who is online, and where they last were (services/ranking.ts).

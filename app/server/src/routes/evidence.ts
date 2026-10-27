@@ -24,8 +24,11 @@ import {
   checkEvidence,
   evidenceView,
   required,
+  signatureRequired,
+  signatureView,
   siteFor,
   stagesFor,
+  validSignaturePath,
   type EvidenceStage,
 } from "../services/evidence";
 
@@ -203,18 +206,94 @@ router.get("/", requireAuth, async (req: AuthedRequest, res: ExpressResponse) =>
   if (!assignment.ok) return res.status(assignment.status).json({ error: assignment.error });
   const { task } = assignment;
 
-  const rows = await prisma.evidence.findMany({
-    where: { taskId: task.id, workerId: req.user!.id },
-    orderBy: { createdAt: "asc" },
-  });
+  const [rows, signed] = await Promise.all([
+    prisma.evidence.findMany({
+      where: { taskId: task.id, workerId: req.user!.id },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.signature.findMany({
+      where: { taskId: task.id, workerId: req.user!.id },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
   const views = rows.map(evidenceView);
+  const signatures = signed.map(signatureView);
   res.json({
     requirements: stagesFor(task).map((s) => ({
       ...s,
       have: views.filter((v) => v.stage === s.stage).length,
+      signed: signatures.some((v) => v.stage === s.stage),
     })),
     evidence: views,
+    signatures,
   });
+});
+
+/**
+ * POST /api/me/evidence/signature -> the other side of a handover signs on the
+ * Tasker's phone. JSON: taskId, stage, signerName, path (SVG path data), width,
+ * height, and lat, lng, accuracy, capturedAt as the phone reports them.
+ *
+ * Ordinary JSON, so it stays on Express rather than beside the photo upload:
+ * there is no file, only strokes.
+ *
+ * One per Tasker per step. Signing again replaces the last one - a smudged
+ * signature redone is the same handover, not a second one.
+ */
+router.post("/signature", requireAuth, async (req: AuthedRequest, res: ExpressResponse) => {
+  const workerId = req.user!.id;
+  const body = req.body ?? {};
+
+  const stage = body.stage;
+  if (typeof stage !== "string" || !EVIDENCE_STAGES.includes(stage as EvidenceStage)) {
+    return res.status(400).json({ error: `stage must be one of ${EVIDENCE_STAGES.join(", ")}` });
+  }
+
+  const assignment = await requireAssignedTask(workerId, body.taskId);
+  if (!assignment.ok) return res.status(assignment.status).json({ error: assignment.error });
+  const { task } = assignment;
+
+  if (!signatureRequired(task, stage as EvidenceStage)) {
+    return res.status(400).json({ error: "This job does not ask for a signature at that step" });
+  }
+
+  const signerName = typeof body.signerName === "string" ? body.signerName.trim().slice(0, 120) : "";
+  if (!signerName) return res.status(400).json({ error: "Write the name of the person signing" });
+  if (!validSignaturePath(body.path)) return res.status(400).json({ error: "Ask them to sign in the box" });
+
+  const width = Number(body.width);
+  const height = Number(body.height);
+  if (!(width > 0 && width <= 4000 && height > 0 && height <= 4000)) {
+    return res.status(400).json({ error: "width and height must describe the signing box" });
+  }
+
+  const n = (v: unknown) => (v === null || v === undefined || v === "" ? null : Number.isFinite(Number(v)) ? Number(v) : null);
+  const capturedAt =
+    typeof body.capturedAt === "string" && !Number.isNaN(Date.parse(body.capturedAt)) ? new Date(body.capturedAt) : null;
+  const input = { lat: n(body.lat), lng: n(body.lng), accuracyMetres: n(body.accuracy), capturedAt };
+  const site = await siteFor(task, stage as EvidenceStage);
+  const { flags, distanceMetres } = checkEvidence(input, site, new Date(), "signature");
+
+  const data = {
+    signerName,
+    path: body.path as string,
+    width,
+    height,
+    lat: input.lat,
+    lng: input.lng,
+    accuracyMetres: input.accuracyMetres,
+    capturedAt,
+    distanceMetres,
+    flags: JSON.stringify(flags),
+    createdAt: new Date(),
+  };
+  const row = await prisma.signature.upsert({
+    where: { taskId_workerId_stage: { taskId: task.id, workerId, stage } },
+    create: { taskId: task.id, workerId, stage, ...data },
+    update: data,
+  });
+
+  res.status(201).json(signatureView(row));
 });
 
 /**
@@ -234,15 +313,18 @@ adminRouter.get(
     const task = await prisma.task.findUnique({ where: { id: taskId } });
     if (!task) return res.status(404).json({ error: "Task not found" });
 
-    const rows = await prisma.evidence.findMany({
-      where: { taskId, ...(workerId ? { workerId } : {}) },
-      orderBy: { createdAt: "asc" },
-    });
+    const where = { taskId, ...(workerId ? { workerId } : {}) };
+    const [rows, signed] = await Promise.all([
+      prisma.evidence.findMany({ where, orderBy: { createdAt: "asc" } }),
+      prisma.signature.findMany({ where, orderBy: { createdAt: "asc" } }),
+    ]);
     const views = rows.map(evidenceView);
+    const signatures = signed.map(signatureView);
     res.json({
       requirements: stagesFor(task),
       evidence: views,
-      flaggedCount: views.filter((v) => v.flagged).length,
+      signatures,
+      flaggedCount: views.filter((v) => v.flagged).length + signatures.filter((v) => v.flagged).length,
     });
   }
 );

@@ -19,6 +19,10 @@
  * WHAT EACH KIND OF WORK NEEDS is the table below, and only that table. Every
  * gate asks `required(task, stage)` rather than knowing the rules itself, so a
  * change of policy is one edit.
+ *
+ * SIGNATURES SIT BESIDE THE PHOTOS at every handover (`signatureRequired`):
+ * the photo shows what was there, the signature that somebody on the other
+ * side agreed it happened. Same gate, same switch, same where-and-when checks.
  */
 import { prisma } from "../prisma";
 import { haversineMetres, isValidCoord, formatDistance } from "../util/geo";
@@ -70,11 +74,41 @@ export function required(task: TaskShape, stage: EvidenceStage): number {
   }
 }
 
+/**
+ * Whether this step also needs a signature from the other side of the handover.
+ *
+ * Every step that needs a photo, except clocking: the shop signs at pickup, the
+ * customer at the door, the store manager on an audit, whoever the work was for
+ * on field work. A clock-in has nobody on the other side to sign, and the
+ * geofence and the photo already cover it.
+ */
+export function signatureRequired(task: TaskShape, stage: EvidenceStage): boolean {
+  if (stage === "CLOCK_IN" || stage === "CLOCK_OUT") return false;
+  return required(task, stage) > 0;
+}
+
+/** Who signs at each step, as the Tasker is asked for it. */
+export const SIGNER_LABEL: Partial<Record<EvidenceStage, string>> = {
+  PICKUP: "Somebody at the shop",
+  DROPOFF: "The customer",
+  AUDIT: "The store manager",
+  WORK: "Whoever the work was for",
+};
+
 /** The stages this task asks for, in the order they happen. */
-export function stagesFor(task: TaskShape): { stage: EvidenceStage; count: number; label: string }[] {
-  return EVIDENCE_STAGES.map((stage) => ({ stage, count: required(task, stage), label: STAGE_LABEL[stage] })).filter(
-    (s) => s.count > 0
-  );
+export function stagesFor(
+  task: TaskShape
+): { stage: EvidenceStage; count: number; label: string; signature: boolean; signer: string | null }[] {
+  return EVIDENCE_STAGES.map((stage) => {
+    const signature = signatureRequired(task, stage);
+    return {
+      stage,
+      count: required(task, stage),
+      label: STAGE_LABEL[stage],
+      signature,
+      signer: signature ? SIGNER_LABEL[stage] ?? null : null,
+    };
+  }).filter((s) => s.count > 0);
 }
 
 export const ENFORCE_SETTING_KEY = "evidence.enforce";
@@ -163,18 +197,21 @@ export interface CheckInput {
 export function checkEvidence(
   input: CheckInput,
   site: Site | null,
-  receivedAt: Date
+  receivedAt: Date,
+  what: "photo" | "signature" = "photo"
 ): { flags: string[]; distanceMetres: number | null } {
   const flags: string[] = [];
   let distanceMetres: number | null = null;
+  // A signature is signed, not taken; the sentence should say which it was.
+  const done = what === "photo" ? "Taken" : "Signed";
 
   const located = isValidCoord(input.lat, input.lng);
   if (!located) {
-    flags.push("No location with the photo");
+    flags.push(`No location with the ${what}`);
   } else if (site) {
     distanceMetres = Math.round(haversineMetres(input.lat as number, input.lng as number, site.lat, site.lng));
     if (distanceMetres > site.toleranceMetres) {
-      flags.push(`Taken ${formatDistance(distanceMetres)} from ${site.name}`);
+      flags.push(`${done} ${formatDistance(distanceMetres)} from ${site.name}`);
     }
   }
 
@@ -183,11 +220,11 @@ export function checkEvidence(
   }
 
   if (!input.capturedAt) {
-    flags.push("No time with the photo");
+    flags.push(`No time with the ${what}`);
   } else {
     const ageMinutes = (receivedAt.getTime() - input.capturedAt.getTime()) / 60_000;
     if (ageMinutes > STALE_MINUTES) {
-      flags.push(`Taken ${Math.round(ageMinutes)} min before it was sent`);
+      flags.push(`${done} ${Math.round(ageMinutes)} min before it was sent`);
     } else if (ageMinutes < -FUTURE_MINUTES) {
       flags.push("The phone's clock is ahead, so its time cannot be trusted");
     }
@@ -198,13 +235,24 @@ export function checkEvidence(
 
 // ── Gates ────────────────────────────────────────────────────────────────────
 
-export type GateResult = { ok: true } | { ok: false; error: string; code: "EVIDENCE_REQUIRED"; stage: EvidenceStage; needed: number; have: number };
+export type GateResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      code: "EVIDENCE_REQUIRED" | "SIGNATURE_REQUIRED";
+      stage: EvidenceStage;
+      needed: number;
+      have: number;
+    };
 
 /**
  * Has this worker shown enough for this stage of this task?
  *
  * Counted per worker, not per task: on a task with several slots, one person's
- * photos are not another's proof.
+ * photos are not another's proof. Photos are asked for before the signature,
+ * because that is the order a handover happens in: the goods, then the
+ * person agreeing they changed hands.
  */
 export async function requireEvidence(
   task: TaskShape & { id: string },
@@ -216,7 +264,19 @@ export async function requireEvidence(
   if (!(await isEnforcing())) return { ok: true };
 
   const have = await prisma.evidence.count({ where: { taskId: task.id, workerId, stage } });
-  if (have >= needed) return { ok: true };
+  if (have >= needed) {
+    if (!signatureRequired(task, stage)) return { ok: true };
+    const signed = await prisma.signature.count({ where: { taskId: task.id, workerId, stage } });
+    if (signed > 0) return { ok: true };
+    return {
+      ok: false,
+      code: "SIGNATURE_REQUIRED",
+      stage,
+      needed: 1,
+      have: 0,
+      error: `Get a signature first (${(SIGNER_LABEL[stage] ?? "the other person").toLowerCase()})`,
+    };
+  }
 
   const missing = needed - have;
   return {
@@ -282,6 +342,68 @@ export function parseFlags(raw: string | null | undefined): string[] {
   } catch {
     return [];
   }
+}
+
+// ── Signatures ───────────────────────────────────────────────────────────────
+
+/** A long, careful signature is a few thousand characters; this is far past that. */
+export const MAX_SIGNATURE_PATH = 50_000;
+
+/**
+ * Only absolute and relative move, line, quadratic and cubic commands, close,
+ * and numbers. Whatever the client sends, what a reviewer's screen draws can
+ * then only ever be lines - no markup, no references, nothing that loads.
+ */
+const PATH_DATA = /^[MLQCZmlqcz0-9eE.,\s-]+$/;
+
+export function validSignaturePath(path: unknown): path is string {
+  return (
+    typeof path === "string" &&
+    path.length <= MAX_SIGNATURE_PATH &&
+    /^\s*[Mm]/.test(path) &&
+    /\d/.test(path) &&
+    PATH_DATA.test(path)
+  );
+}
+
+export function signatureView(s: {
+  id: string;
+  taskId: string;
+  workerId: string;
+  stage: string;
+  signerName: string;
+  path: string;
+  width: number;
+  height: number;
+  lat: number | null;
+  lng: number | null;
+  accuracyMetres: number | null;
+  capturedAt: Date | null;
+  distanceMetres: number | null;
+  flags: string | null;
+  createdAt: Date;
+}) {
+  const flags = parseFlags(s.flags);
+  return {
+    id: s.id,
+    taskId: s.taskId,
+    workerId: s.workerId,
+    stage: s.stage,
+    stageLabel: STAGE_LABEL[s.stage as EvidenceStage] ?? s.stage,
+    signerName: s.signerName,
+    path: s.path,
+    width: s.width,
+    height: s.height,
+    lat: s.lat,
+    lng: s.lng,
+    accuracyMetres: s.accuracyMetres,
+    capturedAt: s.capturedAt,
+    receivedAt: s.createdAt,
+    distanceMetres: s.distanceMetres,
+    distance: s.distanceMetres != null ? formatDistance(s.distanceMetres) : null,
+    flags,
+    flagged: flags.length > 0,
+  };
 }
 
 /** One photo as it goes over the wire. The bytes are behind `url`, which checks who is asking. */

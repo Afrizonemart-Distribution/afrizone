@@ -672,9 +672,31 @@ export interface EvidenceItem {
   flagged: boolean
 }
 
+/** A signature taken at a handover, drawn from its SVG path data. */
+export interface SignatureItem {
+  id: string
+  taskId: string
+  workerId: string
+  stage: string
+  stageLabel: string
+  signerName: string
+  /** SVG path data, M/L/Q/C/Z and numbers only (the server refuses anything else). */
+  path: string
+  width: number
+  height: number
+  lat: number | null
+  lng: number | null
+  capturedAt: string | null
+  receivedAt: string
+  distance: string | null
+  flags: string[]
+  flagged: boolean
+}
+
 export interface EvidenceReview {
-  requirements: { stage: string; count: number; label: string }[]
+  requirements: { stage: string; count: number; label: string; signature?: boolean; signer?: string | null }[]
   evidence: EvidenceItem[]
+  signatures?: SignatureItem[]
   flaggedCount: number
 }
 

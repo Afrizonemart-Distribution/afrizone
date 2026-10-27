@@ -267,8 +267,6 @@ distinguishable from a quiet week.
 
 - **Ranked matching for anything but deliveries** (§11). Deliveries are done
   (§9); every other task is still apply-then-approve with no ordering.
-- **Signatures as proof of work** (§14). Photos are built (§9); a customer or
-  store signature on the phone is not.
 - **Reputation tiers and badges** (§9). Note this is a *third* meaning of "tier"
   in the project — bronze/silver/gold reputation standing, distinct from both the
   work-category tiers (`STUDENT`, `DISPATCH`…) and any store tier from §14.
@@ -355,8 +353,18 @@ order themselves.** Everything below is in the order it is worth doing:
    The worker app gained the photo panel and an audit-filing form (there was
    none); the admin site shows photos, flagged first, from Timesheets,
    Deliveries and each task card. Migration `0022_evidence.sql`, 21 tests in
-   `test/evidence.test.ts`. **Not built:** signatures, and an admin screen for
-   store audit results generally (photos are reviewed from the task card).
+   `test/evidence.test.ts`. **Signatures, built 27 October 2026, not yet
+   deployed:** every step that needs a photo except clocking also needs the
+   other side of the handover to sign on the Tasker's phone - the shop at
+   pickup, the customer at the door, the store manager on an audit, the site
+   contact on field work (`signatureRequired`). Signer's typed name plus SVG
+   path data (M/L/Q/C/Z and numbers only), stored in the row, not R2; same
+   where-and-when flags as a photo, same `evidence.enforce` switch, refusal
+   code `SIGNATURE_REQUIRED`; signing again replaces. Door signatures are
+   customer data and go with the §5 purge. Migration `0024_signatures.sql`,
+   `POST /api/me/evidence/signature`; shown in the admin's proof-of-work
+   dialog. **Not built:** an admin screen for store audit results generally
+   (photos and signatures are reviewed from the task card).
 3. **Reputation tiers and badges** (§9). Note this is a *third* meaning of
    "tier"; the naming needs settling before it is built.
 4. **Surge pay, crew contracts, referral loop** (§10, §14), **shared identity

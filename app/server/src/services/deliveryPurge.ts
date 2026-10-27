@@ -95,6 +95,8 @@ export async function purgeCustomerData(
       if (photos.length > 0) {
         await prisma.evidence.deleteMany({ where: { id: { in: photos.map((p) => p.id) } } });
       }
+      // The customer's signature carries their name. Rows only, nothing in R2.
+      await prisma.signature.deleteMany({ where: { taskId: row.taskId, stage: "DROPOFF" } });
     }
     await prisma.delivery.update({
       where: { id: row.id },

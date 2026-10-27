@@ -747,11 +747,32 @@ export interface EvidenceRequirement {
   label: string;
   count: number;
   have: number;
+  /** Whether this step also needs the other side of the handover to sign. */
+  signature: boolean;
+  /** Who signs, in words: "The customer". Null when no signature is needed. */
+  signer: string | null;
+  signed: boolean;
+}
+
+/** A signature taken on this phone at a handover, as the server checked it. */
+export interface Signature {
+  id: string;
+  taskId: string;
+  stage: EvidenceStage;
+  signerName: string;
+  /** SVG path data in a `width` x `height` box. */
+  path: string;
+  width: number;
+  height: number;
+  distance: string | null;
+  flags: string[];
+  flagged: boolean;
 }
 
 export interface EvidenceList {
   requirements: EvidenceRequirement[];
   evidence: Evidence[];
+  signatures: Signature[];
 }
 
 /** Whether a courier is online for ranked offers (GET/PUT/DELETE /api/me/presence). */

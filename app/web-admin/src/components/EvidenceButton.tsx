@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, fetchAuthedObjectUrl } from '../api/client'
-import type { EvidenceItem, EvidenceReview } from '../api/types'
+import type { EvidenceItem, EvidenceReview, SignatureItem } from '../api/types'
 import Button from './ui/Button'
 import Modal from './ui/Modal'
 import { ErrorState, LoadingState } from './ui/StateView'
@@ -60,6 +60,9 @@ function EvidenceDialog({
   const items = data
     ? [...data.evidence].sort((a, b) => Number(b.flagged) - Number(a.flagged))
     : []
+  const signatures = data
+    ? [...(data.signatures ?? [])].sort((a, b) => Number(b.flagged) - Number(a.flagged))
+    : []
 
   return (
     <Modal
@@ -86,10 +89,28 @@ function EvidenceDialog({
             <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 14px' }}>
               This job asks for:{' '}
               {data.requirements
-                .map((r) => `${r.label.toLowerCase()}${r.count > 1 ? ` (${r.count})` : ''}`)
-                .join(', ')}
+                .map(
+                  (r) =>
+                    `${r.label.toLowerCase()}${r.count > 1 ? ` (${r.count})` : ''}` +
+                    (r.signature && r.signer ? `, signed by ${r.signer.toLowerCase()}` : '')
+                )
+                .join('; ')}
               .
             </p>
+          )}
+          {signatures.length > 0 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                gap: 14,
+                marginBottom: 14,
+              }}
+            >
+              {signatures.map((s) => (
+                <SignatureCard key={s.id} s={s} />
+              ))}
+            </div>
           )}
           <div
             style={{
@@ -105,6 +126,61 @@ function EvidenceDialog({
         </>
       )}
     </Modal>
+  )
+}
+
+/**
+ * A signature, drawn from its path data. Safe to put straight into an <svg>:
+ * the server only accepts move, line, curve and close commands and numbers,
+ * and React sets `d` as an attribute, never as markup.
+ */
+function SignatureCard({ s }: { s: SignatureItem }) {
+  const when = s.capturedAt ?? s.receivedAt
+  return (
+    <figure
+      style={{
+        margin: 0,
+        border: `1px solid ${s.flagged ? 'var(--gold-ink, #8a5a00)' : 'var(--line)'}`,
+        borderRadius: 12,
+        overflow: 'hidden',
+        background: 'var(--card, #fff)',
+      }}
+    >
+      <div style={{ aspectRatio: '2 / 1', background: '#fff', padding: 8 }}>
+        <svg
+          viewBox={`0 0 ${s.width} ${s.height}`}
+          style={{ width: '100%', height: '100%' }}
+          role="img"
+          aria-label={`Signature of ${s.signerName}`}
+        >
+          <path d={s.path} stroke="#1E2643" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <figcaption style={{ padding: '10px 12px', fontSize: 12, lineHeight: 1.45 }}>
+        <div style={{ fontWeight: 700 }}>
+          Signed by {s.signerName} · {s.stageLabel.toLowerCase()}
+        </div>
+        <div style={{ color: 'var(--muted)' }}>
+          {new Date(when).toLocaleString()}
+          {s.distance ? ` · ${s.distance} from site` : ''}
+        </div>
+        {s.flags.map((f) => (
+          <div key={f} style={{ color: 'var(--gold-ink, #8a5a00)', fontWeight: 700 }}>
+            {f}
+          </div>
+        ))}
+        {s.lat != null && s.lng != null && (
+          <a
+            href={`https://www.google.com/maps?q=${s.lat},${s.lng}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ fontSize: 12 }}
+          >
+            Where it was signed
+          </a>
+        )}
+      </figcaption>
+    </figure>
   )
 }
 

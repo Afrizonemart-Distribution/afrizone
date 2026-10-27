@@ -13,20 +13,42 @@
  * the shop" under a thumbnail lets a courier who is in fact at the wrong
  * branch notice while they can still do something about it; the photo still
  * counts, and a reviewer decides.
+ *
+ * THEN THE SIGNATURE, where the step asks for one: the photos first, because
+ * that is the order a handover happens in - the goods, then the person on the
+ * other side agreeing they changed hands. The step is ready when both are in.
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Icon } from './Icon';
+import SignaturePad, { type DrawnSignature } from './SignaturePad';
 import { obColors, obRadii } from '../onboarding/onboardingTheme';
 import { api, ApiError } from '../api/client';
 import { API_BASE_URL, SECURE_TOKEN_KEY } from '../api/config';
 import { getItem } from '../lib/storage';
-import type { Evidence, EvidenceStage } from '../api/types';
+import type { Evidence, EvidenceStage, Signature } from '../api/types';
 
 /** The server answers /api/...; API_BASE_URL already ends in /api. */
 const ORIGIN = API_BASE_URL.replace(/\/api\/?$/, '');
+
+/**
+ * Where the phone is now. Best effort: a photo or signature without a position
+ * still counts, and the server flags it rather than this screen refusing to
+ * send it.
+ */
+async function fix(): Promise<{ lat: number; lng: number; accuracy: number | null } | null> {
+  try {
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (perm.status !== 'granted') return null;
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy ?? null };
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Take one photo and send it. Null when the worker backed out of the camera.
@@ -46,19 +68,7 @@ export async function takeEvidencePhoto(taskId: string, stage: EvidenceStage): P
   });
   if (shot.canceled) return null;
   const capturedAt = new Date();
-
-  // The fix is best effort: a photo without a position still counts, and the
-  // server flags it rather than this screen refusing to send it.
-  let at: { lat: number; lng: number; accuracy: number | null } | null = null;
-  try {
-    const perm = await Location.requestForegroundPermissionsAsync();
-    if (perm.status === 'granted') {
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      at = { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy ?? null };
-    }
-  } catch {
-    // No fix. Sent without one.
-  }
+  const at = await fix();
 
   const asset = shot.assets[0];
   return api.uploadEvidence({
@@ -113,6 +123,12 @@ export default function EvidencePanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  // Null when the step takes no signature.
+  const [signer, setSigner] = useState<string | null>(null);
+  const [signature, setSignature] = useState<Signature | null>(null);
+  const [signing, setSigning] = useState(false);
+  const [sigBusy, setSigBusy] = useState(false);
+  const [sigError, setSigError] = useState<string | null>(null);
 
   useEffect(() => {
     void getItem(SECURE_TOKEN_KEY).then(setToken);
@@ -125,6 +141,8 @@ export default function EvidencePanel({
       setNeeded(req?.count ?? 0);
       setLabel(req?.label ?? '');
       setItems(res.evidence.filter((e) => e.stage === stage));
+      setSigner(req?.signature ? req.signer ?? 'The other person' : null);
+      setSignature((res.signatures ?? []).find((s) => s.stage === stage) ?? null);
     } catch {
       // Unknown is not "none needed": leave it null and let the server's
       // refusal, if any, say what is missing.
@@ -135,7 +153,8 @@ export default function EvidencePanel({
     void load();
   }, [load]);
 
-  const ready = needed !== null && items.length >= needed;
+  const photosReady = needed !== null && items.length >= needed;
+  const ready = photosReady && (signer === null || signature !== null);
   useEffect(() => {
     if (needed !== null) onReady?.(ready);
     // onReady is the parent's setter; it is only told when the answer changes.
@@ -152,6 +171,20 @@ export default function EvidencePanel({
       setError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not send the photo. Try again.');
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function sign(drawn: DrawnSignature) {
+    setSigBusy(true);
+    setSigError(null);
+    try {
+      const sent = await api.sendSignature({ taskId, stage, ...drawn, at: await fix(), capturedAt: new Date() });
+      setSignature(sent);
+      setSigning(false);
+    } catch (e) {
+      setSigError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not send the signature. Try again.');
+    } finally {
+      setSigBusy(false);
     }
   }
 
@@ -179,7 +212,7 @@ export default function EvidencePanel({
         </Text>
       )}
 
-      {!ready || items.length === 0 ? (
+      {!photosReady || items.length === 0 ? (
         <Pressable onPress={take} disabled={busy} style={[styles.button, busy && { opacity: 0.6 }]}>
           <Icon name="camera" size={16} color={obColors.white} />
           <Text style={styles.buttonText}>
@@ -192,6 +225,50 @@ export default function EvidencePanel({
         </Pressable>
       )}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      {signer && photosReady ? (
+        <View style={styles.sigBlock}>
+          <View style={styles.head}>
+            <Icon name={signature ? 'check-circle' : 'edit'} size={15} color={signature ? obColors.forest : obColors.amberInk} />
+            <Text style={styles.title}>Signature: {signer.toLowerCase()}</Text>
+          </View>
+          {signature ? (
+            <>
+              <View style={styles.sigPreview}>
+                <Svg width="100%" height="100%" viewBox={`0 0 ${signature.width} ${signature.height}`}>
+                  <Path d={signature.path} stroke={obColors.navy} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </Svg>
+              </View>
+              <Text style={signature.flagged ? styles.flag : styles.ok}>
+                {signature.signerName}
+                {signature.flagged ? ` · ${signature.flags[0]}` : ''}
+              </Text>
+              <Pressable onPress={() => setSigning(true)} style={styles.again}>
+                <Text style={styles.againText}>Sign again</Text>
+              </Pressable>
+            </>
+          ) : (
+            <Pressable onPress={() => setSigning(true)} style={styles.button}>
+              <Icon name="edit" size={16} color={obColors.white} />
+              <Text style={styles.buttonText}>Hand over the phone to sign</Text>
+            </Pressable>
+          )}
+        </View>
+      ) : null}
+
+      {signer ? (
+        <SignaturePad
+          visible={signing}
+          signer={signer}
+          busy={sigBusy}
+          error={sigError}
+          onCancel={() => {
+            setSigning(false);
+            setSigError(null);
+          }}
+          onDone={sign}
+        />
+      ) : null}
     </View>
   );
 }
@@ -226,4 +303,6 @@ const styles = StyleSheet.create({
   again: { alignItems: 'center', paddingVertical: 6 },
   againText: { fontSize: 12.5, fontWeight: '800', color: obColors.textMut },
   error: { fontSize: 12, color: obColors.dangerInk },
+  sigBlock: { gap: 8, borderTopWidth: 1, borderTopColor: obColors.line, paddingTop: 10 },
+  sigPreview: { height: 72, borderRadius: 10, backgroundColor: obColors.white },
 });
