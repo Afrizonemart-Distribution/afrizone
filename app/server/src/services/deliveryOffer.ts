@@ -233,12 +233,22 @@ export function offerStateAt(
   offeredAt: Date | null | undefined,
   now: Date,
   rule: OfferRule,
-  ranked: { workerId: string }[] = []
+  ranked: { workerId: string }[] = [],
+  skippedSeconds = 0
 ): OfferState | null {
   if (!offeredAt) return null;
 
   const elapsed = Math.max(0, now.getTime() - offeredAt.getTime());
   const waitingMinutes = Math.floor(elapsed / MINUTE);
+
+  // PASSES MOVE THE TURN CLOCK, NOT THE CUSTOMER'S. Every window a courier
+  // passed on ended early by the seconds they did not use, so the turns and the
+  // circle are read from offeredAt shifted by that much. Escalation and
+  // waitingMinutes stay on `elapsed`: nobody passing makes the customer's wait
+  // any shorter.
+  const skipped = Math.max(0, skippedSeconds) * 1000;
+  const turnClock = elapsed + skipped;
+  const turnsFrom = offeredAt.getTime() - skipped;
 
   // THE RANKED PHASE COMES FIRST, AND THE CIRCLE WAITS FOR IT. Escalation is
   // still measured from offeredAt - a customer waiting is a customer waiting,
@@ -246,9 +256,9 @@ export function offerStateAt(
   // opens to everyone. Otherwise six minutes of exclusive offers would open the
   // board at double the radius, to couriers twice as far away as it needed.
   const hold = rankedPhaseMinutes(ranked.length, rule) * MINUTE;
-  if (elapsed < hold) {
-    const index = Math.floor(elapsed / (rule.rankedWindowMinutes * MINUTE));
-    const windowEnds = offeredAt.getTime() + (index + 1) * rule.rankedWindowMinutes * MINUTE;
+  if (turnClock < hold) {
+    const index = Math.floor(turnClock / (rule.rankedWindowMinutes * MINUTE));
+    const windowEnds = turnsFrom + (index + 1) * rule.rankedWindowMinutes * MINUTE;
     const escalated = waitingMinutes >= rule.escalateAfterMinutes;
     return {
       stage: escalated ? "ESCALATED" : "RANKED",
@@ -264,12 +274,12 @@ export function offerStateAt(
         index,
         workerId: ranked[index].workerId,
         secondsLeft: Math.max(0, Math.ceil((windowEnds - now.getTime()) / 1000)),
-        opensToAllAt: new Date(offeredAt.getTime() + hold),
+        opensToAllAt: new Date(turnsFrom + hold),
       },
     };
   }
 
-  const open = elapsed - hold;
+  const open = turnClock - hold;
 
   // Doubling rather than adding, because a courier who is not in the first
   // circle is usually well outside it, and stepping out in equal increments
@@ -356,7 +366,8 @@ export function minutesUntilInRange(
   offeredAt: Date,
   now: Date,
   rule: OfferRule,
-  rankedCount = 0
+  rankedCount = 0,
+  skippedSeconds = 0
 ): number | null {
   if (!Number.isFinite(distanceMetres)) return null;
   if (distanceMetres > rule.maxRadiusMetres) return null;
@@ -366,7 +377,8 @@ export function minutesUntilInRange(
     Math.ceil(Math.log2(distanceMetres / rule.baseRadiusMetres))
   );
   const readyAt =
-    offeredAt.getTime() +
+    offeredAt.getTime() -
+    Math.max(0, skippedSeconds) * 1000 +
     rankedPhaseMinutes(rankedCount, rule) * MINUTE +
     stepsNeeded * rule.stepMinutes * MINUTE;
   return Math.max(0, Math.ceil((readyAt - now.getTime()) / MINUTE));

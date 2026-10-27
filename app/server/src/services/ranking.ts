@@ -260,7 +260,7 @@ export async function freezeRanking(
 
     await prisma.delivery.update({
       where: { id: deliveryId },
-      data: { rankedCandidates: JSON.stringify(top), rankedNotified: 0 },
+      data: { rankedCandidates: JSON.stringify(top), rankedNotified: 0, rankedSkippedSeconds: 0 },
     });
     await writeAudit(actor, "delivery.ranked", "Delivery", deliveryId, {
       candidates: top.map((c) => ({ workerId: c.workerId, score: c.score })),
@@ -297,7 +297,7 @@ export async function notifyTurn(
 
   const rule = await offerRule(prisma);
   const ranked = parseRanked(delivery.rankedCandidates);
-  const state = offerStateAt(delivery.offeredAt, now, rule, ranked);
+  const state = offerStateAt(delivery.offeredAt, now, rule, ranked, delivery.rankedSkippedSeconds);
   if (!state?.turn || state.turn.index < delivery.rankedNotified) return null;
 
   const moved = await prisma.delivery.updateMany({
@@ -329,6 +329,57 @@ export async function notifyTurn(
     workerId,
     push: sendPush([{ to: user.pushToken, title, body, data, sound: "default" }], prisma),
   };
+}
+
+export type PassResult =
+  | { ok: true; nextTurn: { index: number } | null }
+  | { ok: false; status: number; code: string; error: string };
+
+/**
+ * The courier whose turn it is gives it up before their window runs out.
+ *
+ * What is left of their window goes into `rankedSkippedSeconds`, which moves
+ * the turn clock straight to the start of the next one; nothing else about the
+ * ranked phase changes shape. The update is conditional on the value read, the
+ * same guard notifyTurn uses, so a pass that races another pass, or the window
+ * ending, cannot skip a candidate who never had their turn.
+ */
+export async function passTurn(
+  deliveryId: string,
+  workerId: string,
+  now: Date = new Date()
+): Promise<PassResult> {
+  const delivery = await prisma.delivery.findUnique({ where: { id: deliveryId } });
+  if (!delivery) return { ok: false, status: 404, code: "NOT_FOUND", error: "Not found" };
+  if (delivery.status !== "STORE_ACCEPTED") {
+    return { ok: false, status: 409, code: "NOT_AVAILABLE", error: "This job is no longer on the board" };
+  }
+
+  const rule = await offerRule(prisma);
+  const ranked = parseRanked(delivery.rankedCandidates);
+  const state = offerStateAt(delivery.offeredAt, now, rule, ranked, delivery.rankedSkippedSeconds);
+  if (!state?.turn || state.turn.workerId !== workerId) {
+    return { ok: false, status: 409, code: "NOT_YOUR_TURN", error: "This job is not being held for you" };
+  }
+
+  const moved = await prisma.delivery.updateMany({
+    where: { id: deliveryId, rankedSkippedSeconds: delivery.rankedSkippedSeconds },
+    data: { rankedSkippedSeconds: delivery.rankedSkippedSeconds + state.turn.secondsLeft },
+  });
+  if (moved.count !== 1) {
+    return { ok: false, status: 409, code: "NOT_YOUR_TURN", error: "This job is not being held for you" };
+  }
+
+  await writeAudit({ type: "USER", userId: workerId }, "delivery.passed", "Delivery", deliveryId, {
+    rankedTurn: state.turn.index,
+    secondsLeft: state.turn.secondsLeft,
+  });
+
+  // Tell the next candidate now rather than at the next cron tick: the point
+  // of passing is that they get the whole of their window. A miss here is
+  // caught by the cron within the minute.
+  const told = await notifyTurn(deliveryId, now);
+  return { ok: true, nextTurn: told ? { index: state.turn.index + 1 } : null };
 }
 
 /**

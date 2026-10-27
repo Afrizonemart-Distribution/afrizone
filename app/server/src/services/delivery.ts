@@ -387,6 +387,7 @@ export async function transitionDelivery(
     // column and ranks it again.
     data.rankedCandidates = null;
     data.rankedNotified = 0;
+    data.rankedSkippedSeconds = 0;
   }
 
   await prisma.$transaction([

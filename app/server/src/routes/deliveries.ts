@@ -58,6 +58,7 @@ import {
 } from "../services/delivery";
 import { isMartOutboundConfigured } from "../services/martOutbound";
 import { requireEvidence } from "../services/evidence";
+import { passTurn } from "../services/ranking";
 import { RETENTION_DAYS, purgeCustomerData, purgeStatus } from "../services/deliveryPurge";
 
 const router = Router();
@@ -81,7 +82,8 @@ function turnFor(
   workerId: string,
   offeredAt: Date,
   rule: OfferRule,
-  now: Date
+  now: Date,
+  skippedSeconds = 0
 ): TurnView {
   if (!state.turn) return { kind: "OPEN" };
   if (state.turn.workerId === workerId) {
@@ -92,7 +94,10 @@ function turnFor(
   const mine = ranked.findIndex((c) => c.workerId === workerId);
   const counted = Math.min(ranked.length, rule.rankedCandidates);
   if (mine > state.turn.index && mine < counted) {
-    const startsAt = offeredAt.getTime() + mine * rule.rankedWindowMinutes * MINUTE;
+    // Read from the same shifted clock as the turns: a pass ahead of you brings
+    // your window forward.
+    const startsAt =
+      offeredAt.getTime() - skippedSeconds * 1000 + mine * rule.rankedWindowMinutes * MINUTE;
     const minutes = Math.max(1, Math.ceil((startsAt - now.getTime()) / MINUTE));
     return {
       kind: "OTHERS_TURN",
@@ -104,7 +109,11 @@ function turnFor(
   const minutes = Math.max(1, Math.ceil((opensAt - now.getTime()) / MINUTE));
   return {
     kind: "OTHERS_TURN",
-    message: `Offered to the best-placed couriers first. Opens to everyone nearby in about ${minutes} min`,
+    // Passed or timed out, it is the same to them: their window is behind them.
+    message:
+      mine >= 0 && mine < state.turn.index
+        ? `Your turn on this one has gone. It opens to everyone nearby in about ${minutes} min`
+        : `Offered to the best-placed couriers first. Opens to everyone nearby in about ${minutes} min`,
     opensToYouInMinutes: minutes,
   };
 }
@@ -381,7 +390,7 @@ router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: R
     if (!task) return [];
 
     const ranked = parseRanked(d.rankedCandidates);
-    const state = offerStateAt(d.offeredAt, now, rule, ranked);
+    const state = offerStateAt(d.offeredAt, now, rule, ranked, d.rankedSkippedSeconds);
     if (!state) return [];
 
     const eligibility = decide(profile, requirements.get(task.id)!);
@@ -391,7 +400,7 @@ router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: R
       { lat: req.query.lat, lng: req.query.lng },
       state
     );
-    const turn = turnFor(state, ranked, req.user!.id, d.offeredAt!, rule, now);
+    const turn = turnFor(state, ranked, req.user!.id, d.offeredAt!, rule, now, d.rankedSkippedSeconds);
 
     // One reason, and the most fixable one first. A courier looking at a job
     // they cannot take needs to know which single thing to do about it, not a
@@ -409,7 +418,7 @@ router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: R
     let waiting: number | null = null;
     if (turn.kind === "OTHERS_TURN") waiting = turn.opensToYouInMinutes;
     else if (turn.kind === "OPEN" && !near.inRange && Number.isFinite(near.distanceMetres)) {
-      waiting = minutesUntilInRange(near.distanceMetres, d.offeredAt!, now, rule, ranked.length);
+      waiting = minutesUntilInRange(near.distanceMetres, d.offeredAt!, now, rule, ranked.length, d.rankedSkippedSeconds);
     }
 
     return [
@@ -486,14 +495,14 @@ router.post("/deliveries/:id/claim", requireAuth, async (req: AuthedRequest, res
   }
 
   const ranked = parseRanked(delivery.rankedCandidates);
-  const state = offerStateAt(delivery.offeredAt, now, rule, ranked);
+  const state = offerStateAt(delivery.offeredAt, now, rule, ranked, delivery.rankedSkippedSeconds);
   if (!state) {
     return res.status(409).json({ error: "This job is not on the board", code: "NOT_OFFERED" });
   }
 
   // While the order is with its ranked candidates, only the one whose turn it
   // is may take it - that is what "offered to the best-placed courier" means.
-  const turn = turnFor(state, ranked, req.user!.id, delivery.offeredAt!, rule, now);
+  const turn = turnFor(state, ranked, req.user!.id, delivery.offeredAt!, rule, now, delivery.rankedSkippedSeconds);
   if (turn.kind === "OTHERS_TURN") {
     return res.status(409).json({
       error: turn.message,
@@ -518,7 +527,7 @@ router.post("/deliveries/:id/claim", requireAuth, async (req: AuthedRequest, res
         code: "NO_LOCATION",
       });
     }
-    const opensIn = minutesUntilInRange(near.distanceMetres, delivery.offeredAt!, now, rule, ranked.length);
+    const opensIn = minutesUntilInRange(near.distanceMetres, delivery.offeredAt!, now, rule, ranked.length, delivery.rankedSkippedSeconds);
     return res.status(403).json({
       error: `You are ${formatDistance(near.distanceMetres)} from the shop; this job is open to couriers within ${formatDistance(near.radiusMetres)}`,
       code: "TOO_FAR",
@@ -563,6 +572,23 @@ router.post("/deliveries/:id/claim", requireAuth, async (req: AuthedRequest, res
     include: { organization: true },
   });
   res.status(201).json({ ...withCustomer(fresh), contractId: result.contractId });
+});
+
+/**
+ * POST /api/deliveries/:id/pass → the courier whose turn it is does not want it.
+ *
+ * Before this, the only way to say no was to let the two minutes run, which
+ * held the order hostage to somebody who had already decided. Passing gives the
+ * rest of the window to the next candidate, who is told at once, and passing as
+ * the last one opens the circle. It does not take the passer off the order: once
+ * it is open to everyone they may still claim it like anybody else in range.
+ */
+router.post("/deliveries/:id/pass", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const result = await passTurn(req.params.id, req.user!.id);
+  if (!result.ok) {
+    return res.status(result.status).json({ error: result.error, code: result.code });
+  }
+  res.json({ passed: true, nextTurn: result.nextTurn });
 });
 
 // ── The courier ──────────────────────────────────────────────────────────────
@@ -751,7 +777,7 @@ adminRouter.get(
     const decorated = rows.map((d) => ({
       ...withCustomer(d),
       // Null for anything not on the board, which is most of them.
-      offer: offerStateAt(d.offeredAt, now, rule, parseRanked(d.rankedCandidates)),
+      offer: offerStateAt(d.offeredAt, now, rule, parseRanked(d.rankedCandidates), d.rankedSkippedSeconds),
     }));
 
     res.json({

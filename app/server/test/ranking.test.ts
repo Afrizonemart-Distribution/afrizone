@@ -274,6 +274,30 @@ describe("whose turn it is", () => {
     expect(minutesUntilInRange(5_000, now, now, rule, 3)).toBe(11);
     expect(minutesUntilInRange(5_000, now, now, rule, 0)).toBe(5);
   });
+
+  it("moves to the next candidate as soon as one passes", () => {
+    // w1 passed 30 seconds in, so 90 seconds of their window were never used.
+    const passed = offerStateAt(ago(0.5), now, rule, three, 90)!;
+    expect(passed.turn!.workerId).toBe("w2");
+    expect(passed.turn!.secondsLeft).toBe(120);
+    expect(passed.turn!.opensToAllAt.getTime()).toBe(now.getTime() + 4 * MINUTE);
+  });
+
+  it("opens the circle early when the last candidate passes, but escalates on real time", () => {
+    const one = [{ workerId: "w1" }];
+    const opened = offerStateAt(ago(0.5), now, rule, one, 90)!;
+    expect(opened.turn).toBeNull();
+    expect(opened.radiusMetres).toBe(3_000);
+    // The circle widens from when it really opened, not from when it would have.
+    expect(offerStateAt(ago(5.5), now, rule, one, 90)!.radiusMetres).toBe(6_000);
+    // The customer has waited what they have waited.
+    expect(offerStateAt(ago(0.5), now, rule, one, 90)!.waitingMinutes).toBe(0);
+  });
+
+  it("brings the open circle forward for couriers waiting outside it", () => {
+    // 1 courier who passed straight away: no ranked time at all, then 5 minutes.
+    expect(minutesUntilInRange(5_000, now, now, rule, 1, 120)).toBe(5);
+  });
 });
 
 // ── Against the real worker ──────────────────────────────────────────────────
@@ -434,6 +458,56 @@ describe("taking a ranked order", () => {
     const d = await offeredOrder();
 
     await waited(d.id, 2.5);
+    const claim = await apiPost(`/api/deliveries/${d.id}/claim`, ONE_KM, latecomer.token);
+    expect(claim.status).toBe(201);
+  });
+
+  it("hands it to the next courier the moment the holder passes, and tells them", async () => {
+    const first = await makeCourier();
+    const second = await makeCourier();
+    await goOnline(first, ONE_KM);
+    await goOnline(second, FIVE_KM);
+    const d = await offeredOrder();
+
+    const passed = await apiPost(`/api/deliveries/${d.id}/pass`, {}, first.token);
+    expect(passed.status).toBe(200);
+
+    const after = await prisma().delivery.findUnique({ where: { id: d.id } });
+    expect(after.rankedNotified).toBe(2);
+    const told = await prisma().notification.findMany({ where: { userId: second.user.id } });
+    expect(told.filter((n: any) => JSON.parse(n.data ?? "{}").deliveryId === d.id)).toHaveLength(1);
+
+    // Passing is final for the ranked phase: it is the next courier's now.
+    const changed = await apiPost(`/api/deliveries/${d.id}/claim`, ONE_KM, first.token);
+    expect(changed.status).toBe(409);
+    const offers = await apiGet(`/api/me/delivery-offers?lat=${FIVE_KM.lat}&lng=${FIVE_KM.lng}`, second.token);
+    expect(offers.body.offers.find((o: any) => o.id === d.id).yourTurnSecondsLeft).toBeGreaterThan(100);
+    const taken = await apiPost(`/api/deliveries/${d.id}/claim`, FIVE_KM, second.token);
+    expect(taken.status).toBe(201);
+  });
+
+  it("only lets the courier whose turn it is pass", async () => {
+    const first = await makeCourier();
+    const second = await makeCourier();
+    await goOnline(first, ONE_KM);
+    await goOnline(second, FIVE_KM);
+    const d = await offeredOrder();
+
+    const res = await apiPost(`/api/deliveries/${d.id}/pass`, {}, second.token);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("NOT_YOUR_TURN");
+    const after = await prisma().delivery.findUnique({ where: { id: d.id } });
+    expect(after.rankedSkippedSeconds).toBe(0);
+  });
+
+  it("opens the board to everyone in range when the last candidate passes", async () => {
+    const ranked = await makeCourier();
+    const latecomer = await makeCourier();
+    await goOnline(ranked, ONE_KM);
+    const d = await offeredOrder();
+
+    const passed = await apiPost(`/api/deliveries/${d.id}/pass`, {}, ranked.token);
+    expect(passed.status).toBe(200);
     const claim = await apiPost(`/api/deliveries/${d.id}/claim`, ONE_KM, latecomer.token);
     expect(claim.status).toBe(201);
   });

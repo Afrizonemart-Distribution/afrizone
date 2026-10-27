@@ -48,7 +48,7 @@ import { AppBackHeader, AppPrimaryButton, AppEmptyState, AppErrorState, AppLoadi
 import { Icon, IconName } from '../src/components/Icon';
 import { obColors, obRadii } from '../src/onboarding/onboardingTheme';
 import { api, ApiError } from '../src/api/client';
-import { goOffline, goOnline, usePresence } from '../src/lib/presence';
+import { goOffline, goOnline, useBackgroundPresence, usePresence } from '../src/lib/presence';
 import EvidencePanel from '../src/components/EvidencePanel';
 import { useAsync } from '../src/lib/useAsync';
 import type { Delivery, DeliveryOffer, DeliveryStatus } from '../src/api/types';
@@ -532,6 +532,7 @@ function useCountdown(start: number | null, onDone: () => void): number | null {
  */
 function OnlineCard() {
   const online = usePresence();
+  const background = useBackgroundPresence();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -557,7 +558,9 @@ function OnlineCard() {
       </View>
       <Text style={styles.onlineBody}>
         {online
-          ? 'Orders from shops near you come to you first, held for you for a couple of minutes. Your location is shared while the app is open and deleted when you go offline.'
+          ? background
+            ? 'Orders from shops near you come to you first, held for you for a couple of minutes. You stay online with the app closed; your location is shared until you go offline, and deleted then.'
+            : 'Orders from shops near you come to you first, held for you for a couple of minutes. Keep the app open to stay online: allow location "all the time" in your phone settings to stay online with it closed.'
           : 'Go online to be offered orders first when you are one of the nearest riders. Your location is shared only while you are online.'}
       </Text>
       <Pressable
@@ -599,6 +602,7 @@ function OfferCard({
   onTaken: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [passing, setPassing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const held = o.yourTurnSecondsLeft !== null;
   const secondsLeft = useCountdown(o.yourTurnSecondsLeft, onTaken);
@@ -619,6 +623,21 @@ function OfferCard({
       onTaken();
     } finally {
       setBusy(false);
+    }
+  }
+
+  // Saying no out loud instead of letting the clock run: the next courier gets
+  // the whole of their window rather than whatever this one left them.
+  async function pass() {
+    setPassing(true);
+    setError(null);
+    try {
+      await api.passDelivery(o.id);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not pass on this job. Try again.');
+    } finally {
+      setPassing(false);
+      onTaken();
     }
   }
 
@@ -672,7 +691,17 @@ function OfferCard({
 
       {o.claimable ? (
         <View style={styles.action}>
-          <AppPrimaryButton label="Take this job" onPress={claim} loading={busy} />
+          <AppPrimaryButton label="Take this job" onPress={claim} loading={busy} disabled={passing} />
+          {held ? (
+            <Pressable
+              onPress={pass}
+              disabled={busy || passing}
+              style={styles.secondary}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryText}>{passing ? 'Passing…' : 'Pass to the next courier'}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : (
         <View style={styles.blocked}>

@@ -719,6 +719,14 @@ export const api = {
     return request<Delivery>(`/deliveries/${id}/claim`, { method: 'POST', body: at ?? {} });
   },
 
+  /**
+   * POST /api/deliveries/:id/pass: this courier does not want a job held for
+   * them. The rest of their window goes to the next courier straight away.
+   */
+  passDelivery(id: string): Promise<{ passed: true }> {
+    return request<{ passed: true }>(`/deliveries/${id}/pass`, { method: 'POST', body: {} });
+  },
+
   /** GET /api/me/presence: am I online for ranked offers? */
   presence(): Promise<Presence> {
     return request<Presence>('/me/presence');

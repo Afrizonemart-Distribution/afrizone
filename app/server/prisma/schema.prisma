@@ -1183,6 +1183,11 @@ model Delivery {
   /// push notification is an event, not a state: the per-minute cron uses it so
   /// nobody is told twice.
   rankedNotified   Int       @default(0)
+  /// Seconds of ranked windows cut short by couriers who passed. Added to the
+  /// clock the turns are read from, so a pass moves the order straight to the
+  /// next candidate without anything becoming a queue. Escalation still reads
+  /// the real time waited. Reset with the ranking on a re-open.
+  rankedSkippedSeconds Int     @default(0)
   assignedAt     DateTime?
   pickedUpAt     DateTime?
   deliveredAt    DateTime?
