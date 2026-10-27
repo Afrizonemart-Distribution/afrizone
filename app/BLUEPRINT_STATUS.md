@@ -378,8 +378,8 @@ order themselves.** Everything below is in the order it is worth doing:
    store, auditor, notes and a proof column (photos, signed or not, failed
    checks) that opens the photos and signature. The store dialog now shows the
    latest audit beside the approval, which the API had been sending unused.
-3. **Reputation standing and badges (§9) — built 27 October 2026, not yet
-   deployed.** Named *standing*, not tier: tier is the work a Tasker is cleared
+3. **Reputation standing and badges (§9) — deployed 27 October 2026 (API and
+   admin console; the mobile card waits for the next APK).** Named *standing*, not tier: tier is the work a Tasker is cleared
    for and is granted; standing is earned. New → Bronze (1 finished job) →
    Silver (10 finished, 85% of taken jobs finished, 4.0+ over 5+ ratings) →
    Gold (30, 95%, 4.5+ over 15+). Every level carries what the next one still
@@ -432,15 +432,17 @@ below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed** (verified 27 October
 2026). D1 is at migration `0024_signatures.sql`; the API worker is version
-`9fe19990-3de7-464f-8713-be64b5b3fc77`, deployed 27 October 14:56 UTC from
-`5d228b5` with applicant ranking (computed on read, no migration). Roll back to
+`7f5c17b1-70fd-4f99-9fbe-53bfc94eee68`, deployed 27 October 23:56 UTC from
+`a34e37a` with reputation standing (derived on read, no migration). Roll back to
+`9fe19990-3de7-464f-8713-be64b5b3fc77` (14:56 UTC, `5d228b5`, applicant ranking
+without standing) - nothing in the database depends on the difference. Before that,
 `a0475f74-8893-453b-880e-074e81879d60` (12:56 UTC, audit results route, no
 ranking) - nothing in the database depends on the difference, and the queue
 simply returns to newest-first. Before that, `bf6c86bd-6683-4780-9ae5-dbb9d9ffd357`
 (11:47 UTC, `dd36a6e`, signatures but no audit list). Rolling back past
 signatures leaves a `Signature` table nothing reads, which is harmless. The
-admin console was uploaded by hand from `5d228b5` at 14:58 UTC (Pages
-deployment `30f02cf0`, with the Rank column); the portal from `7d497f8` that morning.
+admin console was uploaded by hand from `a34e37a` at 23:58 UTC (Pages
+deployment `d8df51cc`, with the Standing column); the portal from `7d497f8` that morning.
 
 Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
 and `c65bce3b` (10:53, the rename and possibly part of the pass work).
