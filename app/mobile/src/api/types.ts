@@ -705,8 +705,14 @@ export interface DeliveryOffer {
 
   /** What the COURIER is paid, from `rules.DELIVERY.fee`. Not `deliveryFee`,
    *  which is what Mart charged the customer - Mart changing its pricing must
-   *  never change our payroll. */
+   *  never change our payroll. Includes any surge for the wait. */
   fee: number;
+  /** Surge pay for the wait (server services/surge.ts). Absent from older APIs. */
+  surge?: {
+    percent: number;
+    amount: number;
+    next: { afterMinutes: number; percent: number; inMinutes: number } | null;
+  };
   offer: OfferState;
   /** Null when the shop has no coordinates, which is not the same as zero. */
   distanceMetres: number | null;

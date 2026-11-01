@@ -652,6 +652,11 @@ function OfferCard({
         </View>
       ) : null}
       <Text style={styles.offerFee}>{naira(o.fee)}</Text>
+      {/* The surge said plainly, because it is the reason this one pays more
+          than the last, and "rises in 4 min" is the reason a rider might wait. */}
+      {o.surge && o.surge.amount > 0 ? (
+        <Text style={styles.surgeText}>Includes {naira(o.surge.amount)} surge for the wait</Text>
+      ) : null}
       <Text style={styles.offerStore} numberOfLines={1}>
         {o.storeName ?? 'Pickup'}
       </Text>
@@ -1075,6 +1080,7 @@ const styles = StyleSheet.create({
   // decides on, and it should read from an arm's length before anything
   // else on the card does. forest, not gold: this is what the job is
   // worth, not a call to action - the button below is the action.
+  surgeText: { fontSize: 12, fontWeight: '700', color: obColors.goldDeep, marginTop: 2 },
   offerFee: {
     fontSize: 30,
     lineHeight: 34,

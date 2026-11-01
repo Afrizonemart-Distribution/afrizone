@@ -757,6 +757,16 @@ export interface EvidenceReview {
 export interface MartRules {
   kinds: TaskRules
   offer: DeliveryOfferRule
+  surge: SurgeRule
+}
+
+/** Server: services/surge.ts. No steps means surge is off. */
+export interface SurgeRule {
+  steps: { afterMinutes: number; percent: number }[]
+  /** Ceiling on the extra, in naira. 0 = none. */
+  maxNaira: number
+  /** The steps as stored, e.g. "10:10,20:25". */
+  stepsText: string
 }
 
 /* ===== Deliveries ===== */
@@ -829,6 +839,17 @@ export interface Delivery {
    * it is current at the moment it was read rather than as of some sweep.
    */
   offer: OfferState | null
+  /**
+   * Surge pay (services/surge.ts). On the board: what it would pay extra if
+   * taken now. Taken: the extra locked in at the claim. Absent from older APIs.
+   */
+  surge?: {
+    baseFee: number
+    percent: number | null
+    amount: number
+    next: { afterMinutes: number; percent: number; inMinutes: number } | null
+    locked: boolean
+  }
 }
 
 export type OfferStage = 'RANKED' | 'OFFERED' | 'WIDENED' | 'ESCALATED'

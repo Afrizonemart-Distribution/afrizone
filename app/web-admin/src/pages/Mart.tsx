@@ -3,7 +3,7 @@ import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import { useAuth } from '../auth/AuthContext'
 import { formatDateTime, formatNaira, martEventPill } from '../lib/format'
-import type { DeliveryOfferRule, MartEventStatus, TaskRule } from '../api/types'
+import type { DeliveryOfferRule, MartEventStatus, SurgeRule, TaskRule } from '../api/types'
 import PageHeader from '../components/PageHeader'
 import Glass from '../components/ui/Glass'
 import Button from '../components/ui/Button'
@@ -271,6 +271,12 @@ export default function Mart() {
               />
             ))}
             <OfferCard rule={rules.data!.offer} canEdit={canEdit} onSaved={rules.reload} />
+            <SurgeCard
+              rule={rules.data!.surge}
+              baseFee={rules.data!.kinds.DELIVERY?.fee ?? 0}
+              canEdit={canEdit}
+              onSaved={rules.reload}
+            />
           </div>
         )}
       </div>
@@ -647,6 +653,150 @@ function OfferCard({
             Save
           </Button>
           <Button size="sm" variant="glass" onClick={() => setDraft(null)}>
+            Cancel
+          </Button>
+        </div>
+      )}
+    </Glass>
+  )
+}
+
+/**
+ * Surge pay (Blueprint §10, server services/surge.ts): an unclaimed delivery
+ * pays the courier more the longer it waits.
+ *
+ * Every naira of it is Afrizone's - the courier's pay is the task fee, not the
+ * delivery fee Mart charges - so it is off until somebody types steps here.
+ * The preview below works the steps through on the default fee, because
+ * "10:10,20:25" is a setting and "₦150 more after 10 min" is a decision.
+ */
+function SurgeCard({
+  rule,
+  baseFee,
+  canEdit,
+  onSaved,
+}: {
+  rule: SurgeRule
+  baseFee: number
+  canEdit: boolean
+  onSaved: () => void
+}) {
+  const [steps, setSteps] = useState<string | null>(null)
+  const [max, setMax] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const stepsValue = steps ?? rule.stepsText
+  const maxValue = max ?? String(rule.maxNaira || '')
+  const dirty =
+    (steps !== null && steps.trim() !== rule.stepsText) ||
+    (max !== null && Number(max || 0) !== rule.maxNaira)
+
+  // The same reading the server applies: steps that are not two positive
+  // numbers, or that would pay less after a longer wait, are dropped.
+  const parsed: { afterMinutes: number; percent: number }[] = []
+  for (const part of stepsValue.split(',')) {
+    const [m, p] = part.split(':').map((x) => Number(x.trim()))
+    if (!Number.isFinite(m) || !Number.isFinite(p) || m <= 0 || p <= 0) continue
+    parsed.push({ afterMinutes: m, percent: Math.min(p, 100) })
+  }
+  parsed.sort((a, b) => a.afterMinutes - b.afterMinutes)
+  const clean: typeof parsed = []
+  for (const st of parsed) {
+    const last = clean[clean.length - 1]
+    if (last && (st.afterMinutes === last.afterMinutes || st.percent <= last.percent)) continue
+    clean.push(st)
+  }
+  const cap = Number(maxValue || 0)
+  const extra = (pct: number) => {
+    const a = Math.floor((baseFee * pct) / 100 / 50) * 50
+    return cap > 0 ? Math.min(a, cap) : a
+  }
+
+  async function save() {
+    setBusy(true)
+    setErr(null)
+    try {
+      const writes: Promise<unknown>[] = []
+      if (steps !== null && steps.trim() !== rule.stepsText)
+        writes.push(api.putRule('DELIVERY', 'surgeSteps', steps.trim()))
+      if (max !== null && Number(max || 0) !== rule.maxNaira)
+        writes.push(api.putRule('DELIVERY', 'surgeMaxNaira', String(Number(max || 0))))
+      await Promise.all(writes)
+      setSteps(null)
+      setMax(null)
+      onSaved()
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not save')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Glass reveal className="mart-rule">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+        <h3 style={{ fontSize: 15, margin: 0 }}>Surge pay</h3>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>{rule.steps.length > 0 ? 'On' : 'Off'}</span>
+      </div>
+      <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 10 }}>
+        An unclaimed delivery pays the courier more the longer it waits. The extra comes out of
+        Afrizone&rsquo;s margin, and the figure is locked in when a courier takes it.
+      </p>
+
+      <div style={{ display: 'grid', gap: 12, marginTop: 14 }}>
+        <div>
+          <Label htmlFor="surge-steps">Steps (minutes:percent)</Label>
+          <Input
+            id="surge-steps"
+            value={stepsValue}
+            placeholder="e.g. 10:10,20:25 — empty is off"
+            disabled={!canEdit}
+            onChange={(ev) => setSteps(ev.target.value)}
+          />
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+            {clean.length === 0
+              ? 'Off: every delivery pays its fee and nothing more'
+              : `On a ${formatNaira(baseFee)} delivery: ` +
+                clean.map((s) => `+${formatNaira(extra(s.percent))} after ${s.afterMinutes} min`).join(', ')}
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="surge-max">Never more than (₦ extra)</Label>
+          <Input
+            id="surge-max"
+            type="number"
+            min={0}
+            value={maxValue}
+            placeholder="No ceiling"
+            disabled={!canEdit}
+            onChange={(ev) => setMax(ev.target.value)}
+          />
+          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+            {cap > 0 ? `At most ${formatNaira(cap)} extra on any one order` : 'The highest step is the only limit'}
+          </div>
+        </div>
+      </div>
+
+      {err && (
+        <div className="login-error" role="alert" style={{ marginTop: 12 }}>
+          {err}
+        </div>
+      )}
+
+      {canEdit && dirty && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <Button size="sm" loading={busy} onClick={save}>
+            Save
+          </Button>
+          <Button
+            size="sm"
+            variant="glass"
+            onClick={() => {
+              setSteps(null)
+              setMax(null)
+            }}
+          >
             Cancel
           </Button>
         </div>

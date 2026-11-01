@@ -16,6 +16,7 @@ import { requireAuth, requireRole, AuthedRequest } from "../auth";
 import { intakeMartEvent, verifyMartSignature } from "../services/martEvents";
 import { allRules } from "../services/taskRules";
 import { offerRule } from "../services/deliveryOffer";
+import { formatSurgeSteps, surgeRule } from "../services/surge";
 
 const router = Router();
 export const adminRouter = Router();
@@ -135,7 +136,13 @@ adminRouter.get(
   requireAuth,
   requireRole("SUPER_ADMIN", "TASK_MANAGER"),
   async (_req: AuthedRequest, res: Response) => {
-    res.json({ kinds: await allRules(), offer: await offerRule(prisma) });
+    const surge = await surgeRule(prisma);
+    res.json({
+      kinds: await allRules(),
+      offer: await offerRule(prisma),
+      // Steps as the setting stores them, so the admin edits what is saved.
+      surge: { ...surge, stepsText: formatSurgeSteps(surge.steps) },
+    });
   }
 );
 

@@ -29,6 +29,7 @@ import { notifyWorker } from "./push";
 import { writeAudit, type AuditActor } from "../util/audit";
 import { transitionDelivery } from "./delivery";
 import { commitForContract, committableAmount } from "./commitments";
+import { lockSurge } from "./surge";
 import {
   blockingBlockers,
   decide,
@@ -218,10 +219,17 @@ export async function assignWorker(input: AssignInput): Promise<AssignResult> {
     const contract =
       existing ?? (await prisma.contract.create({ data: { taskId: task.id, workerId, status: "CLAIMED" } }));
 
+    // A delivery that waited pays its surge, and this is where the figure is
+    // fixed: before the commitment, so the ring-fenced amount and the eventual
+    // payment both read it. Only for a new contract - one that already existed
+    // has had its pay committed. See services/surge.ts.
+    const payable =
+      task.kind === "DELIVERY" && !existing ? { ...task, budget: await lockSurge(task, actor, now) } : task;
+
     // The contract going live ring-fences the pay (Blueprint §10). A FIXED task
     // commits its budget; an HOURLY one commits no figure at all, because it is
     // not knowable until hours are submitted.
-    await commitForContract(contract.id, workerId, committableAmount(task), actor);
+    await commitForContract(contract.id, workerId, committableAmount(payable), actor);
 
     // A delivery posting has an order behind it, on its own status axis that the
     // store and AfriZoneMart both watch. This is the moment it stops waiting.

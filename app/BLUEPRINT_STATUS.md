@@ -266,7 +266,7 @@ distinguishable from a quiet week.
 
 ## 7. Substantial features not started
 
-- **Surge pay, crew contracts, referral loop** (§10, §14).
+- **Crew contracts, referral loop** (§10, §14).
 - **CallyValley** as the certification feeder and **VOLTRON** as a labour
   consumer (§2). Neither system has been discussed before.
 - **Offline-tolerant mobile flows** (§16). The app currently assumes
@@ -392,7 +392,22 @@ order themselves.** Everything below is in the order it is worth doing:
    Workers page, a badge on Applications, a card on the mobile Profile (needs
    an APK after version code 10). Thresholds are constants until there is real
    history. Code: `services/standing.ts`, 9 tests in `test/standing.test.ts`.
-4. **Surge pay, crew contracts, referral loop** (§10, §14), **shared identity
+4. **Surge pay (§10) — deployed 1 November 2026; off until switched on.** Deliveries only. An unclaimed order pays the courier more in
+   steps the longer it waits (`rules.DELIVERY.surgeSteps`, e.g. `10:10,20:25` =
+   +10% after 10 min, +25% after 20), in whole ₦50s rounded down, never above
+   `rules.DELIVERY.surgeMaxNaira` when that is set. Steps can only rise and are
+   capped at 100%. Arithmetic on `offeredAt` (the real wait, not the ranked turn
+   clock), so nothing is swept. The figure is **locked at the claim**: written
+   into the task budget before the pay is ring-fenced, so contract, commitment
+   and payment agree; the surge part is kept in `Delivery.surgeAmount`
+   (migration `0025_surge.sql`) so a re-open takes it back off and the next
+   courier's surge starts from the base. Every naira is Afrizone's margin, which
+   is why no steps means no surge. The courier board's `fee` includes it with a
+   `surge` object; the admin Mart page has a Surge pay card with a worked
+   preview; the deliveries board says "paying +₦X surge" or "taken at +₦X";
+   the courier app shows "Includes ₦X surge for the wait" (next APK). Code:
+   `services/surge.ts`, 7 tests in `test/surge.test.ts`.
+5. **Crew contracts, referral loop** (§10, §14), **shared identity
    with AZM** (§13, blocked on Mart exposing an identity provider), and
    **offline-tolerant mobile flows** (§16).
 
@@ -431,18 +446,22 @@ database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed** (verified 27 October
-2026). D1 is at migration `0024_signatures.sql`; the API worker is version
-`7f5c17b1-70fd-4f99-9fbe-53bfc94eee68`, deployed 27 October 23:56 UTC from
-`a34e37a` with reputation standing (derived on read, no migration). Roll back to
+2026). D1 is at migration `0025_surge.sql`; the API worker is version
+`76efa859-7493-4cef-8e23-7f4af5d5fe0d`, deployed 1 November 17:25 UTC with
+surge pay (off until steps are set). Roll back to
+`7f5c17b1-70fd-4f99-9fbe-53bfc94eee68` (27 October 23:56 UTC, `a34e37a`,
+standing, no surge) - the `surgeAmount` column is then unread, which is
+harmless, but an order claimed at a surge keeps its raised budget. Before that,
 `9fe19990-3de7-464f-8713-be64b5b3fc77` (14:56 UTC, `5d228b5`, applicant ranking
-without standing) - nothing in the database depends on the difference. Before that,
+without standing). Before that,
 `a0475f74-8893-453b-880e-074e81879d60` (12:56 UTC, audit results route, no
 ranking) - nothing in the database depends on the difference, and the queue
 simply returns to newest-first. Before that, `bf6c86bd-6683-4780-9ae5-dbb9d9ffd357`
 (11:47 UTC, `dd36a6e`, signatures but no audit list). Rolling back past
 signatures leaves a `Signature` table nothing reads, which is harmless. The
-admin console was uploaded by hand from `a34e37a` at 23:58 UTC (Pages
-deployment `d8df51cc`, with the Standing column); the portal from `7d497f8` that morning.
+admin console was uploaded by hand on 1 November at 17:30 UTC (Pages
+deployment `a7d9b415`, with the Surge pay card; built from the uncommitted
+surge work, so Pages labels it `b676937`); the portal from `7d497f8` that morning.
 
 Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
 and `c65bce3b` (10:53, the rename and possibly part of the pass work).

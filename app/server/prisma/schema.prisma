@@ -1232,6 +1232,9 @@ model Delivery {
   /// next candidate without anything becoming a queue. Escalation still reads
   /// the real time waited. Reset with the ranking on a re-open.
   rankedSkippedSeconds Int     @default(0)
+  /// Surge locked into the task budget at the claim (services/surge.ts), so a
+  /// re-open can take it back off. 0 when the order was taken at its base fee.
+  surgeAmount    Int       @default(0)
   assignedAt     DateTime?
   pickedUpAt     DateTime?
   deliveredAt    DateTime?

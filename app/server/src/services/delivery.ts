@@ -388,9 +388,23 @@ export async function transitionDelivery(
     data.rankedCandidates = null;
     data.rankedNotified = 0;
     data.rankedSkippedSeconds = 0;
+    // And it pays its base again. The surge was the vanished courier's, for
+    // a wait that has now restarted; left in the budget, the next surge would
+    // be computed on top of it.
+    data.surgeAmount = 0;
   }
+  const unsurge =
+    to === "STORE_ACCEPTED" && from === "COURIER_ASSIGNED" && delivery.taskId && delivery.surgeAmount > 0
+      ? [
+          prisma.task.update({
+            where: { id: delivery.taskId },
+            data: { budget: { decrement: delivery.surgeAmount } },
+          }),
+        ]
+      : [];
 
   await prisma.$transaction([
+    ...unsurge,
     prisma.delivery.update({ where: { id: deliveryId }, data }),
     prisma.auditLog.create({
       data: auditData(actor, "delivery.state.changed", "Delivery", deliveryId, {

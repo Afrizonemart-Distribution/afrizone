@@ -87,6 +87,16 @@ function pill(d: Delivery): { variant: 'pending' | 'active' | 'review' | 'ready'
  * state; this tells you who to telephone.
  */
 function waitingOn(d: Delivery): string {
+  const base = waitingOnBase(d)
+  // Surge said in the same breath, because it is the other half of "why has
+  // nobody taken it?" - and once taken, what it cost.
+  if (!d.surge || d.surge.amount <= 0) return base
+  return d.surge.locked
+    ? `${base} · taken at +${formatNaira(d.surge.amount)} surge`
+    : `${base} · paying +${formatNaira(d.surge.amount)} surge`
+}
+
+function waitingOnBase(d: Delivery): string {
   switch (d.status) {
     case 'RECEIVED':
       return `${d.storeName ?? 'The store'} has not answered`

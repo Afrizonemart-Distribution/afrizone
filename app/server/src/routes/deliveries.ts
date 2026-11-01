@@ -40,6 +40,7 @@ import {
   type OfferRule,
   type OfferState,
 } from "../services/deliveryOffer";
+import { baseFee, surgeAt, surgeRule } from "../services/surge";
 import {
   blockingBlockers,
   decide,
@@ -358,7 +359,7 @@ router.post("/deliveries/:id/prepared", requireAuth, async (req: AuthedRequest, 
  */
 router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: Response) => {
   const now = new Date();
-  const rule = await offerRule(prisma);
+  const [rule, surgeR] = await Promise.all([offerRule(prisma), surgeRule(prisma)]);
 
   const open = await prisma.delivery.findMany({
     where: { status: "STORE_ACCEPTED", offeredAt: { not: null }, taskId: { not: null } },
@@ -392,6 +393,7 @@ router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: R
     const ranked = parseRanked(d.rankedCandidates);
     const state = offerStateAt(d.offeredAt, now, rule, ranked, d.rankedSkippedSeconds);
     if (!state) return [];
+    const surge = surgeAt(baseFee(task.budget, d.surgeAmount), d.offeredAt, now, surgeR);
 
     const eligibility = decide(profile, requirements.get(task.id)!);
     const blockers = blockingBlockers(eligibility.blockers, enforcing);
@@ -424,7 +426,10 @@ router.get("/me/delivery-offers", requireAuth, async (req: AuthedRequest, res: R
     return [
       {
         ...publicDelivery({ ...d, organization: d.organization }),
-        fee: task.budget,
+        // What it pays if taken now: the base plus any surge for the wait.
+        // `surge.next` lets the app say "pays ₦X more in 4 min".
+        fee: baseFee(task.budget, d.surgeAmount) + surge.amount,
+        surge,
         offer: state,
         distanceMetres: near.distanceMetres,
         distance:
@@ -773,12 +778,28 @@ adminRouter.get(
     });
 
     const now = new Date();
-    const rule = await offerRule(prisma);
-    const decorated = rows.map((d) => ({
-      ...withCustomer(d),
-      // Null for anything not on the board, which is most of them.
-      offer: offerStateAt(d.offeredAt, now, rule, parseRanked(d.rankedCandidates), d.rankedSkippedSeconds),
-    }));
+    const [rule, surgeR] = await Promise.all([offerRule(prisma), surgeRule(prisma)]);
+    const budgets = new Map(
+      (
+        await prisma.task.findMany({
+          where: { id: { in: rows.flatMap((d) => (d.taskId ? [d.taskId] : [])) } },
+          select: { id: true, budget: true },
+        })
+      ).map((t) => [t.id, t.budget])
+    );
+    const decorated = rows.map((d) => {
+      const base = baseFee(d.taskId ? budgets.get(d.taskId) : null, d.surgeAmount);
+      return {
+        ...withCustomer(d),
+        // Null for anything not on the board, which is most of them.
+        offer: offerStateAt(d.offeredAt, now, rule, parseRanked(d.rankedCandidates), d.rankedSkippedSeconds),
+        // On the board: what it would pay now. Taken: what was locked in at the claim.
+        surge:
+          d.status === "STORE_ACCEPTED"
+            ? { baseFee: base, ...surgeAt(base, d.offeredAt, now, surgeR), locked: false }
+            : { baseFee: base, percent: null, amount: d.surgeAmount, next: null, locked: true },
+      };
+    });
 
     res.json({
       // Whether the other half of the integration is wired up. An operator
