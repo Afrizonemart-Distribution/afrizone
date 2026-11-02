@@ -127,6 +127,12 @@ describe("POST /api/auth/afrizone/link", () => {
     expect(linked.status).toBe(200);
     expect(linked.body.user.afrizoneUserId).toBe(sub);
 
+    // Linked staff still can't sign in WITH AfriZone: console only.
+    const viaAfrizone = await apiPost("/api/auth/afrizone", { identityToken: identityToken({ sub }) });
+    expect(viaAfrizone.status).toBe(403);
+    expect(viaAfrizone.body.code).toBe("STAFF_USE_CONSOLE");
+    expect(viaAfrizone.body.token).toBeUndefined();
+
     const { token: otherToken } = await createUserWithToken("WORKER");
     const clash = await apiPost("/api/auth/afrizone/link", { identityToken: identityToken({ sub }) }, otherToken);
     expect(clash.status).toBe(409);
