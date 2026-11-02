@@ -3,6 +3,7 @@ import Landing from './pages/Landing'
 import { Register, SignIn } from './pages/Auth'
 import { CourierDashboard, IndividualLanding, StoreDashboard } from './pages/Dashboards'
 import { homeFor, useAuth } from './lib/auth'
+import PublicProfilePage from './pages/PublicProfile'
 
 /**
  * Routes for the PartTime portal.
@@ -25,6 +26,7 @@ export default function App() {
       <Route path="/store" element={<StoreDashboard />} />
       <Route path="/courier" element={<CourierDashboard />} />
       <Route path="/individual" element={<IndividualLanding />} />
+      <Route path="/p/:slug" element={<PublicProfilePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

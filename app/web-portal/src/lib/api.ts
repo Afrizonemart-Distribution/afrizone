@@ -13,6 +13,7 @@ import type {
   CourierReadiness,
   Delivery,
   Organization,
+  PublicProfile,
   OrgKind,
   OrgMember,
   User,
@@ -113,6 +114,10 @@ export const api = {
     }),
 
   me: (signal?: AbortSignal) => request<{ user: User }>('/auth/me', { signal }),
+
+  /** A shared Talent Profile. No auth: the server answers only for LINK profiles. */
+  publicProfile: (slug: string, signal?: AbortSignal) =>
+    request<PublicProfile>(`/public/profiles/${encodeURIComponent(slug)}`, { auth: false, signal }),
 
   /** Only the businesses this person belongs to. The server does the scoping. */
   myOrganizations: (kind?: OrgKind, signal?: AbortSignal) =>
