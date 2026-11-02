@@ -17,12 +17,15 @@ import {
   type ReactNode,
 } from 'react'
 import { api, clearToken, getToken, setToken } from './api'
+import { getAfrizoneIdentityToken } from './afrizone'
 import type { AccountType, User } from './types'
 
 interface AuthState {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<User>
+  /** Call straight from a click: it may open AfriZone sign-in in a popup. */
+  continueWithAfrizone: () => Promise<User>
   register: (
     name: string,
     email: string,
@@ -72,6 +75,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user
   }, [])
 
+  const continueWithAfrizone = useCallback(async () => {
+    const identityToken = await getAfrizoneIdentityToken()
+    const res = await api.afrizoneSignIn(identityToken)
+    // Same rule as signIn: staff accounts belong on the staff console.
+    if (res.requires2fa || !res.token || !res.user) {
+      throw new Error('This account signs in on the Afrizone staff console, not here.')
+    }
+    setToken(res.token)
+    setUser(res.user)
+    return res.user
+  }, [])
+
   const register = useCallback(
     async (name: string, email: string, password: string, accountType: AccountType) => {
       const res = await api.register(name, email, password, accountType)
@@ -89,8 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, loading, signIn, register, signOut }),
-    [user, loading, signIn, register, signOut],
+    () => ({ user, loading, signIn, continueWithAfrizone, register, signOut }),
+    [user, loading, signIn, continueWithAfrizone, register, signOut],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

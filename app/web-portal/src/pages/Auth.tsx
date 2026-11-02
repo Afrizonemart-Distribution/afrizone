@@ -5,7 +5,10 @@ import { useAuth, homeFor } from '../lib/auth'
 import { ApiError } from '../lib/api'
 import type { AccountType } from '../lib/types'
 
-const TYPES: AccountType[] = ['INDIVIDUAL', 'STORE', 'COURIER']
+/** Build-time switch; turn on once the server's AFRIZONE_LOGIN_ENABLED is. */
+const AFRIZONE_LOGIN_ON = import.meta.env.VITE_AFRIZONE_LOGIN === 'true'
+
+const TYPES: AccountType[] =['INDIVIDUAL', 'STORE', 'COURIER']
 
 const COPY: Record<AccountType, { label: string; title: string; lede: string }> = {
   INDIVIDUAL: {
@@ -40,14 +43,28 @@ function readType(raw: string | undefined): AccountType {
  * only create a way to answer wrongly.
  */
 export function SignIn() {
-  const { user, signIn } = useAuth()
+  const { user, signIn, continueWithAfrizone } = useAuth()
   const nav = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
+  const [afzBusy, setAfzBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   if (user) return <Navigate to={homeFor(user.accountType)} replace />
+
+  // Not async on purpose: continueWithAfrizone must start in the click's own
+  // tick so its popup isn't blocked.
+  function afrizone() {
+    setAfzBusy(true)
+    setError(null)
+    continueWithAfrizone()
+      .then((u) => nav(homeFor(u.accountType), { replace: true }))
+      .catch((err) =>
+        setError(err instanceof ApiError || err instanceof Error ? err.message : 'Could not sign you in.'),
+      )
+      .finally(() => setAfzBusy(false))
+  }
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -86,6 +103,17 @@ export function SignIn() {
               {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+          {AFRIZONE_LOGIN_ON && (
+            <>
+              <div className="or-rule" role="separator">
+                <span>or</span>
+              </div>
+              <button className="btn ghost" type="button" onClick={afrizone} disabled={afzBusy || busy}>
+                {afzBusy ? 'Waiting for AfriZone…' : 'Continue with AfriZone'}
+              </button>
+              <p className="hint afz-hint">Use the account you shop with on afrizonemart.com.</p>
+            </>
+          )}
           <p className="alt">
             New here? <Link to="/">Choose your account type</Link>
           </p>
