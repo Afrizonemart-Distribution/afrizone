@@ -274,6 +274,8 @@ interface FormState {
   lng: string
   geofenceRadius: string
   slots: string
+  /** People, lead included, who may take it as a crew. '' or 0 = solo. */
+  crewMax: string
   deadline: string
   requiresIdentityVerified: boolean
   skillIds: string[]
@@ -296,6 +298,7 @@ const EMPTY_FORM: FormState = {
   lng: '',
   geofenceRadius: '100',
   slots: '1',
+  crewMax: '',
   deadline: '',
   // Defaults ON for a NEW task, while migration 0008 defaults the column false
   // for existing ones. Those are different decisions and both are deliberate:
@@ -384,6 +387,7 @@ function NewTaskModal({
       lng: form.locationType === 'PHYSICAL' && form.lng ? Number(form.lng) : undefined,
       geofenceRadius: Number(form.geofenceRadius) || 100,
       slots: Number(form.slots) || 1,
+      crewMax: form.payModel === 'FIXED' ? Number(form.crewMax) || 0 : 0,
       deadline: form.deadline || new Date().toISOString(),
       requiresIdentityVerified: form.requiresIdentityVerified,
       skillIds: form.skillIds,
@@ -506,6 +510,28 @@ function NewTaskModal({
               required
             />
           </div>
+          {/* A lead Tasker may bring a crew and split the budget (Blueprint
+              §14). Fixed price only: hourly pay is each person's own hours. */}
+          {form.payModel === 'FIXED' && (
+            <div className="field">
+              <Label htmlFor="t-crew">Crew of up to</Label>
+              <Input
+                id="t-crew"
+                className="tnum"
+                type="number"
+                min="0"
+                max="10"
+                value={form.crewMax}
+                onChange={(e) => set('crewMax', e.target.value)}
+                placeholder="Solo"
+              />
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                {Number(form.crewMax) >= 2
+                  ? `A lead can bring up to ${Number(form.crewMax) - 1} others and split the budget`
+                  : 'Leave empty for one person per slot'}
+              </div>
+            </div>
+          )}
           <div className="field">
             <Label htmlFor="t-loc">Location type</Label>
             <Select

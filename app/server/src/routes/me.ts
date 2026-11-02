@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireEvidence } from "../services/evidence";
 import { loadStanding } from "../services/standing";
+import { answerInvite } from "../services/crew";
 import { requireAuth, AuthedRequest } from "../auth";
 import { tiersToArray, tiersToString, Tier, TIERS } from "../types";
 import { isSmileConfigured, submitDocumentVerification, NgIdType, NG_ID_TYPES } from "../services/smileIdentity";
@@ -185,6 +186,44 @@ router.get("/applications", requireAuth, async (req: AuthedRequest, res: Respons
       },
     }))
   );
+});
+
+/**
+ * GET /api/me/crew-invites → crews this Tasker has been asked to join and has
+ * not answered, plus ones they answered whose application is still open.
+ */
+router.get("/crew-invites", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const invites = await prisma.crewInvite.findMany({
+    where: { workerId: req.user!.id, application: { status: "APPLIED" } },
+    include: { application: { include: { task: true, worker: { select: { name: true } } } } },
+    orderBy: { createdAt: "desc" },
+  });
+  res.json(
+    invites.map((i) => ({
+      id: i.id,
+      status: i.status,
+      share: i.share,
+      createdAt: i.createdAt,
+      lead: { name: i.application.worker.name },
+      task: {
+        id: i.application.task.id,
+        title: i.application.task.title,
+        budget: i.application.task.budget,
+        startDate: i.application.task.startDate,
+        endDate: i.application.task.endDate,
+        address: i.application.task.address,
+      },
+    }))
+  );
+});
+
+// POST /api/me/crew-invites/:id/accept | /decline → answer for yourself only.
+router.post("/crew-invites/:id/:answer", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const { answer } = req.params;
+  if (answer !== "accept" && answer !== "decline") return res.status(404).json({ error: "Not found" });
+  const r = await answerInvite(req.params.id, req.user!.id, answer === "accept");
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.json({ id: req.params.id, status: r.status });
 });
 
 // GET /api/me/wallet → {pending, available, withdrawn}.
@@ -470,15 +509,20 @@ function buildContractSections(
   task: any,
   worker: any,
   signedAt: Date | null,
-  signerName?: string | null
+  signerName?: string | null,
+  share?: number | null
 ): { heading: string; body: string }[] {
   const fmt = (d: Date | null | undefined) =>
     d ? new Date(d).toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" }) : "TBD";
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(n);
 
+  // On a crew job the contract is for this Tasker's agreed share, not the
+  // whole budget, and says so - it is what Afrizone owes them, not the lead.
   const pay =
-    task.payModel === "HOURLY"
+    share != null
+      ? `${fmtMoney(share)} fixed price: your agreed share of a crew job worth ${fmtMoney(task.budget ?? 0)} in total, paid to you by Afrizone`
+      : task.payModel === "HOURLY"
       ? `${fmtMoney(task.rate ?? 0)} per hour`
       : `${fmtMoney(task.budget ?? 0)} fixed price`;
 
@@ -551,7 +595,13 @@ router.get("/contracts/:id", requireAuth, async (req: AuthedRequest, res: Respon
     return res.status(403).json({ error: "Not your contract" });
   }
 
-  const sections = buildContractSections(contract.task, contract.worker, contract.signedAt, contract.signerName);
+  const sections = buildContractSections(
+    contract.task,
+    contract.worker,
+    contract.signedAt,
+    contract.signerName,
+    contract.share
+  );
   res.json({
     id: contract.id,
     status: contract.status,

@@ -155,13 +155,35 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
   const [error, setError] = useState<string | null>(null);
   const [blockers, setBlockers] = useState<Blocker[]>([]);
 
+  // A crew, when the task takes one (server services/crew.ts). The lead names
+  // each person by phone and a share; whatever is left of the budget is the
+  // lead's own, shown live so nobody submits a split they have not seen.
+  const crewMax = task.payModel === 'FIXED' ? task.crewMax ?? 0 : 0;
+  const [withCrew, setWithCrew] = useState(false);
+  const [members, setMembers] = useState<{ phone: string; share: string }[]>([{ phone: '', share: '' }]);
+  const budget = task.budget ?? 0;
+  const membersTotal = members.reduce((sum, m) => sum + (Number(m.share) || 0), 0);
+  const leadShare = budget - membersTotal;
+
+  function setMember(i: number, key: 'phone' | 'share', value: string) {
+    setMembers((prev) => prev.map((m, j) => (j === i ? { ...m, [key]: value } : m)));
+  }
+
   async function submit() {
     setBusy(true);
     setError(null);
     setBlockers([]);
     try {
-      // REAL: POST /api/applications {taskId, pitch}
-      await api.apply(task.id, pitch.trim() || undefined);
+      const crew = withCrew
+        ? {
+            leadShare,
+            members: members
+              .filter((m) => m.phone.trim())
+              .map((m) => ({ phone: m.phone.trim(), share: Number(m.share) || 0 })),
+          }
+        : undefined;
+      // REAL: POST /api/applications {taskId, pitch, crew?}
+      await api.apply(task.id, pitch.trim() || undefined, crew);
       onApplied();
     } catch (e) {
       const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Could not submit application.';
@@ -189,13 +211,72 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
           style={styles.pitch}
           accessibilityLabel="Pitch"
         />
+        {crewMax >= 2 ? (
+          <View style={styles.crewBox}>
+            <Pressable
+              onPress={() => setWithCrew((v) => !v)}
+              style={styles.crewToggle}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: withCrew }}
+            >
+              <Icon name={withCrew ? 'check-circle' : 'briefcase'} size={16} color={obColors.navy} />
+              <Text style={styles.crewToggleText}>
+                {withCrew ? 'Applying with a crew' : `Bring a crew (up to ${crewMax - 1} others)`}
+              </Text>
+            </Pressable>
+            {withCrew ? (
+              <>
+                {members.map((m, i) => (
+                  <View key={i} style={styles.crewRow}>
+                    <TextInput
+                      value={m.phone}
+                      onChangeText={(v) => setMember(i, 'phone', v)}
+                      placeholder="Their phone number"
+                      placeholderTextColor={obColors.textMut}
+                      keyboardType="phone-pad"
+                      style={[styles.crewInput, { flex: 3 }]}
+                      accessibilityLabel={`Crew member ${i + 1} phone`}
+                    />
+                    <TextInput
+                      value={m.share}
+                      onChangeText={(v) => setMember(i, 'share', v.replace(/[^0-9]/g, ''))}
+                      placeholder="₦ share"
+                      placeholderTextColor={obColors.textMut}
+                      keyboardType="number-pad"
+                      style={[styles.crewInput, { flex: 2 }]}
+                      accessibilityLabel={`Crew member ${i + 1} share`}
+                    />
+                  </View>
+                ))}
+                {members.length < crewMax - 1 ? (
+                  <Pressable onPress={() => setMembers((prev) => [...prev, { phone: '', share: '' }])} hitSlop={8}>
+                    <Text style={styles.crewAdd}>+ Add another person</Text>
+                  </Pressable>
+                ) : null}
+                <Text style={[styles.crewLead, leadShare <= 0 && { color: obColors.dangerInk }]}>
+                  {leadShare > 0
+                    ? `Your share: ${formatNaira(leadShare)} of ${formatNaira(budget)}`
+                    : `The shares are more than the ${formatNaira(budget)} budget`}
+                </Text>
+                <Text style={styles.crewHint}>
+                  Each person accepts their share in their own app before the team decides. Afrizone pays everyone directly.
+                </Text>
+              </>
+            ) : null}
+          </View>
+        ) : null}
         {error ? <Banner tone="danger" title="Couldn't apply" message={error} /> : null}
         {blockers.length > 1
           ? blockers.slice(1).map((b, i) => (
               <Text key={`${b.code}-${b.ref ?? i}`} style={styles.blockerLine}>• {b.message}</Text>
             ))
           : null}
-        <AppPrimaryButton label="Submit application" onPress={submit} loading={busy} />
+        <AppPrimaryButton
+          label={withCrew ? 'Send to my crew' : 'Submit application'}
+          onPress={submit}
+          loading={busy}
+          disabled={withCrew && leadShare <= 0}
+        />
       </View>
     </Modal>
   );
@@ -251,5 +332,13 @@ const styles = StyleSheet.create({
     color: obColors.text,
     textAlignVertical: 'top',
   },
+  crewBox: { backgroundColor: obColors.white, borderWidth: 1, borderColor: obColors.line, borderRadius: obRadii.field, padding: 12, gap: 8 },
+  crewToggle: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  crewToggleText: { fontSize: 13.5, fontWeight: '700', color: obColors.navy },
+  crewRow: { flexDirection: 'row', gap: 8 },
+  crewInput: { minHeight: 44, backgroundColor: obColors.bg, borderColor: obColors.line, borderWidth: 1, borderRadius: obRadii.field, paddingHorizontal: 12, fontSize: 14, color: obColors.text },
+  crewAdd: { color: obColors.goldDeep, fontWeight: '700', fontSize: 12.5 },
+  crewLead: { fontSize: 13, fontWeight: '700', color: obColors.text },
+  crewHint: { fontSize: 11.5, color: obColors.textMut, lineHeight: 16 },
   blockerLine: { color: obColors.dangerInk, fontSize: 12.5, lineHeight: 18, marginTop: 2 },
 });

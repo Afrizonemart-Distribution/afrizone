@@ -40,11 +40,13 @@ const SCREEN_ROUTES: Record<string, string> = {
   wallet: '/(tabs)/wallet',
   kyc: '/(auth)/kyc',
   disputes: '/disputes',
+  crew: '/crew',
 };
 
 /** Icon per destination, so the list is scannable without reading every line. */
-const SCREEN_ICONS: Record<string, 'list' | 'wallet' | 'id' | 'alert'> = {
+const SCREEN_ICONS: Record<string, 'list' | 'wallet' | 'id' | 'alert' | 'briefcase'> = {
   tasks: 'list',
+  crew: 'briefcase',
   wallet: 'wallet',
   kyc: 'id',
   disputes: 'alert',

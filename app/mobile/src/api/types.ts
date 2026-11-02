@@ -134,6 +134,8 @@ export interface Task {
   lat?: number | null;
   lng?: number | null;
   geofenceRadius?: number;
+  /** People, lead included, who may take it as a crew. 0 or absent = solo. */
+  crewMax?: number;
   slots: number;
   status: TaskStatus;
   deadline?: string | null;
@@ -807,4 +809,26 @@ export interface Standing {
   label: string;
   next: { level: StandingLevel; label: string; needs: string[] } | null;
   badges: { key: string; label: string }[];
+}
+
+/** GET /api/me/crew-invites (server services/crew.ts). */
+export interface CrewInvite {
+  id: string;
+  status: 'INVITED' | 'ACCEPTED' | 'DECLINED';
+  share: number;
+  createdAt: string;
+  lead: { name: string };
+  task: {
+    id: string;
+    title: string;
+    budget: number | null;
+    startDate: string;
+    endDate: string;
+    address: string | null;
+  };
+}
+
+export interface CrewProposal {
+  leadShare: number;
+  members: { phone: string; share: number }[];
 }

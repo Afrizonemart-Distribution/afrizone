@@ -22,7 +22,7 @@ configureNotificationHandler();
 
 /**
  * Listens for notification taps and routes to the relevant screen.
- * data.screen: "tasks" | "wallet" | "home" | "task" (+ data.id) | "kyc" | "disputes" | "deliveries"
+ * data.screen: "tasks" | "wallet" | "home" | "task" (+ data.id) | "kyc" | "disputes" | "deliveries" | "crew"
  */
 function NotificationHandler() {
   const router = useRouter();
@@ -73,6 +73,10 @@ function NotificationHandler() {
             break;
           case 'disputes':
             router.push('/disputes');
+            break;
+          // "You have been asked to join a crew" - answered on its own screen.
+          case 'crew':
+            router.push('/crew');
             break;
           // "A delivery is yours to take" - the window is two minutes, so this
           // goes straight to the offer rather than to home.

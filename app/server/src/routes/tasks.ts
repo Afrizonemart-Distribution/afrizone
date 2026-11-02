@@ -15,6 +15,20 @@ import {
 const router = Router();
 
 /**
+ * How many people, lead included, may take this task as a crew
+ * (services/crew.ts). 0 = solo. A crew of one is not a crew, and hourly work
+ * has no budget to split, so both are refused rather than stored.
+ */
+const CREW_MAX_ERROR = "crewMax must be 0 (solo) or 2 to 10, and only on FIXED tasks";
+function crewMaxFrom(raw: unknown, payModel: unknown): number | null {
+  if (raw === undefined || raw === null || raw === "") return 0;
+  const n = Number(raw);
+  if (n === 0) return 0;
+  if (!Number.isInteger(n) || n < 2 || n > 10 || payModel !== "FIXED") return null;
+  return n;
+}
+
+/**
  * Applicant and filled counts for many tasks in ONE query.
  *
  * This replaced two counts per task. The list endpoint ran 2N+1 queries against
@@ -201,6 +215,9 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
     return res.status(400).json({ error: "budget is required for FIXED tasks" });
   }
 
+  const crewMax = crewMaxFrom(b.crewMax, b.payModel);
+  if (crewMax === null) return res.status(400).json({ error: CREW_MAX_ERROR });
+
   const skillIds = idList(b.skillIds) ?? [];
   const credentialTypeIds = idList(b.credentialTypeIds) ?? [];
   const resolved = await resolveRequirementIds(skillIds, credentialTypeIds);
@@ -224,6 +241,7 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
         lng: b.lng != null ? Number(b.lng) : null,
         geofenceRadius: b.geofenceRadius ?? 100,
         slots: b.slots ?? 1,
+        crewMax,
         status: b.status || "OPEN",
         deadline: b.deadline ? new Date(b.deadline) : new Date(),
         createdById: req.user!.id,
@@ -450,6 +468,15 @@ router.patch("/:id", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), as
   for (const f of dateFields) if (b[f] !== undefined) data[f] = new Date(b[f]);
   if (b.requiresIdentityVerified !== undefined) {
     data.requiresIdentityVerified = b.requiresIdentityVerified === true;
+  }
+  if (b.crewMax !== undefined || b.payModel !== undefined) {
+    const current = await prisma.task.findUnique({
+      where: { id: req.params.id },
+      select: { payModel: true, crewMax: true },
+    });
+    const crewMax = crewMaxFrom(b.crewMax ?? current?.crewMax ?? 0, b.payModel ?? current?.payModel);
+    if (crewMax === null) return res.status(400).json({ error: CREW_MAX_ERROR });
+    data.crewMax = crewMax;
   }
 
   // Requirements are touched only when the caller actually sent the fields.

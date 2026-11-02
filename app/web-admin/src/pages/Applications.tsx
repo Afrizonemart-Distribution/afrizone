@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, ApiError } from '../api/client'
 import type { Blocker } from '../api/types'
 import { useApi } from '../lib/useApi'
-import { TIER_COLORS, TIER_LABELS, appPill, avatarGradient, initials, kycPill } from '../lib/format'
+import { TIER_COLORS, TIER_LABELS, appPill, avatarGradient, formatNaira, initials, kycPill } from '../lib/format'
 import PageHeader from '../components/PageHeader'
 import StandingBadge from '../components/StandingBadge'
 import Glass from '../components/ui/Glass'
@@ -167,6 +167,20 @@ export default function Applications() {
                             {name}
                             <StandingBadge standing={a.worker?.standing} />
                           </span>
+                          {/* A crew is approved as one, so the manager sees who
+                              is on it, each share, and who has not yet said yes. */}
+                          {a.crew && (
+                            <div style={{ fontSize: 12, marginTop: 4 }}>
+                              <strong>Crew lead</strong> · {formatNaira(a.crew.leadShare)}
+                              {a.crew.members.map((m) => (
+                                <span key={m.workerId} style={{ color: 'var(--muted)' }}>
+                                  {' · '}
+                                  {m.name} {formatNaira(m.share)}
+                                  {m.status === 'ACCEPTED' ? ' ✓' : m.status === 'DECLINED' ? ' (declined)' : ' (waiting)'}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {a.rank && a.rank.reasons.length > 0 && (
                             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
                               {a.rank.reasons.join(' · ')}
@@ -198,9 +212,10 @@ export default function Applications() {
                             variant="money"
                             size="sm"
                             loading={busy === a.id}
+                            disabled={a.crew ? !a.crew.ready : false}
                             onClick={() => approve(a.id)}
                           >
-                            Approve
+                            {a.crew && !a.crew.ready ? 'Waiting for crew' : a.crew ? 'Approve crew' : 'Approve'}
                           </Button>
                           <Button
                             variant="danger"

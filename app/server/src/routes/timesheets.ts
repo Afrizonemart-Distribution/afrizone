@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { payCrew, submitCrew } from "../services/crew";
 import { prisma } from "../prisma";
 import { requireEvidence } from "../services/evidence";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
@@ -121,6 +122,15 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     timesheetId: created.id,
   });
 
+  // A crew lead hands in for the whole crew (services/crew.ts).
+  const leadContract = await prisma.contract.findFirst({
+    where: { taskId: task.id, workerId },
+    select: { id: true },
+  });
+  if (leadContract) {
+    await submitCrew(leadContract.id, userActor(workerId), { timesheetId: created.id });
+  }
+
   res.status(201).json(created);
 });
 
@@ -135,9 +145,15 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
   if (sheet.status === "APPROVED") return res.status(400).json({ error: "Timesheet already approved" });
 
   const task = sheet.task;
+  // A crew lead's contract carries their own share; the rest of the budget is
+  // paid to the members below, each in their own Payment.
+  const contractRow = await prisma.contract.findFirst({
+    where: { taskId: sheet.taskId, workerId: sheet.workerId },
+    select: { id: true, share: true },
+  });
   let gross: number;
   if (task.payModel === "FIXED") {
-    gross = task.budget ?? 0;
+    gross = contractRow?.share ?? task.budget ?? 0;
   } else {
     gross = Math.round(sheet.hours * (task.rate ?? 0));
   }
@@ -191,7 +207,15 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
     paymentId: result.payment.id,
   });
 
-  res.json({ ...result.updatedSheet, payment: result.payment });
+  const crewPayments = liveContract
+    ? await payCrew(liveContract.id, sheet.taskId, userActor(req.user!.id), { timesheetId: sheet.id })
+    : [];
+
+  res.json({
+    ...result.updatedSheet,
+    payment: result.payment,
+    ...(crewPayments.length > 0 ? { crewPayments } : {}),
+  });
 });
 
 // POST /api/timesheets/:id/dispute → body {reason}

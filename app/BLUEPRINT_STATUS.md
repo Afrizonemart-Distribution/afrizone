@@ -266,7 +266,7 @@ distinguishable from a quiet week.
 
 ## 7. Substantial features not started
 
-- **Crew contracts, referral loop** (§10, §14).
+- **Referral loop** (§14).
 - **CallyValley** as the certification feeder and **VOLTRON** as a labour
   consumer (§2). Neither system has been discussed before.
 - **Offline-tolerant mobile flows** (§16). The app currently assumes
@@ -407,7 +407,26 @@ order themselves.** Everything below is in the order it is worth doing:
    preview; the deliveries board says "paying +₦X surge" or "taken at +₦X";
    the courier app shows "Includes ₦X surge for the wait" (next APK). Code:
    `services/surge.ts`, 7 tests in `test/surge.test.ts`.
-5. **Crew contracts, referral loop** (§10, §14), **shared identity
+5. **Crew contracts (§14) — built 2 November 2026, not yet deployed.** A lead
+   Tasker brings a crew to a larger fixed-price job and the budget is split.
+   A manager opens a task to crews with "Crew of up to N" (`Task.crewMax`,
+   2-10 people including the lead, FIXED only; 0 = solo). The lead applies
+   naming each member by phone and a share for each; the shares must add up
+   to the budget exactly, and every member must pass the task's requirements
+   on their own. Each member accepts or declines their own share in the app
+   (`/api/me/crew-invites`); one decline withdraws the application and tells
+   the lead who. The manager cannot approve until everyone has accepted, and
+   then approves the crew as one: it takes one slot, and every member gets a
+   contract of their own with their share ring-fenced against it
+   (`Contract.share`, `crewLeadContractId`). The lead hands in once for the
+   crew - members' contracts move with theirs - and one approval pays each
+   person their share as their own Payment with their own 5% WHT. No override
+   for a crew member; that is a solo approval. The applicant ranking scores the
+   lead only. Migration `0026_crew.sql`; code `services/crew.ts`, 7 tests in
+   `test/crew.test.ts`; "Crew of up to" on the admin task form, the crew and
+   shares on Applications with Approve held until ready; on mobile a "Bring a
+   crew" section when applying and a Crew invites screen (next APK).
+6. **Referral loop** (§14), **shared identity
    with AZM** (§13, blocked on Mart exposing an identity provider), and
    **offline-tolerant mobile flows** (§16).
 

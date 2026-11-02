@@ -44,6 +44,8 @@ export interface Task {
   lat?: number | null
   lng?: number | null
   geofenceRadius?: number
+  /** People, lead included, who may take it as a crew. 0 = solo. */
+  crewMax?: number
   slots: number
   status: TaskStatus
   deadline: string
@@ -258,6 +260,12 @@ export interface Application {
    * for the same task, best first. Null when decided, or if ranking failed.
    */
   rank?: ApplicantRank | null
+  /** Null when applying alone. Approvable only once `ready`. */
+  crew?: {
+    leadShare: number
+    ready: boolean
+    members: { workerId: string; name: string; share: number; status: 'INVITED' | 'ACCEPTED' | 'DECLINED' }[]
+  } | null
   worker?: WorkerSummary
   task?: TaskSummary
 }

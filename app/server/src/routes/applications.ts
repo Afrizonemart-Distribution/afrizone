@@ -7,6 +7,7 @@ import { userActor } from "../util/audit";
 import { assignWorker } from "../services/assignment";
 import { rankApplications, type ApplicantRank } from "../services/applicantRanking";
 import { loadStandings } from "../services/standing";
+import { assignCrew, checkCrewForApproval, inviteCrew, resolveCrew } from "../services/crew";
 import {
   blockingBlockers,
   decide,
@@ -29,7 +30,11 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
   const apps = await prisma.application.findMany({
     where: { ...(status ? { status } : {}), ...(taskId ? { taskId } : {}) },
     orderBy: { createdAt: "desc" },
-    include: { worker: true, task: true },
+    include: {
+      worker: true,
+      task: true,
+      crewInvites: { include: { worker: { select: { id: true, name: true } } }, orderBy: { createdAt: "asc" } },
+    },
   });
 
   // NEVER FATAL, like the delivery ranking: a queue without an order is the
@@ -73,6 +78,21 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
       reason: a.reason,
       createdAt: a.createdAt,
       rank: ranks.get(a.id) ?? null,
+      // Null when applying alone. The manager approves the crew as one, and
+      // only once every member has accepted their share.
+      crew:
+        a.crewLeadShare == null
+          ? null
+          : {
+              leadShare: a.crewLeadShare,
+              ready: a.crewInvites.every((i) => i.status === "ACCEPTED"),
+              members: a.crewInvites.map((i) => ({
+                workerId: i.workerId,
+                name: i.worker.name,
+                share: i.share,
+                status: i.status,
+              })),
+            },
       worker: {
         id: a.worker.id,
         name: a.worker.name,
@@ -136,10 +156,43 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     });
   }
 
+  // A crew, when the lead brings one. Everybody named is checked before
+  // anything is written, so a refusal leaves nothing half-made.
+  const crewBody = req.body?.crew;
+  let crew: { leadShare: number; members: { workerId: string; name: string; share: number }[] } | null = null;
+  if (crewBody) {
+    const proposal = {
+      leadShare: Number(crewBody.leadShare),
+      members: Array.isArray(crewBody.members)
+        ? crewBody.members.map((m: any) => ({ phone: String(m?.phone ?? ""), share: Number(m?.share) }))
+        : [],
+    };
+    const resolved = await resolveCrew(task, workerId, proposal);
+    if (!resolved.ok) {
+      return res.status(resolved.status).json({
+        error: resolved.error,
+        ...(resolved.blockers ? { blockers: resolved.blockers } : {}),
+      });
+    }
+    crew = { leadShare: proposal.leadShare, members: resolved.members };
+  }
+
   const created = await prisma.application.create({
-    data: { taskId: task.id, workerId, pitch: pitch ? String(pitch) : null, status: "APPLIED" },
+    data: {
+      taskId: task.id,
+      workerId,
+      pitch: pitch ? String(pitch) : null,
+      status: "APPLIED",
+      crewLeadShare: crew ? crew.leadShare : null,
+    },
   });
-  res.status(201).json(created);
+  if (crew) {
+    await inviteCrew(created.id, task, { id: workerId, name: profile.name }, crew.members);
+  }
+  res.status(201).json({
+    ...created,
+    crew: crew ? crew.members.map((m) => ({ workerId: m.workerId, name: m.name, share: m.share, status: "INVITED" })) : null,
+  });
 });
 
 // POST /api/applications/:id/approve → bump task filled; if full → task FILLED
@@ -161,6 +214,16 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
   // platform that strands people. But they have to say so explicitly, and the
   // override is audited: refusing silently and refusing unoverridably are both
   // worse than refusing loudly.
+  // A crew is approved as one, and only once every member has said yes to
+  // their share and still qualifies. See services/crew.ts.
+  const crewProblem = await checkCrewForApproval(app.id, app.task);
+  if (crewProblem) {
+    return res.status(crewProblem.status).json({
+      error: crewProblem.error,
+      ...(crewProblem.blockers ? { blockers: crewProblem.blockers } : {}),
+    });
+  }
+
   const result = await assignWorker({
     taskId: app.taskId,
     workerId: app.workerId,
@@ -168,6 +231,7 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
     actor: userActor(req.user!.id),
     source: "ADMIN_APPROVAL",
     override: req.body?.override === true,
+    share: app.crewLeadShare ?? undefined,
   });
 
   if (!result.ok) {
@@ -177,6 +241,10 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
       ...(result.eligibility ? { eligibility: result.eligibility } : {}),
       ...(result.requiresOverride ? { requiresOverride: true } : {}),
     });
+  }
+
+  if (app.crewLeadShare != null) {
+    await assignCrew(app.id, result.contractId, app.task, userActor(req.user!.id));
   }
 
   const updated = await prisma.application.findUnique({ where: { id: result.applicationId } });

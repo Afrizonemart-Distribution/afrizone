@@ -15,6 +15,8 @@ import type {
   JobCandidate,
   User,
   Application,
+  CrewInvite,
+  CrewProposal,
   ClockResult,
   ClockState,
   Transaction,
@@ -376,12 +378,25 @@ export const api = {
     return request<Application[]>('/me/applications', { signal });
   },
 
-  /** POST /api/applications: apply to a task. */
-  apply(taskId: string, pitch?: string): Promise<Application> {
+  /** POST /api/applications: apply to a task, alone or as the lead of a crew. */
+  apply(taskId: string, pitch?: string, crew?: CrewProposal): Promise<Application> {
     return request<Application>('/applications', {
       method: 'POST',
-      body: { taskId, pitch },
+      body: { taskId, pitch, ...(crew ? { crew } : {}) },
     });
+  },
+
+  /** GET /api/me/crew-invites: crews this Tasker has been asked to join. */
+  crewInvites(signal?: AbortSignal): Promise<CrewInvite[]> {
+    return request<CrewInvite[]>('/me/crew-invites', { signal });
+  },
+
+  /** POST /api/me/crew-invites/:id/accept | decline. */
+  answerCrewInvite(id: string, accept: boolean): Promise<{ id: string; status: string }> {
+    return request<{ id: string; status: string }>(
+      `/me/crew-invites/${id}/${accept ? 'accept' : 'decline'}`,
+      { method: 'POST' }
+    );
   },
 
   /** POST /api/clock: clock IN/OUT of a field task. */

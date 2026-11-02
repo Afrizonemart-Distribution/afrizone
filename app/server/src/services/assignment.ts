@@ -61,6 +61,11 @@ export interface AssignInput {
   override?: boolean;
   /** The APPLIED row to promote. Self-claim has none; one is created APPROVED. */
   applicationId?: string;
+  /**
+   * What this contract pays when the worker is the lead of a crew: their own
+   * share, not the whole budget. The members' contracts are services/crew.ts.
+   */
+  share?: number;
   now?: Date;
 }
 
@@ -217,14 +222,21 @@ export async function assignWorker(input: AssignInput): Promise<AssignResult> {
     // this task (Blueprint §12). It starts CLAIMED: assigned, not yet started.
     const existing = await prisma.contract.findFirst({ where: { taskId: task.id, workerId } });
     const contract =
-      existing ?? (await prisma.contract.create({ data: { taskId: task.id, workerId, status: "CLAIMED" } }));
+      existing ??
+      (await prisma.contract.create({
+        data: { taskId: task.id, workerId, status: "CLAIMED", share: input.share ?? null },
+      }));
 
     // A delivery that waited pays its surge, and this is where the figure is
     // fixed: before the commitment, so the ring-fenced amount and the eventual
     // payment both read it. Only for a new contract - one that already existed
     // has had its pay committed. See services/surge.ts.
     const payable =
-      task.kind === "DELIVERY" && !existing ? { ...task, budget: await lockSurge(task, actor, now) } : task;
+      task.kind === "DELIVERY" && !existing
+        ? { ...task, budget: await lockSurge(task, actor, now) }
+        : input.share != null
+          ? { ...task, budget: input.share }
+          : task;
 
     // The contract going live ring-fences the pay (Blueprint §10). A FIXED task
     // commits its budget; an HOURLY one commits no figure at all, because it is

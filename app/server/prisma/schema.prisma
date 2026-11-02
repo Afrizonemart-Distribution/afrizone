@@ -76,6 +76,7 @@ model User {
 
   tasksCreated        Task[]               @relation("TaskCreatedBy")
   applications        Application[]
+  crewInvites         CrewInvite[]
   timesheets          Timesheet[]
   payments            Payment[]
   auditLogs           AuditLog[]
@@ -118,6 +119,9 @@ model Task {
   lat            Float? // task site latitude : required for real geofence check
   lng            Float? // task site longitude: required for real geofence check
   geofenceRadius Int      @default(100)
+  /// People, lead included, who may do this job as a crew (services/crew.ts).
+  /// 0 = solo only. Fixed-price tasks only.
+  crewMax        Int      @default(0)
   slots          Int
   status         String   @default("OPEN") // TaskStatus enum
   deadline       DateTime
@@ -222,10 +226,13 @@ model Application {
   // reconstructed later from current state - and that is exactly the question
   // asked when something goes wrong on a job.
   eligibilitySnapshot String?
+  /// The lead's own share on a crew application; null when applying alone.
+  crewLeadShare       Int?
   createdAt           DateTime @default(now())
 
-  task   Task @relation(fields: [taskId], references: [id])
-  worker User @relation(fields: [workerId], references: [id])
+  task        Task         @relation(fields: [taskId], references: [id])
+  worker      User         @relation(fields: [workerId], references: [id])
+  crewInvites CrewInvite[]
 
   @@index([taskId, status])
   @@index([workerId, status])
@@ -416,6 +423,10 @@ model Contract {
   signerName    String? // typed full-name signature, captured at sign time (record of intent)
   signerIp      String? // requesting IP at sign time
   signatureHash String? // SHA-256 of `${contractId}:${workerId}:${signerName}:${signedAt.toISOString()}`, for tamper-evidence
+  /// What this contract pays when it is one part of a crew job; null = the task budget.
+  share              Int?
+  /// On a crew member's contract, the lead's. The lead hands in for everyone.
+  crewLeadContractId String?
   createdAt     DateTime  @default(now())
 
   task        Task         @relation(fields: [taskId], references: [id])
@@ -424,6 +435,25 @@ model Contract {
 
   @@index([taskId, workerId])
   @@index([workerId])
+  @@index([crewLeadContractId])
+}
+
+/// Somebody a lead named for their crew, the share offered, and their answer.
+/// INVITED | ACCEPTED | DECLINED. The lead is not a row - see Application.crewLeadShare.
+model CrewInvite {
+  id            String    @id @default(cuid())
+  applicationId String
+  workerId      String
+  share         Int
+  status        String    @default("INVITED")
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+
+  application Application @relation(fields: [applicationId], references: [id])
+  worker      User        @relation(fields: [workerId], references: [id])
+
+  @@unique([applicationId, workerId])
+  @@index([workerId, status])
 }
 
 // ── Auth: phone OTP + password reset (hashed at rest, single-use, time-boxed) ──
