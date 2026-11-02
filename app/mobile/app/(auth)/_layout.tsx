@@ -25,6 +25,7 @@ export default function AuthLayout() {
         <Stack.Screen name="phone" />
         <Stack.Screen name="otp" />
         <Stack.Screen name="twofactor" />
+        <Stack.Screen name="afrizone" />
         <Stack.Screen name="forgot" />
         <Stack.Screen name="reset" />
         {/* First-time onboarding, in order. kyc.tsx stays separately for

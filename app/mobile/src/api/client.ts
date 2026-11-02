@@ -237,6 +237,19 @@ export const api = {
     });
   },
 
+  /**
+   * POST /api/auth/afrizone: swap an AfriZone identity token (src/lib/afrizone.ts)
+   * for a Part-Time session. Links by AfriZone id, else verified email, else
+   * creates a WORKER. Same shape as login: a 2FA challenge when TOTP is on.
+   */
+  afrizoneSignIn(identityToken: string): Promise<LoginResponse & { isNewUser?: boolean }> {
+    return request<LoginResponse & { isNewUser?: boolean }>('/auth/afrizone', {
+      method: 'POST',
+      body: { identityToken },
+      auth: false,
+    });
+  },
+
   /** POST /api/auth/google: worker context; auto-creates a WORKER if unknown. */
   googleSignIn(idToken: string): Promise<AuthSuccess> {
     return request<AuthSuccess>('/auth/google', {
