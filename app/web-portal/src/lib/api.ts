@@ -104,6 +104,14 @@ export const api = {
       auth: false,
     }),
 
+  /** Continue with AfriZone: swap an AfriZone identity token for our session. */
+  afrizoneSignIn: (identityToken: string) =>
+    request<AuthResponse>('/auth/afrizone', {
+      method: 'POST',
+      body: { identityToken },
+      auth: false,
+    }),
+
   me: (signal?: AbortSignal) => request<{ user: User }>('/auth/me', { signal }),
 
   /** Only the businesses this person belongs to. The server does the scoping. */

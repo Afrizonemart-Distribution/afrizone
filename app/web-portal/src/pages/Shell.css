@@ -77,6 +77,11 @@ h1.pt {
 .btn.inline { width: auto; padding: 0 20px; }
 .btn.sm { height: 38px; font-size: 14px; }
 
+/* "or" divider between password sign-in and Continue with AfriZone. */
+.or-rule { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--faint); font-size: 12.5px; }
+.or-rule::before, .or-rule::after { content: ""; flex: 1; height: 1px; background: var(--line-2); }
+.afz-hint { display: block; margin-top: 8px; text-align: center; }
+
 .alt { margin: 16px 0 0; text-align: center; font-size: 13.5px; color: var(--muted); }
 .alt a { color: var(--heading); font-weight: 700; }
 .alt a:hover { color: var(--gold-ink); }
