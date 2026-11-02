@@ -426,7 +426,7 @@ order themselves.** Everything below is in the order it is worth doing:
    `test/crew.test.ts`; "Crew of up to" on the admin task form, the crew and
    shares on Applications with Approve held until ready; on mobile a "Bring a
    crew" section when applying and a Crew invites screen (next APK).
-6. **Referral loop (§14) — built 2 November 2026, not yet deployed; off until
+6. **Referral loop (§14) — deployed 2 November 2026; off until
    amounts are set.** Every Tasker account (store members included) has a
    six-character code (`User.referralCode`, made on first ask). A new Tasker
    gives it at sign-up (`referralCode` on register / OTP verify, never fatal) or
@@ -485,9 +485,14 @@ database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed** (verified 27 October
-2026). D1 is at migration `0026_crew.sql`; the API worker is version
-`748ce60f-5bc8-4b79-a52e-6300b7d75370`, deployed 2 November 11:40 UTC from
-`c4fe419` with crew contracts. Roll back to
+2026). D1 is at migration `0027_referrals.sql`; the API worker is version
+`664df30c-f1ca-4539-8663-da7ae5aa7b79`, deployed 2 November 14:02 UTC from
+`cfe122d` with the referral loop. Roll back to
+`748ce60f-5bc8-4b79-a52e-6300b7d75370` (11:40 UTC, `c4fe419`, crew contracts,
+no referrals) - the `Referral` table and `User.referralCode` are then unread,
+and any referral bonus already EARNED drops out of the wallet balance, so a
+referrer could see their balance fall or a withdrawal refused; while rewards are
+still 0 nothing is lost. Before that,
 `76efa859-7493-4cef-8e23-7f4af5d5fe0d` (1 November 17:25 UTC, surge pay, no
 crews) - the crew columns and `CrewInvite` are then unread; a crew already
 approved keeps its member contracts, but the old code would pay the lead's
@@ -502,8 +507,8 @@ simply returns to newest-first. Before that, `bf6c86bd-6683-4780-9ae5-dbb9d9ffd3
 (11:47 UTC, `dd36a6e`, signatures but no audit list). Rolling back past
 signatures leaves a `Signature` table nothing reads, which is harmless. The
 admin console was uploaded by hand on 2 November at 11:47 UTC (Pages
-deployment `3237d882`, with the crew limit and crew review; its bundle has the
-crew code although Pages labels it `e173d97`); the portal from `7d497f8` that morning.
+deployment `62a315c8`, from `cfe122d`, with the Referrals tab in Settings and the
+store referral code; before it `3237d882`, crew limit and crew review); the portal from `7d497f8` that morning.
 
 Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
 and `c65bce3b` (10:53, the rename and possibly part of the pass work).
