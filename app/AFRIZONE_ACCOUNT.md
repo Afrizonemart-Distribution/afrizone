@@ -1,6 +1,6 @@
 # Continue with AfriZone: one account for Part-Time
 
-**Status:** the AfriZone side is built (afrizonemart-api `feat/identity-token`) and
+**Status:** the AfriZone side is built (afrizonemart-api #177) and
 switched off until its signing key is set. The Part-Time side below is a proposal
 for whoever owns this repo, and nothing here is built yet. It closes the
 "Shared identity with AZM (§13), blocked on AZM exposing an identity provider"
@@ -69,7 +69,7 @@ Claims (OIDC names, so a later move to a full OIDC provider is a drop-in):
 | `sub` | AfriZone user id. **The only thing to link on long-term.** |
 | `email`, `email_verified` | `email` is `null` for phone-only accounts |
 | `name` | may be `null` |
-| `phone_number`, `phone_number_verified` | phone is only ever set by a verified SMS sign-in |
+| `phone_number`, `phone_number_verified` | `phone_number_verified` is always `false` for now: AfriZone doesn't yet record when a phone was verified. Show the phone, never link on it |
 | `country` | ISO-2, any country, may be `null` |
 | `mfa_enabled` | the account has 2FA on |
 | `jti`, `exp` | store used `jti`s until `exp` so a token can't be replayed |
@@ -80,8 +80,10 @@ Add `afrizoneUserId String? @unique` to `User` (one D1 migration).
 
 1. A user with `afrizoneUserId = sub` exists: sign them in.
 2. Otherwise, if `email_verified` and a **WORKER** with that email exists, link it
-   (set `afrizoneUserId`) and sign in. Do the same with `phone_number_verified` and
-   a WORKER with that phone.
+   (set `afrizoneUserId`) and sign in. **Don't link by phone**: an AfriZone user can
+   type any number into their profile, so a phone match proves nothing. Phone
+   linking can come once AfriZone sends `phone_number_verified: true`, which it
+   only will after it records verified phones.
 3. **Never auto-link a staff account** (SUPER_ADMIN, TASK_MANAGER, HR_ADMIN). A staff
    member links from Settings while signed in to Part-Time, which proves they own
    both accounts. Otherwise anyone who controls a matching AfriZone email could
@@ -103,12 +105,12 @@ AfriZone sign-in already asks for the code when it's on. For Part-Time:
 
 ## 6. Rollout
 
-1. AfriZone: merge `feat/identity-token`, set `IDENTITY_SIGNING_KEY` on Railway,
+1. AfriZone: merge afrizonemart-api #177, set `IDENTITY_SIGNING_KEY` on Railway,
    and add the Part-Time origins to `CORS_ORIGINS`.
 2. Part-Time: build §3–4 behind an env flag and add the **Continue with AfriZone**
    button next to the existing sign-in options.
-3. Run both sign-ins side by side; existing accounts link the first time their
-   owner uses the button.
+3. Run both sign-ins side by side; existing accounts with the same verified email link the first
+   time their owner uses the button; phone-only workers link from Settings.
 4. Then make Continue with AfriZone the only sign-up path and keep phone OTP only
    for linked accounts, so there's no separate Part-Time registration form (§13).
 
