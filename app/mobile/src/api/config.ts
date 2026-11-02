@@ -82,3 +82,12 @@ export const GOOGLE_CLIENT_IDS: GoogleClientIds = {
  * Back-compat single client id (= the web client id). Prefer GOOGLE_CLIENT_IDS.
  */
 export const GOOGLE_CLIENT_ID: string | undefined = GOOGLE_CLIENT_IDS.web;
+
+/**
+ * Where a shared Talent Profile is viewed: `${PROFILE_SHARE_BASE}/<slug>`.
+ * The public page lives on the web portal.
+ */
+export const PROFILE_SHARE_BASE: string = (
+  process.env.EXPO_PUBLIC_PROFILE_SHARE_BASE ||
+  'https://portal.parttime.afrizonemart.com/p'
+).replace(/\/+$/, '');

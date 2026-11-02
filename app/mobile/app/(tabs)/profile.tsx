@@ -205,6 +205,7 @@ export default function ProfileScreen() {
             subtitle="ID, selfie, tier documents"
             onPress={kyc === 'PENDING' || kyc === 'VERIFIED' ? undefined : () => router.push('/(auth)/kyc')}
           />
+          <AppListRow icon="briefcase" title="Hiring profile" subtitle="Your CV, work history and share link" onPress={() => router.push('/profile/talent')} />
           <AppListRow icon="id" title="Documents" subtitle="Licences, certificates and your CV" onPress={() => router.push('/profile/credentials')} />
           <AppListRow icon="star" title="Skills" subtitle="Helps us match you to work" onPress={() => router.push('/profile/skills')} last={user?.accountType !== 'COURIER'} />
           {user?.accountType === 'COURIER' && (
