@@ -41,6 +41,10 @@ model User {
   totpSecret        String? // pending or active TOTP secret (RFC 6238)
   totpEnabled       Boolean  @default(false)
   googleId          String?  @unique // Google SSO subject (admin)
+  /// The AfriZone Account this user is linked to (the identity token's `sub`).
+  /// Set by Continue with AfriZone (routes/authAfrizone.ts). The only thing we
+  /// link on once set: never re-match on email or phone after this.
+  afrizoneUserId    String?  @unique
   role              String   @default("WORKER") // Role enum
   /// INDIVIDUAL | STORE | COURIER - what kind of outside party this account is.
   ///
@@ -479,6 +483,17 @@ model OtpCode {
   createdAt  DateTime  @default(now())
 
   @@index([phone])
+}
+
+/// Every AfriZone identity token we have accepted, by its `jti`, kept until the
+/// token's own expiry so the same token can never be used twice (a token is
+/// valid for 5 minutes, so the table stays tiny; expired rows are swept on use).
+model AfrizoneTokenUse {
+  jti       String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 model PasswordReset {
