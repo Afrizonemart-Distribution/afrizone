@@ -9,6 +9,7 @@
 // 123456 works ONLY when NODE_ENV is explicitly "development" or "test".
 
 import { Router } from "express";
+import { claimForTasker } from "../services/referrals";
 import crypto from "crypto";
 import { prisma } from "../prisma";
 import { signToken, publicUser, hashPassword } from "../auth";
@@ -180,8 +181,14 @@ router.post("/register", async (req, res) => {
     },
   });
 
+  let referral: { referredBy: string } | { error: string } | null = null;
+  if (req.body?.referralCode) {
+    const r = await claimForTasker(user.id, req.body.referralCode);
+    referral = r.ok ? { referredBy: r.referrerName } : { error: r.error };
+  }
+
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });
-  return res.json({ token, user: publicUser(user), isNewUser: true });
+  return res.json({ token, user: publicUser(user), isNewUser: true, referral });
 });
 
 // POST /api/auth/otp/request
@@ -282,8 +289,16 @@ router.post("/otp/verify", async (req, res) => {
     });
   }
 
+  // A code typed at sign-up. Never fatal: a typo must not stop somebody
+  // joining, and they can add it from their profile afterwards.
+  let referral: { referredBy: string } | { error: string } | null = null;
+  if (isNewUser && req.body?.referralCode) {
+    const r = await claimForTasker(user.id, req.body.referralCode);
+    referral = r.ok ? { referredBy: r.referrerName } : { error: r.error };
+  }
+
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });
-  return res.json({ token, user: publicUser(user), isNewUser });
+  return res.json({ token, user: publicUser(user), isNewUser, referral });
 });
 
 export default router;

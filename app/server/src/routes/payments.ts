@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { onPaymentReleased } from "../services/referrals";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
 import { writeAudit, userActor, auditData, type AuditActor } from "../util/audit";
@@ -90,6 +91,9 @@ router.post("/:id/release", requireAuth, requireRole("SUPER_ADMIN"), async (req:
     workerId: payment.workerId,
   });
 
+  // A Tasker's first released payment is what makes them a real referral.
+  await onPaymentReleased(payment.workerId);
+
   await notifyWorker(
     prisma,
     payment.workerId,
@@ -131,6 +135,7 @@ router.post("/release-all", requireAuth, requireRole("SUPER_ADMIN"), async (req:
 
   // Notify each worker whose payment was released
   const workerIds = [...new Set(approved.map((p) => p.workerId))];
+  for (const id of workerIds) await onPaymentReleased(id);
   await notifyWorkers(
     prisma,
     workerIds,

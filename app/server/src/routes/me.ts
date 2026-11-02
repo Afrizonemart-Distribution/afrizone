@@ -3,6 +3,7 @@ import { prisma } from "../prisma";
 import { requireEvidence } from "../services/evidence";
 import { loadStanding } from "../services/standing";
 import { answerInvite } from "../services/crew";
+import { claimForTasker, codeFor, referralEarnings, rewardRule } from "../services/referrals";
 import { requireAuth, AuthedRequest } from "../auth";
 import { tiersToArray, tiersToString, Tier, TIERS } from "../types";
 import { isSmileConfigured, submitDocumentVerification, NgIdType, NG_ID_TYPES } from "../services/smileIdentity";
@@ -29,7 +30,9 @@ const router = Router();
 // FAILED withdrawals are excluded so they don't reduce the balance.
 function walletFrom(
   payments: { net: number; status: string }[],
-  withdrawals: { amount: number; status: string }[]
+  withdrawals: { amount: number; status: string }[],
+  // Earned referral bonuses (services/referrals.ts), already net of WHT.
+  referrals = 0
 ) {
   const pending = payments
     .filter((p) => p.status === "PENDING" || p.status === "APPROVED")
@@ -38,8 +41,8 @@ function walletFrom(
   const withdrawn = withdrawals
     .filter((w) => w.status !== "FAILED")
     .reduce((s, w) => s + w.amount, 0);
-  const available = released - withdrawn;
-  return { pending, available, withdrawn };
+  const available = released + referrals - withdrawn;
+  return { pending, available, withdrawn, referrals };
 }
 
 // Shared response shape for all /api/me endpoints that return the worker profile.
@@ -189,6 +192,57 @@ router.get("/applications", requireAuth, async (req: AuthedRequest, res: Respons
 });
 
 /**
+ * GET /api/me/referral → this Tasker's code, what each kind of referral pays
+ * right now, who they have brought in, and whether they can still say who
+ * brought THEM in. Staff get 404: they do not refer.
+ */
+router.get("/referral", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const code = await codeFor(req.user!.id);
+  if (!code) return res.status(404).json({ error: "Referrals are for Tasker accounts" });
+  const [rule, made, referredBy] = await Promise.all([
+    rewardRule(),
+    prisma.referral.findMany({
+      where: { referrerId: req.user!.id },
+      include: {
+        referredUser: { select: { name: true } },
+        referredOrganization: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.referral.findUnique({
+      where: { referredUserId: req.user!.id },
+      include: { referrer: { select: { name: true } } },
+    }),
+  ]);
+  res.json({
+    code,
+    rewards: rule,
+    earned: made.filter((r) => r.status === "EARNED").reduce((s, r) => s + r.net, 0),
+    referrals: made.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      // A first name is enough to recognise somebody you sent; the rest of
+      // their profile is not the referrer's business.
+      name:
+        r.kind === "STORE"
+          ? r.referredOrganization?.name ?? "A store"
+          : (r.referredUser?.name ?? "A Tasker").split(" ")[0],
+      status: r.status,
+      net: r.status === "EARNED" ? r.net : null,
+      createdAt: r.createdAt,
+    })),
+    referredBy: referredBy ? { name: referredBy.referrer.name } : null,
+  });
+});
+
+// POST /api/me/referral → body {code}. A new Tasker says who sent them.
+router.post("/referral", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const r = await claimForTasker(req.user!.id, req.body?.code);
+  if (!r.ok) return res.status(r.status).json({ error: r.error });
+  res.status(201).json({ referredBy: { name: r.referrerName } });
+});
+
+/**
  * GET /api/me/crew-invites → crews this Tasker has been asked to join and has
  * not answered, plus ones they answered whose application is still open.
  */
@@ -228,11 +282,12 @@ router.post("/crew-invites/:id/:answer", requireAuth, async (req: AuthedRequest,
 
 // GET /api/me/wallet → {pending, available, withdrawn}.
 router.get("/wallet", requireAuth, async (req: AuthedRequest, res: Response) => {
-  const [payments, withdrawals] = await Promise.all([
+  const [payments, withdrawals, referrals] = await Promise.all([
     prisma.payment.findMany({ where: { workerId: req.user!.id } }),
     prisma.withdrawal.findMany({ where: { workerId: req.user!.id } }),
+    referralEarnings(req.user!.id),
   ]);
-  res.json(walletFrom(payments, withdrawals));
+  res.json(walletFrom(payments, withdrawals, referrals));
 });
 
 // GET /api/me/transactions → merged earnings + withdrawals, newest-first.

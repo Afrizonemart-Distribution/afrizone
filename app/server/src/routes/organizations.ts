@@ -25,6 +25,7 @@
  * relying on a role check buried in a shared handler.
  */
 import { Router, Response } from "express";
+import { claimForStore, onStoreApproved } from "../services/referrals";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
 import { slugify } from "../types";
@@ -571,6 +572,16 @@ adminRouter.post(
         data: { organizationId: org.id, userId: ownerId, role: "OWNER" },
       });
     }
+    // Who brought the store in, when the admin registering it was told. A bad
+    // code does not undo the registration; it comes back as a warning.
+    let referralWarning: string | null = null;
+    if (b.referralCode) {
+      const claimed = await claimForStore(org.id, b.referralCode, userActor(req.user!.id));
+      if (!claimed.ok) referralWarning = claimed.error;
+      // Registered as already approved: it is real from the start.
+      else if (org.status === "ACTIVE") await onStoreApproved(org.id);
+    }
+
     await writeAudit(userActor(req.user!.id), "organization.created", "Organization", org.id, {
       name: org.name,
       kind: org.kind,
@@ -581,7 +592,7 @@ adminRouter.post(
     // endpoint returns. Without it a client that adds the new organization to
     // its list optimistically renders "0 people" for a business that was just
     // given an owner - which reads as the owner having failed to attach.
-    res.status(201).json({ ...publicOrg(org, "ADMIN"), memberCount: ownerId ? 1 : 0 });
+    res.status(201).json({ ...publicOrg(org, "ADMIN"), memberCount: ownerId ? 1 : 0, referralWarning });
   }
 );
 
@@ -623,9 +634,25 @@ adminRouter.patch(
       }
       data.status = b.status;
     }
-    if (Object.keys(data).length === 0) return res.status(400).json({ error: "Nothing to update" });
+    if (Object.keys(data).length === 0 && !b.referralCode) {
+      return res.status(400).json({ error: "Nothing to update" });
+    }
+
+    // A referrer can be recorded afterwards too, until the store is approved.
+    if (b.referralCode) {
+      if (existing.status === "ACTIVE") {
+        return res.status(400).json({ error: "A referrer can only be added before the store is approved" });
+      }
+      const claimed = await claimForStore(existing.id, b.referralCode, userActor(req.user!.id));
+      if (!claimed.ok) return res.status(claimed.status).json({ error: claimed.error });
+      if (Object.keys(data).length === 0) {
+        return res.json(publicOrg(existing, "ADMIN"));
+      }
+    }
 
     const org = await prisma.organization.update({ where: { id: existing.id }, data });
+    // Approval is what makes a referred store real.
+    if (org.status === "ACTIVE" && existing.status !== "ACTIVE") await onStoreApproved(org.id);
     if (data.status && data.status !== existing.status) {
       await writeAudit(
         userActor(req.user!.id),

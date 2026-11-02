@@ -170,6 +170,8 @@ export interface CreateOrgBody {
   tin?: string
   /** Optional: seeds the first OWNER. An org with no owner is unmanageable. */
   ownerEmail?: string
+  /** Optional: the referral code of whoever brought this store in. */
+  referralCode?: string
 }
 
 export interface TaskRequirements {
@@ -946,4 +948,24 @@ export interface OrgMap {
    */
   unplaced: number
   nodes: MapNode[]
+}
+
+/* ===== Referrals (server: services/referrals.ts) ===== */
+export interface AdminReferral {
+  id: string
+  kind: 'TASKER' | 'STORE'
+  status: 'PENDING' | 'EARNED' | 'VOID'
+  gross: number
+  net: number
+  earnedAt: string | null
+  createdAt: string
+  referrer: { id: string; name: string }
+  referred: { id: string | null; name: string }
+}
+
+export interface AdminReferrals {
+  /** Reward per kind, in naira. 0 = off. */
+  rewards: { taskerReward: number; storeReward: number }
+  paidOut: number
+  referrals: AdminReferral[]
 }

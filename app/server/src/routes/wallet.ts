@@ -13,8 +13,9 @@ const MIN_WITHDRAWAL = 5000; // ₦5,000 minimum.
 // statement. The read-only version workers see is walletFrom() in routes/me.ts,
 // which backs GET /api/me/wallet.
 //
-// Both express the same rule: Σ net of RELEASED payments − Σ non-FAILED
-// withdrawals. If you change one, change the other.
+// All three express the same rule: Σ net of RELEASED payments + Σ net of
+// EARNED referral bonuses − Σ non-FAILED withdrawals. The third is the admin's
+// view, wallet() in routes/workers.ts. If you change one, change them all.
 
 // POST /api/wallet/withdraw → body {amount}. Acting worker = req.user.id.
 // Guards: integer, ≥ ₦5,000, ≤ available. Creates a Withdrawal and (when
@@ -77,6 +78,7 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
     SELECT ${id}, ${workerId}, ${amt}, ${worker.bankMasked}, 'PROCESSING', ${provider}, ${reference}, ${nowIso}
     WHERE (
       (SELECT COALESCE(SUM("net"), 0) FROM "Payment" WHERE "workerId" = ${workerId} AND "status" = 'RELEASED')
+      + (SELECT COALESCE(SUM("net"), 0) FROM "Referral" WHERE "referrerId" = ${workerId} AND "status" = 'EARNED')
       - (SELECT COALESCE(SUM("amount"), 0) FROM "Withdrawal" WHERE "workerId" = ${workerId} AND "status" <> 'FAILED')
     ) >= ${amt}
   `;

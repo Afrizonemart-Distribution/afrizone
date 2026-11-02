@@ -14,7 +14,7 @@ import type {
   Skill,
   CredentialType,
 } from '../api/types'
-import { formatNaira, formatDate } from '../lib/format'
+import { formatNaira, formatDate, formatDateTime } from '../lib/format'
 import PageHeader from '../components/PageHeader'
 import Glass from '../components/ui/Glass'
 import Button from '../components/ui/Button'
@@ -40,7 +40,7 @@ import {
 } from '@/components/shadcn/table'
 
 const TIERS: Tier[] = ['STUDENT', 'DISPATCH', 'REMOTE', 'PROMO', 'TRADE']
-type Tab = 'tax' | 'categories' | 'skills' | 'credentialTypes' | 'requirements' | 'templates' | 'billing' | 'security'
+type Tab = 'tax' | 'categories' | 'skills' | 'credentialTypes' | 'requirements' | 'referrals' | 'templates' | 'billing' | 'security'
 
 
 /* ===================== Tax Rates ===================== */
@@ -1567,6 +1567,169 @@ function CredentialTypesTab({ canEdit }: { canEdit: boolean }) {
   )
 }
 
+/* ===================== Referrals ===================== */
+
+/**
+ * The referral loop (Blueprint §14, server services/referrals.ts).
+ *
+ * The two amounts are what a referrer earns when a Tasker they brought in is
+ * paid for a first job, or a store they brought in is approved. Both start at
+ * 0, which is off: every naira is Afrizone's. Below them, who has brought whom
+ * in, so a ring of accounts referring each other is visible to a person.
+ */
+function ReferralsTab({ canEdit }: { canEdit: boolean }) {
+  const { data, loading, error, reload } = useApi((signal) => api.referrals(signal))
+  const [tasker, setTasker] = useState<string | null>(null)
+  const [store, setStore] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  if (loading) return <LoadingState label="Loading referrals…" />
+  if (error || !data) return <ErrorState message={error ?? 'Could not load referrals'} onRetry={reload} />
+
+  const taskerValue = tasker ?? String(data.rewards.taskerReward || '')
+  const storeValue = store ?? String(data.rewards.storeReward || '')
+  const dirty =
+    (tasker !== null && Number(tasker || 0) !== data.rewards.taskerReward) ||
+    (store !== null && Number(store || 0) !== data.rewards.storeReward)
+
+  async function save() {
+    setBusy(true)
+    setErr(null)
+    try {
+      const writes: Promise<unknown>[] = []
+      if (tasker !== null) writes.push(api.putTemplate('referral.taskerReward', String(Number(tasker || 0))))
+      if (store !== null) writes.push(api.putTemplate('referral.storeReward', String(Number(store || 0))))
+      await Promise.all(writes)
+      setTasker(null)
+      setStore(null)
+      reload()
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not save')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function cancel(id: string) {
+    setErr(null)
+    try {
+      await api.voidReferral(id)
+      reload()
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not cancel')
+    }
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <Glass>
+        <h3 style={{ fontSize: 15, margin: '0 0 6px' }}>Rewards</h3>
+        <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 14px' }}>
+          Paid to the referrer only, into their wallet, less 5% WHT. Empty or 0 is off. A change applies to
+          referrals that pay from now on; ones already paid keep their amount.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div className="field">
+            <Label htmlFor="ref-tasker">New Tasker, after their first paid job (₦)</Label>
+            <Input
+              id="ref-tasker"
+              type="number"
+              min={0}
+              value={taskerValue}
+              placeholder="Off"
+              disabled={!canEdit}
+              onChange={(e) => setTasker(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <Label htmlFor="ref-store">New store, once approved (₦)</Label>
+            <Input
+              id="ref-store"
+              type="number"
+              min={0}
+              value={storeValue}
+              placeholder="Off"
+              disabled={!canEdit}
+              onChange={(e) => setStore(e.target.value)}
+            />
+          </div>
+        </div>
+        {err && (
+          <div className="login-error" role="alert" style={{ marginTop: 12 }}>
+            {err}
+          </div>
+        )}
+        {canEdit && dirty && (
+          <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+            <Button size="sm" loading={busy} onClick={save}>
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="glass"
+              onClick={() => {
+                setTasker(null)
+                setStore(null)
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
+      </Glass>
+
+      <Glass className="tablewrap">
+        <div style={{ padding: '14px 16px 0', fontSize: 13, color: 'var(--muted)' }}>
+          {data.referrals.length} referrals · {formatNaira(data.paidOut)} paid out before tax
+        </div>
+        {data.referrals.length === 0 ? (
+          <EmptyState icon="users" title="No referrals yet" sub="They appear here once someone uses a code." />
+        ) : (
+          <Table className="dt">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Referred</TableHead>
+                <TableHead>By</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Reward</TableHead>
+                <TableHead>Since</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.referrals.map((r) => (
+                <TableRow key={r.id}>
+                  <TableCell>
+                    {r.referred.name}
+                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>{r.kind === 'STORE' ? 'Store' : 'Tasker'}</div>
+                  </TableCell>
+                  <TableCell>{r.referrer.name}</TableCell>
+                  <TableCell>
+                    <StatusPill
+                      variant={r.status === 'EARNED' ? 'paid' : r.status === 'VOID' ? 'danger' : 'pending'}
+                      label={r.status === 'EARNED' ? 'Paid' : r.status === 'VOID' ? 'Cancelled' : 'Waiting'}
+                    />
+                  </TableCell>
+                  <TableCell className="tnum">{r.status === 'EARNED' ? formatNaira(r.gross) : '—'}</TableCell>
+                  <TableCell>{formatDateTime(r.createdAt)}</TableCell>
+                  <TableCell>
+                    {canEdit && r.status === 'PENDING' && (
+                      <Button size="sm" variant="glass" onClick={() => cancel(r.id)}>
+                        Cancel
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Glass>
+    </div>
+  )
+}
+
 /* ===================== Page ===================== */
 
 const TABS: { id: Tab; label: string; icon: 'percent' | 'tag' | 'mail' | 'naira' | 'shield' | 'lock' }[] = [
@@ -1575,6 +1738,7 @@ const TABS: { id: Tab; label: string; icon: 'percent' | 'tag' | 'mail' | 'naira'
   { id: 'skills', label: 'Skills', icon: 'tag' },
   { id: 'credentialTypes', label: 'Credential types', icon: 'shield' },
   { id: 'requirements', label: 'Requirements', icon: 'lock' },
+  { id: 'referrals', label: 'Referrals', icon: 'naira' },
   { id: 'templates', label: 'Templates', icon: 'mail' },
   { id: 'billing', label: 'Billing', icon: 'naira' },
   { id: 'security', label: 'Security', icon: 'shield' },
@@ -1637,6 +1801,9 @@ export default function Settings() {
         </TabsContent>
         <TabsContent value="requirements">
           <RequirementsTab canEdit={canEdit} />
+        </TabsContent>
+        <TabsContent value="referrals">
+          <ReferralsTab canEdit={canEdit} />
         </TabsContent>
         <TabsContent value="templates">
           <TemplatesTab canEdit={canEdit} />

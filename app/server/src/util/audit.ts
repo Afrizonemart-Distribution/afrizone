@@ -31,6 +31,10 @@ export const SYSTEM_ACTORS = {
   /// than a SYSTEM actor because it is a thing that runs on a clock and can
   /// fail to run, which is exactly what its audit rows are read to check.
   deliveryPurge: { type: "JOB", ref: "delivery-purge" },
+  /// A referral bonus earned as a side effect of a payment release or a store
+  /// approval (services/referrals.ts). The human who pressed the button is on
+  /// that action's own audit row.
+  referrals: { type: "SYSTEM", ref: "referrals" },
 } as const satisfies Record<string, AuditActor>;
 
 export function userActor(userId: string): AuditActor {

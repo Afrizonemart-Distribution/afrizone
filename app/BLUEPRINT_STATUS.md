@@ -266,7 +266,6 @@ distinguishable from a quiet week.
 
 ## 7. Substantial features not started
 
-- **Referral loop** (§14).
 - **CallyValley** as the certification feeder and **VOLTRON** as a labour
   consumer (§2). Neither system has been discussed before.
 - **Offline-tolerant mobile flows** (§16). The app currently assumes
@@ -427,7 +426,27 @@ order themselves.** Everything below is in the order it is worth doing:
    `test/crew.test.ts`; "Crew of up to" on the admin task form, the crew and
    shares on Applications with Approve held until ready; on mobile a "Bring a
    crew" section when applying and a Crew invites screen (next APK).
-6. **Referral loop** (§14), **shared identity
+6. **Referral loop (§14) — built 2 November 2026, not yet deployed; off until
+   amounts are set.** Every Tasker account (store members included) has a
+   six-character code (`User.referralCode`, made on first ask). A new Tasker
+   gives it at sign-up (`referralCode` on register / OTP verify, never fatal) or
+   later from "Refer and earn" - only before their first job and within 30 days,
+   once, never their own. A store is attributed by the admin registering it
+   (or on the store before approval), never by one of its own members. The
+   referrer earns, and only the referrer, when the newcomer is real: a Tasker's
+   first released payment, a store's approval. Amounts are settings
+   (`referral.taskerReward`, `referral.storeReward`, Settings → Referrals) that
+   start at 0; a moment that comes while the amount is 0 earns nothing. The
+   reward, its 5% WHT and the net are fixed on the `Referral` row when earned
+   and added to the withdrawable balance in all three places it is computed
+   (wallet screen, the atomic withdrawal check, the admin's worker view). A
+   pending referral can be cancelled by a Super Admin; a paid one cannot.
+   Migration `0027_referrals.sql`; code `services/referrals.ts`,
+   `routes/referrals.ts`, 7 tests in `test/referrals.test.ts`; admin Settings
+   → Referrals and a referral code on store registration; mobile "Refer and
+   earn" screen (next APK). The sign-up screens do not ask for a code yet - a
+   new Tasker adds it from the profile.
+7. **Shared identity
    with AZM** (§13, blocked on Mart exposing an identity provider), and
    **offline-tolerant mobile flows** (§16).
 

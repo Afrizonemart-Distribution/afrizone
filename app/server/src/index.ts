@@ -40,6 +40,7 @@ import evidenceRouter, {
   handleEvidenceFileGet,
 } from "./routes/evidence";
 import adminAuditsRouter from "./routes/audits";
+import adminReferralsRouter from "./routes/referrals";
 
 /** Must match wrangler.jsonc's triggers.crons entry character for character. */
 const EVERY_MINUTE = "* * * * *";
@@ -222,6 +223,7 @@ app.use("/api/me/evidence", evidenceRouter);
 app.use("/api/admin/evidence", adminEvidenceRouter);
 // Every store audit finding, for the admin screen.
 app.use("/api/admin/audits", adminAuditsRouter);
+app.use("/api/admin/referrals", adminReferralsRouter);
 app.use("/api/me", meRouter);
 // Skills + credentials, also under /api/me (see routes/meTalent.ts).
 app.use("/api/me", meTalentRouter);

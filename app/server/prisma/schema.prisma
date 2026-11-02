@@ -72,11 +72,14 @@ model User {
   notifTasks        Boolean  @default(true) // push: task matches & approval status changes
   notifPay          Boolean  @default(true) // push: payment releases & withdrawal updates
   notifEmail        Boolean  @default(false) // email summary digest (future)
+  referralCode      String?  @unique // handed out to bring others in (services/referrals.ts)
   createdAt         DateTime @default(now())
 
   tasksCreated        Task[]               @relation("TaskCreatedBy")
   applications        Application[]
   crewInvites         CrewInvite[]
+  referralsMade       Referral[]           @relation("ReferralReferrer")
+  referredBy          Referral?            @relation("ReferralReferred")
   timesheets          Timesheet[]
   payments            Payment[]
   auditLogs           AuditLog[]
@@ -798,6 +801,7 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   members     OrganizationMember[]
+  referral    Referral?
   commitments Commitment[]
   tasks       Task[]
   audits      StoreAudit[]
@@ -1287,4 +1291,26 @@ model Delivery {
   /// "What is on the board, and how long has it been there?" - the operations
   /// board's escalation view, and the same reasoning about scans applies.
   @@index([status, offeredAt])
+}
+
+/// Somebody brought in by somebody else (services/referrals.ts). TASKER | STORE.
+/// PENDING until the newcomer proves real, then EARNED with a fixed reward; VOID if cancelled.
+model Referral {
+  id                     String    @id @default(cuid())
+  kind                   String
+  referrerId             String
+  referredUserId         String?   @unique
+  referredOrganizationId String?   @unique
+  status                 String    @default("PENDING")
+  gross                  Int       @default(0)
+  whtAmount              Int       @default(0)
+  net                    Int       @default(0)
+  earnedAt               DateTime?
+  createdAt              DateTime  @default(now())
+
+  referrer             User          @relation("ReferralReferrer", fields: [referrerId], references: [id])
+  referredUser         User?         @relation("ReferralReferred", fields: [referredUserId], references: [id], onDelete: SetNull)
+  referredOrganization Organization? @relation(fields: [referredOrganizationId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId, status])
 }

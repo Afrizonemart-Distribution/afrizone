@@ -276,6 +276,7 @@ const EMPTY: CreateOrgBody = {
   bankCode: '',
   bankName: '',
   ownerEmail: '',
+  referralCode: '',
 }
 
 function NewOrgModal({
@@ -303,13 +304,17 @@ function NewOrgModal({
       // Blank optional fields are stripped rather than sent as "": the server
       // stores what it is given, and an empty string is not the same as absent.
       const body: CreateOrgBody = { name: form.name.trim(), kind: form.kind }
-      for (const k of ['phone', 'email', 'address', 'bankAccountNumber', 'bankCode', 'bankName', 'ownerEmail'] as const) {
+      for (const k of ['phone', 'email', 'address', 'bankAccountNumber', 'bankCode', 'bankName', 'ownerEmail', 'referralCode'] as const) {
         const v = (form[k] ?? '').toString().trim()
         if (v) (body as unknown as Record<string, unknown>)[k] = v
       }
       const created = await api.createOrganization(body)
       setForm(EMPTY)
       onCreated(created)
+      // The store is registered either way; a code that did not match is
+      // said out loud rather than dropped, so it can be added on the store.
+      const warning = (created as Organization & { referralWarning?: string | null }).referralWarning
+      if (warning) window.alert(`Registered, but the referral was not recorded: ${warning}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not register that')
     } finally {
@@ -375,6 +380,18 @@ function NewOrgModal({
               onChange={(e) => set('email', e.target.value)}
               placeholder="hello@example.com"
             />
+          </div>
+          <div className="field span2">
+            <Label htmlFor="o-ref">Referral code (optional)</Label>
+            <Input
+              id="o-ref"
+              value={form.referralCode ?? ''}
+              onChange={(e) => set('referralCode', e.target.value.toUpperCase())}
+              placeholder="From the Tasker or store who brought them in"
+            />
+            <span className="fieldhint">
+              They earn the store referral reward once you approve this store.
+            </span>
           </div>
           <div className="field span2">
             <Label htmlFor="o-owner">Owner&rsquo;s Afrizone email (optional)</Label>

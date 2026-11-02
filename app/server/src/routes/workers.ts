@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest, publicUser } from "../auth";
 import { loadStanding, loadStandings } from "../services/standing";
+import { referralEarnings } from "../services/referrals";
 import { tiersToArray, tiersToString, TIERS, Tier, isCredentialValid, isCredentialExpiring } from "../types";
 import { writeAudit, userActor } from "../util/audit";
 import { resolveUrl } from "../services/storage";
@@ -13,7 +14,8 @@ const router = Router();
 // Derived wallet for a worker (matches GET /me/wallet semantics).
 function wallet(
   payments: { net: number; status: string }[],
-  withdrawals: { amount: number; status: string }[]
+  withdrawals: { amount: number; status: string }[],
+  referrals = 0
 ) {
   const pending = payments
     .filter((p) => p.status === "PENDING" || p.status === "APPROVED")
@@ -22,7 +24,7 @@ function wallet(
   const withdrawn = withdrawals
     .filter((w) => w.status !== "FAILED")
     .reduce((s, w) => s + w.amount, 0);
-  return { pending, available: released - withdrawn, withdrawn };
+  return { pending, available: released + referrals - withdrawn, withdrawn, referrals };
 }
 
 // GET /api/workers → users where role=WORKER
@@ -89,7 +91,7 @@ router.get("/:id", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN", "TASK_MAN
       createdAt: p.createdAt,
       task: { id: p.task.id, title: p.task.title },
     })),
-    wallet: wallet(worker.payments, worker.withdrawals),
+    wallet: wallet(worker.payments, worker.withdrawals, await referralEarnings(worker.id)),
     courier: worker.courierProfile
       ? {
           vehicleType: worker.courierProfile.vehicleType,

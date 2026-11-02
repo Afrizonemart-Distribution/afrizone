@@ -4,6 +4,7 @@
 // the API's origin, e.g. https://api.afrizoneparttime.com
 
 import type {
+  AdminReferrals,
   Application,
   AppStatus,
   AuthSuccess,
@@ -532,6 +533,11 @@ export const api = {
   },
   // Generation rules are Settings rows, so they are written through the same
   // endpoint every other setting uses rather than a second write path.
+  // ===== Referrals (server services/referrals.ts) =====
+  referrals: (signal?: AbortSignal) => request<AdminReferrals>('/admin/referrals', { signal }),
+  voidReferral: (id: string) =>
+    request<{ id: string; status: string }>(`/admin/referrals/${id}/void`, { method: 'POST', body: {} }),
+
   putRule: (kind: string, param: string, value: string) =>
     request<Template>(`/settings/templates/${encodeURIComponent(`rules.${kind}.${param}`)}`, {
       method: 'PUT',

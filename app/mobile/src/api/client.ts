@@ -17,6 +17,7 @@ import type {
   Application,
   CrewInvite,
   CrewProposal,
+  ReferralSummary,
   ClockResult,
   ClockState,
   Transaction,
@@ -384,6 +385,16 @@ export const api = {
       method: 'POST',
       body: { taskId, pitch, ...(crew ? { crew } : {}) },
     });
+  },
+
+  /** GET /api/me/referral: this Tasker's code and who they have brought in. */
+  myReferral(signal?: AbortSignal): Promise<ReferralSummary> {
+    return request<ReferralSummary>('/me/referral', { signal });
+  },
+
+  /** POST /api/me/referral: say who referred you (before your first job). */
+  claimReferral(code: string): Promise<{ referredBy: { name: string } }> {
+    return request<{ referredBy: { name: string } }>('/me/referral', { method: 'POST', body: { code } });
   },
 
   /** GET /api/me/crew-invites: crews this Tasker has been asked to join. */

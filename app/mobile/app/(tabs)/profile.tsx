@@ -259,6 +259,7 @@ export default function ProfileScreen() {
         <AppListCard>
           <AppListRow icon="alert" title="Disputes" onPress={() => router.push('/disputes')} />
           <AppListRow icon="clock" title="Timesheets" subtitle="Track submitted hours and approval status" onPress={() => router.push('/timesheets')} />
+          <AppListRow icon="dollar" title="Refer and earn" subtitle="Your code, and who you have brought in" onPress={() => router.push('/refer')} />
           <AppListRow icon="briefcase" title="Crew invites" subtitle="Jobs another Tasker wants you on" onPress={() => router.push('/crew')} />
           <AppListRow icon="star" title="My ratings" subtitle="See feedback from task managers" onPress={() => router.push('/ratings')} />
           <AppListRow icon="bell" title="Help & support" onPress={() => router.push('/support')} last />

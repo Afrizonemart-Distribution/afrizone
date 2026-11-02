@@ -832,3 +832,21 @@ export interface CrewProposal {
   leadShare: number;
   members: { phone: string; share: number }[];
 }
+
+/** GET /api/me/referral (server services/referrals.ts). */
+export interface ReferralSummary {
+  code: string;
+  /** What each kind pays the referrer right now, in naira. 0 = off. */
+  rewards: { taskerReward: number; storeReward: number };
+  /** Net of WHT, already in the wallet. */
+  earned: number;
+  referrals: {
+    id: string;
+    kind: 'TASKER' | 'STORE';
+    name: string;
+    status: 'PENDING' | 'EARNED' | 'VOID';
+    net: number | null;
+    createdAt: string;
+  }[];
+  referredBy: { name: string } | null;
+}
