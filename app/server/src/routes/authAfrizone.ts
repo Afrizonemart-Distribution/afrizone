@@ -77,7 +77,19 @@ router.post("/afrizone", async (req, res) => {
 
   // 1. Already linked.
   const linked = await prisma.user.findUnique({ where: { afrizoneUserId: claims.sub } });
-  if (linked) return signIn(res, linked, false);
+  if (linked) {
+    // A linked STAFF account still signs in on the console only. Linking is
+    // identity, not a second front door: otherwise anyone holding the
+    // AfriZone password (a weaker account, no Part-Time 2FA) would get a full
+    // staff session from the portal or the app. Fail closed on any non-WORKER.
+    if (linked.role !== "WORKER") {
+      return res.status(403).json({
+        error: "Staff accounts sign in on the Afrizone staff console, not with AfriZone.",
+        code: "STAFF_USE_CONSOLE",
+      });
+    }
+    return signIn(res, linked, false);
+  }
 
   // 2-3. Verified email match.
   if (claims.email_verified && claims.email) {
