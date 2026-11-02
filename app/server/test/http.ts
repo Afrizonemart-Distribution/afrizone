@@ -42,7 +42,7 @@ export async function apiPut(path: string, json?: unknown, token?: string): Prom
 }
 
 async function apiSend(
-  method: "POST" | "PATCH" | "PUT",
+  method: "POST" | "PATCH" | "PUT" | "DELETE",
   path: string,
   json?: unknown,
   token?: string
@@ -56,4 +56,8 @@ async function apiSend(
     body: json !== undefined ? JSON.stringify(json) : undefined,
   });
   return toResult(res);
+}
+
+export async function apiDelete(path: string, token?: string): Promise<ApiResult> {
+  return apiSend("DELETE", path, undefined, token);
 }

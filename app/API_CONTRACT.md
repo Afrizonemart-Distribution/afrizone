@@ -551,3 +551,19 @@ axis, separate from `Task` and `Contract`.
 > Both webhooks and the Mart endpoint have `express.raw()` mounted on their paths
 > **before** the global JSON parser. Signature verification needs the exact bytes;
 > a re-serialized body will not match.
+
+## Talent Profile
+
+The worker's shareable hiring profile. Proven and claimed are kept apart: work history, education, portfolio and skills are self-declared. Credentials count only once VERIFIED. `workRecord` is computed from RELEASED payments and can't be typed in.
+
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| GET | `/api/me/profile` | worker | Full profile, including CV and portfolio files |
+| PATCH | `/api/me/profile` | worker | `{headline?, bio?, location?, openTo?: ("TASKS"\|"HOURLY"\|"CONTRACT"\|"FULL_TIME")[], cvDocumentId?, visibility?: "PRIVATE"\|"LINK"}`. The first switch to LINK mints `slug`, which is never reassigned |
+| POST / PATCH / DELETE | `/api/me/experience[/:id]` | worker | `{title, company, location?, startDate, endDate? (null = current), description?}` |
+| POST / PATCH / DELETE | `/api/me/education[/:id]` | worker | `{institution, qualification, field?, startYear?, endYear?}` |
+| POST / PATCH / DELETE | `/api/me/portfolio[/:id]` | worker | `{title, description?, url? (http/https), documentId?}`, which needs a link or a file |
+| GET | `/api/public/profiles/:slug` | anyone | LINK profiles only. No contact details, files, or unverified credentials. Anything else returns 404 |
+| GET | `/api/workers/:id/profile` | staff | Existing payload plus `talent` (staff cut: contact details and files) |
+
+Files (CV, portfolio) upload through `POST /api/me/kyc/documents` with `docType` `CV` or `PORTFOLIO`, then get referenced by id. Every write returns the whole updated profile. A section holds at most 30 entries.

@@ -77,6 +77,17 @@ model User {
   notifPay          Boolean  @default(true) // push: payment releases & withdrawal updates
   notifEmail        Boolean  @default(false) // email summary digest (future)
   referralCode      String?  @unique // handed out to bring others in (services/referrals.ts)
+  // ── Talent Profile (routes/meProfile.ts) ──
+  headline          String?
+  bio               String?
+  /// Comma-separated OpenTo[] (TASKS | HOURLY | CONTRACT | FULL_TIME). "" = not said.
+  openTo            String   @default("")
+  /// The current CV: a KycDocument with docType CV owned by this user.
+  cvDocumentId      String?
+  /// PRIVATE (worker + staff only) | LINK (anyone with /p/<profileSlug>).
+  profileVisibility String   @default("PRIVATE")
+  /// Minted the first time the profile is shared. Never reassigned.
+  profileSlug       String?  @unique
   createdAt         DateTime @default(now())
 
   tasksCreated        Task[]               @relation("TaskCreatedBy")
@@ -93,6 +104,9 @@ model User {
   contracts           Contract[]
   passwordResets      PasswordReset[]
   kycDocuments        KycDocument[]
+  workExperience      WorkExperience[]
+  education           Education[]
+  portfolioItems      PortfolioItem[]
   kycVerifications    KycVerification[]
   disputes            Dispute[]
   ratingsReceived     Rating[]             @relation("WorkerRatings")
@@ -585,6 +599,7 @@ model KycDocument {
   user        User         @relation(fields: [userId], references: [id])
   // A credential's evidence is stored through this same pipeline.
   credentials Credential[]
+  portfolioItems PortfolioItem[]
 
   @@index([userId])
 }
@@ -1336,4 +1351,55 @@ model Referral {
   referredOrganization Organization? @relation(fields: [referredOrganizationId], references: [id], onDelete: SetNull)
 
   @@index([referrerId, status])
+}
+
+/// Talent Profile: a job the worker held. Self-declared; shown as such.
+model WorkExperience {
+  id          String    @id @default(cuid())
+  userId      String
+  title       String
+  company     String
+  location    String?
+  startDate   DateTime
+  /// null = current role.
+  endDate     DateTime?
+  description String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Talent Profile: schooling. Self-declared. A certificate someone must check
+/// is a Credential instead, which is what gates work.
+model Education {
+  id            String   @id @default(cuid())
+  userId        String
+  institution   String
+  qualification String
+  field         String?
+  startYear     Int?
+  endYear       Int?
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Talent Profile: something the worker made. A link, a file, or both.
+model PortfolioItem {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  url         String?
+  documentId  String?
+  createdAt   DateTime @default(now())
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document KycDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
 }
