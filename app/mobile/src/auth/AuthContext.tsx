@@ -54,6 +54,8 @@ interface AuthState {
   updateProfile: (patch: { name?: string; email?: string }) => Promise<void>;
   /** POST /api/auth/google (context:"worker"): stores session, returns isNewUser. */
   googleSignIn: (idToken: string) => Promise<boolean>;
+  /** POST /api/auth/afrizone: identity token in, session or 2FA challenge out. */
+  afrizoneSignIn: (identityToken: string) => Promise<LoginResult>;
   /** POST /api/auth/password/forgot: neutral confirmation (+ devToken in sim). */
   passwordForgot: (email: string) => Promise<PasswordForgotResponse>;
   /** POST /api/auth/password/reset: set a new password from a reset token. */
@@ -161,6 +163,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applySession]
   );
 
+  const afrizoneSignIn = useCallback(
+    async (identityToken: string): Promise<LoginResult> => {
+      const res = await api.afrizoneSignIn(identityToken);
+      if (isTwoFactorRequired(res)) return { kind: '2fa', challenge: res.challenge };
+      await applySession(res);
+      return { kind: 'authenticated', isNewUser: res.isNewUser ?? false };
+    },
+    [applySession]
+  );
+
   const passwordForgot = useCallback(async (email: string) => {
     return api.passwordForgot(email.trim());
   }, []);
@@ -226,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       verifyTwoFactor,
       register,
       googleSignIn,
+      afrizoneSignIn,
       passwordForgot,
       passwordReset,
       twoFactorSetup,
@@ -245,6 +258,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       verifyTwoFactor,
       register,
       googleSignIn,
+      afrizoneSignIn,
       passwordForgot,
       passwordReset,
       twoFactorSetup,

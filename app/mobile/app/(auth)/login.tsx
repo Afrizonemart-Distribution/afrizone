@@ -130,6 +130,7 @@ export default function LoginScreen() {
       </View>
 
       <GoogleButton onSuccess={routeAfterAuth} onError={setError} />
+      <ObButton label="Continue with AfriZone" variant="outline" onPress={() => router.push('/(auth)/afrizone')} />
 
       <View style={styles.dividerRow}>
         <View style={styles.dividerLine} />
