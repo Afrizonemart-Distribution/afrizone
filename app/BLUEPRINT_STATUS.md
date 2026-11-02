@@ -407,7 +407,8 @@ order themselves.** Everything below is in the order it is worth doing:
    preview; the deliveries board says "paying +₦X surge" or "taken at +₦X";
    the courier app shows "Includes ₦X surge for the wait" (next APK). Code:
    `services/surge.ts`, 7 tests in `test/surge.test.ts`.
-5. **Crew contracts (§14) — built 2 November 2026, not yet deployed.** A lead
+5. **Crew contracts (§14) — deployed 2 November 2026 (API and admin console; the
+   mobile screens wait for the next APK).** A lead
    Tasker brings a crew to a larger fixed-price job and the budget is split.
    A manager opens a task to crews with "Crew of up to N" (`Task.crewMax`,
    2-10 people including the lead, FIXED only; 0 = solo). The lead applies
@@ -465,12 +466,15 @@ database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
 **Everything described in this document is deployed** (verified 27 October
-2026). D1 is at migration `0025_surge.sql`; the API worker is version
-`76efa859-7493-4cef-8e23-7f4af5d5fe0d`, deployed 1 November 17:25 UTC with
-surge pay (off until steps are set). Roll back to
-`7f5c17b1-70fd-4f99-9fbe-53bfc94eee68` (27 October 23:56 UTC, `a34e37a`,
-standing, no surge) - the `surgeAmount` column is then unread, which is
-harmless, but an order claimed at a surge keeps its raised budget. Before that,
+2026). D1 is at migration `0026_crew.sql`; the API worker is version
+`748ce60f-5bc8-4b79-a52e-6300b7d75370`, deployed 2 November 11:40 UTC from
+`c4fe419` with crew contracts. Roll back to
+`76efa859-7493-4cef-8e23-7f4af5d5fe0d` (1 November 17:25 UTC, surge pay, no
+crews) - the crew columns and `CrewInvite` are then unread; a crew already
+approved keeps its member contracts, but the old code would pay the lead's
+hand-in at the whole budget to the lead and pay nobody else, so settle any open crew
+jobs by hand first. Before that, `7f5c17b1-70fd-4f99-9fbe-53bfc94eee68`
+(27 October 23:56 UTC, `a34e37a`, standing, no surge). Before that,
 `9fe19990-3de7-464f-8713-be64b5b3fc77` (14:56 UTC, `5d228b5`, applicant ranking
 without standing). Before that,
 `a0475f74-8893-453b-880e-074e81879d60` (12:56 UTC, audit results route, no
@@ -478,9 +482,9 @@ ranking) - nothing in the database depends on the difference, and the queue
 simply returns to newest-first. Before that, `bf6c86bd-6683-4780-9ae5-dbb9d9ffd357`
 (11:47 UTC, `dd36a6e`, signatures but no audit list). Rolling back past
 signatures leaves a `Signature` table nothing reads, which is harmless. The
-admin console was uploaded by hand on 1 November at 17:30 UTC (Pages
-deployment `a7d9b415`, with the Surge pay card; built from the uncommitted
-surge work, so Pages labels it `b676937`); the portal from `7d497f8` that morning.
+admin console was uploaded by hand on 2 November at 11:47 UTC (Pages
+deployment `3237d882`, with the crew limit and crew review; its bundle has the
+crew code although Pages labels it `e173d97`); the portal from `7d497f8` that morning.
 
 Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
 and `c65bce3b` (10:53, the rename and possibly part of the pass work).
