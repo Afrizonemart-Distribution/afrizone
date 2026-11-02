@@ -61,7 +61,10 @@
     // behaviour today. It is here to be VISIBLE: the fallback is buried in a
     // service file, and the next person to get a different sender ID approved
     // would have had no reason to look there.
-    "TERMII_FROM": "Afrizone"
+    "TERMII_FROM": "Afrizone",
+    // Continue with AfriZone (routes/authAfrizone.ts). Not a secret: verification uses
+    // AfriZone's PUBLIC key from its JWKS. Set to "false" to switch the routes off (503).
+    "AFRIZONE_LOGIN_ENABLED": "true"
   },
   "d1_databases": [
     {
