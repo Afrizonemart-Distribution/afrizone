@@ -4,7 +4,8 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppSearchBar, AppChipRow, AppChip, AppEmptyState, AppLoadingCards, AppBanner } from '../../src/appui/AppUI';
 import { obColors, obRadii } from '../../src/onboarding/onboardingTheme';
-import { api } from '../../src/api/client';
+import { api, ApiError } from '../../src/api/client';
+import { OfflineNote } from '../../src/components/OfflineStatus';
 import { mock } from '../../src/api/mock';
 import { useAsync } from '../../src/lib/useAsync';
 import { formatNaira } from '../../src/lib/format';
@@ -51,11 +52,13 @@ export default function JobsScreen() {
     try {
       const rows = await api.jobs(signal);
       return { rows, mocked: false };
-    } catch {
+    } catch (e) {
+      // No signal is not "the endpoint is off": let the saved copy show.
+      if (e instanceof ApiError && e.status === 0) throw e;
       const rows = await mock.jobs();
       return { rows, mocked: true };
     }
-  }, []);
+  }, [], { cacheKey: 'jobs' });
 
   const rows = jobs.data?.rows ?? [];
   const open = useMemo(() => rows.filter((j) => j.status === 'OPEN'), [rows]);
@@ -79,6 +82,7 @@ export default function JobsScreen() {
       >
         <Text style={styles.title}>Jobs</Text>
         <View style={{ height: 14 }} />
+        <OfflineNote savedAt={jobs.savedAt} />
 
         {jobs.data?.mocked ? (
           <View style={{ marginBottom: 16 }}>

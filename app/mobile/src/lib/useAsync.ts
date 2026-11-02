@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../api/client';
+import { readCache, saveCache } from './offlineCache';
 
 interface AsyncState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
   reload: () => void;
+  /**
+   * Set when `data` is the last copy saved on this phone rather than a fresh
+   * answer, because the server could not be reached: when it was saved.
+   */
+  savedAt: string | null;
+}
+
+interface AsyncOptions {
+  /**
+   * Keep the last good answer under this key and show it when there is no
+   * signal (src/lib/offlineCache.ts). Leave it out for anything that must be
+   * fresh or is not worth keeping.
+   */
+  cacheKey?: string | null;
 }
 
 /**
@@ -15,9 +30,12 @@ interface AsyncState<T> {
  */
 export function useAsync<T>(
   loader: (signal: AbortSignal) => Promise<T>,
-  deps: React.DependencyList = []
+  deps: React.DependencyList = [],
+  options: AsyncOptions = {}
 ): AsyncState<T> {
+  const cacheKey = options.cacheKey ?? null;
   const [data, setData] = useState<T | null>(null);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
@@ -36,10 +54,12 @@ export function useAsync<T>(
       .then((res) => {
         if (active) {
           setData(res);
+          setSavedAt(null);
           setLoading(false);
         }
+        if (cacheKey) void saveCache(cacheKey, res);
       })
-      .catch((e: unknown) => {
+      .catch(async (e: unknown) => {
         if (!active) return;
         // Ignore intentional aborts. Checked by name, NOT with
         // `e instanceof DOMException`: Hermes has no DOMException, so that
@@ -49,6 +69,19 @@ export function useAsync<T>(
         // spinner forever. React Native's fetch rejects aborts with a plain
         // Error whose name is 'AbortError', so the name check is the portable one.
         if ((e as { name?: string } | null)?.name === 'AbortError') return;
+        // No signal (status 0 is "could not reach the server"): the last copy,
+        // labelled with its age, beats an error on a screen somebody is
+        // working from.
+        if (cacheKey && e instanceof ApiError && e.status === 0) {
+          const kept = await readCache<T>(cacheKey);
+          if (!active) return;
+          if (kept) {
+            setData(kept.data);
+            setSavedAt(kept.savedAt);
+            setLoading(false);
+            return;
+          }
+        }
         const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Unexpected error';
         setError(msg);
         setLoading(false);
@@ -58,7 +91,7 @@ export function useAsync<T>(
       ctrl.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tick, ...deps]);
+  }, [tick, cacheKey, ...deps]);
 
-  return { data, loading, error, reload };
+  return { data, loading, error, reload, savedAt };
 }

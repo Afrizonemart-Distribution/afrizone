@@ -29,6 +29,8 @@ import { obColors, obRadii } from '../onboarding/onboardingTheme';
 import { api, ApiError } from '../api/client';
 import { API_BASE_URL, SECURE_TOKEN_KEY } from '../api/config';
 import { getItem } from '../lib/storage';
+import { cachedCall } from '../lib/offlineCache';
+import { onSent, sendOrQueue, useOutbox } from '../lib/outbox';
 import type { Evidence, EvidenceStage, Signature } from '../api/types';
 
 /** The server answers /api/...; API_BASE_URL already ends in /api. */
@@ -50,11 +52,19 @@ async function fix(): Promise<{ lat: number; lng: number; accuracy: number | nul
   }
 }
 
+export interface CapturedPhoto {
+  uri: string;
+  mimeType: string;
+  at: { lat: number; lng: number; accuracy: number | null } | null;
+  capturedAt: string;
+}
+
 /**
- * Take one photo and send it. Null when the worker backed out of the camera.
- * Exported for the clock, which needs the photo's id rather than a panel.
+ * Take one photo, with where and when, without sending it. Null when the
+ * worker backed out of the camera. The clock sends it with the clock event, so
+ * both wait together when there is no signal (src/lib/outbox.ts).
  */
-export async function takeEvidencePhoto(taskId: string, stage: EvidenceStage): Promise<Evidence | null> {
+export async function capturePhoto(): Promise<CapturedPhoto | null> {
   const cam = await ImagePicker.requestCameraPermissionsAsync();
   if (cam.status !== 'granted') {
     throw new Error('Allow the camera in Settings to take the photo this job needs.');
@@ -67,18 +77,10 @@ export async function takeEvidencePhoto(taskId: string, stage: EvidenceStage): P
     exif: false,
   });
   if (shot.canceled) return null;
-  const capturedAt = new Date();
+  const capturedAt = new Date().toISOString();
   const at = await fix();
-
   const asset = shot.assets[0];
-  return api.uploadEvidence({
-    taskId,
-    stage,
-    uri: asset.uri,
-    mimeType: asset.mimeType ?? 'image/jpeg',
-    at,
-    capturedAt,
-  });
+  return { uri: asset.uri, mimeType: asset.mimeType ?? 'image/jpeg', at, capturedAt };
 }
 
 /** A thumbnail behind the API's auth, which a bare <Image uri> cannot send. */
@@ -136,7 +138,8 @@ export default function EvidencePanel({
 
   const load = useCallback(async () => {
     try {
-      const res = await api.myEvidence(taskId);
+      // Kept, so the step still knows what it needs with no signal.
+      const res = await cachedCall(`evidence:${taskId}`, () => api.myEvidence(taskId));
       const req = res.requirements.find((r) => r.stage === stage);
       setNeeded(req?.count ?? 0);
       setLabel(req?.label ?? '');
@@ -153,8 +156,27 @@ export default function EvidencePanel({
     void load();
   }, [load]);
 
-  const photosReady = needed !== null && items.length >= needed;
-  const ready = photosReady && (signer === null || signature !== null);
+  // Photos and a signature taken with no signal, waiting on this phone. They
+  // count towards the step: the queue sends in order, so the server has them
+  // before the step they prove.
+  const outbox = useOutbox();
+  const pendingPhotos = outbox.filter(
+    (i) => i.state === 'waiting' && i.action.kind === 'evidence' && i.action.taskId === taskId && i.action.stage === stage
+  );
+  const pendingSig = outbox.find(
+    (i) => i.state === 'waiting' && i.action.kind === 'signature' && i.action.taskId === taskId && i.action.stage === stage
+  );
+  useEffect(
+    () =>
+      onSent((item) => {
+        if ('taskId' in item.action && item.action.taskId === taskId) void load();
+      }),
+    [taskId, load]
+  );
+  const have = items.length + pendingPhotos.length;
+
+  const photosReady = needed !== null && have >= needed;
+  const ready = photosReady && (signer === null || signature !== null || !!pendingSig);
   useEffect(() => {
     if (needed !== null) onReady?.(ready);
     // onReady is the parent's setter; it is only told when the answer changes.
@@ -165,8 +187,13 @@ export default function EvidencePanel({
     setBusy(true);
     setError(null);
     try {
-      const photo = await takeEvidencePhoto(taskId, stage);
-      if (photo) setItems((cur) => [...cur, photo]);
+      const photo = await capturePhoto();
+      if (!photo) return;
+      const sent = await sendOrQueue<Evidence>(
+        { kind: 'evidence', taskId, stage, ...photo },
+        `Photo: ${label.toLowerCase() || 'job'}`
+      );
+      if (!sent.queued) setItems((cur) => [...cur, sent.result]);
     } catch (e) {
       setError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not send the photo. Try again.');
     } finally {
@@ -178,8 +205,11 @@ export default function EvidencePanel({
     setSigBusy(true);
     setSigError(null);
     try {
-      const sent = await api.sendSignature({ taskId, stage, ...drawn, at: await fix(), capturedAt: new Date() });
-      setSignature(sent);
+      const sent = await sendOrQueue<Signature>(
+        { kind: 'signature', taskId, stage, ...drawn, at: await fix(), capturedAt: new Date().toISOString() },
+        `Signature: ${(signer ?? 'handover').toLowerCase()}`
+      );
+      if (!sent.queued) setSignature(sent.result);
       setSigning(false);
     } catch (e) {
       setSigError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not send the signature. Try again.');
@@ -189,22 +219,39 @@ export default function EvidencePanel({
   }
 
   if (!needed) return null;
-  const left = Math.max(0, needed - items.length);
+  const left = Math.max(0, needed - have);
+  // A signature still on this phone, drawn the same way as a sent one.
+  const shownSig =
+    signature
+      ? { ...signature, waiting: false }
+      : pendingSig && pendingSig.action.kind === 'signature'
+        ? { ...pendingSig.action, flagged: false, flags: [] as string[], waiting: true }
+        : null;
 
   return (
     <View style={styles.panel}>
       <View style={styles.head}>
         <Icon name={ready ? 'check-circle' : 'camera'} size={15} color={ready ? obColors.forest : obColors.amberInk} />
         <Text style={styles.title}>
-          {needed === 1 ? `Photo: ${label.toLowerCase()}` : `Photos: ${label.toLowerCase()} (${items.length} of ${needed})`}
+          {needed === 1 ? `Photo: ${label.toLowerCase()}` : `Photos: ${label.toLowerCase()} (${have} of ${needed})`}
         </Text>
       </View>
 
-      {items.length > 0 ? (
+      {have > 0 ? (
         <View style={styles.thumbs}>
           {items.map((e) => (
             <Thumb key={e.id} e={e} token={token} />
           ))}
+          {pendingPhotos.map((i) =>
+            i.action.kind === 'evidence' ? (
+              <View key={i.id} style={styles.thumbWrap}>
+                <Image source={{ uri: i.action.uri }} style={styles.thumb} />
+                <Text style={styles.flag} numberOfLines={2}>
+                  Waiting for signal
+                </Text>
+              </View>
+            ) : null
+          )}
         </View>
       ) : (
         <Text style={styles.hint}>
@@ -212,7 +259,7 @@ export default function EvidencePanel({
         </Text>
       )}
 
-      {!photosReady || items.length === 0 ? (
+      {!photosReady || have === 0 ? (
         <Pressable onPress={take} disabled={busy} style={[styles.button, busy && { opacity: 0.6 }]}>
           <Icon name="camera" size={16} color={obColors.white} />
           <Text style={styles.buttonText}>
@@ -229,19 +276,19 @@ export default function EvidencePanel({
       {signer && photosReady ? (
         <View style={styles.sigBlock}>
           <View style={styles.head}>
-            <Icon name={signature ? 'check-circle' : 'edit'} size={15} color={signature ? obColors.forest : obColors.amberInk} />
+            <Icon name={shownSig ? 'check-circle' : 'edit'} size={15} color={shownSig ? obColors.forest : obColors.amberInk} />
             <Text style={styles.title}>Signature: {signer.toLowerCase()}</Text>
           </View>
-          {signature ? (
+          {shownSig ? (
             <>
               <View style={styles.sigPreview}>
-                <Svg width="100%" height="100%" viewBox={`0 0 ${signature.width} ${signature.height}`}>
-                  <Path d={signature.path} stroke={obColors.navy} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                <Svg width="100%" height="100%" viewBox={`0 0 ${shownSig.width} ${shownSig.height}`}>
+                  <Path d={shownSig.path} stroke={obColors.navy} strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </View>
-              <Text style={signature.flagged ? styles.flag : styles.ok}>
-                {signature.signerName}
-                {signature.flagged ? ` · ${signature.flags[0]}` : ''}
+              <Text style={shownSig.flagged || shownSig.waiting ? styles.flag : styles.ok}>
+                {shownSig.signerName}
+                {shownSig.waiting ? ' · waiting for signal' : shownSig.flagged ? ` · ${shownSig.flags[0]}` : ''}
               </Text>
               <Pressable onPress={() => setSigning(true)} style={styles.again}>
                 <Text style={styles.againText}>Sign again</Text>

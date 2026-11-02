@@ -431,6 +431,13 @@ export const api = {
     lng?: number | null;
     /** The photo taken for this clock event, where the job asks for one. */
     evidenceId?: string | null;
+    /**
+     * When it was tapped, and the phone's id for it (src/lib/outbox.ts). For
+     * an event sent late from no signal, the server records the tapped time;
+     * the id makes a resend record it once.
+     */
+    occurredAt?: string;
+    clientId?: string;
   }): Promise<ClockResult> {
     return request<ClockResult>('/clock', { method: 'POST', body: input });
   },

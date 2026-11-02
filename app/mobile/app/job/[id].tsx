@@ -49,7 +49,8 @@ export default function JobDetailScreen() {
 
   const job = useAsync<Job | null>(
     (signal) => (id ? api.jobById(id, signal) : Promise.resolve(null)),
-    [id]
+    [id],
+    { cacheKey: id ? `job:${id}` : null }
   );
 
   const j = job.data;

@@ -51,7 +51,25 @@ import { api, ApiError } from '../src/api/client';
 import { goOffline, goOnline, useBackgroundPresence, usePresence } from '../src/lib/presence';
 import EvidencePanel from '../src/components/EvidencePanel';
 import { useAsync } from '../src/lib/useAsync';
+import { onSent, sendOrQueue, useOutbox, type OutboxItem } from '../src/lib/outbox';
+import { OfflineNote, OutboxBanner } from '../src/components/OfflineStatus';
 import type { Delivery, DeliveryOffer, DeliveryStatus } from '../src/api/types';
+
+/**
+ * What a delivery looks like once the steps waiting on this phone go through
+ * (src/lib/outbox.ts). A rider who marked an order collected in a dead zone
+ * must not be shown "Collect" again when the screen reopens.
+ */
+function withQueued(d: Delivery, queue: OutboxItem[]): Delivery {
+  let next = d;
+  for (const i of queue) {
+    if (i.state !== 'waiting' || !('deliveryId' in i.action) || i.action.deliveryId !== d.id) continue;
+    if (i.action.kind === 'pickedUp') next = { ...next, status: 'PICKED_UP', statusLabel: 'Collected · waiting for signal' };
+    if (i.action.kind === 'complete') next = { ...next, status: 'DELIVERED', statusLabel: 'Delivered · confirming' };
+    if (i.action.kind === 'failed') next = { ...next, status: 'FAILED', statusLabel: 'Not delivered · waiting for signal' };
+  }
+  return next;
+}
 
 /** Whole Naira. There is no currency field anywhere in this platform. */
 function naira(n: number): string {
@@ -216,11 +234,15 @@ function JobCard({ d, onChange }: { d: Delivery; onChange: (next: Delivery) => v
   const [pickupShown, setPickupShown] = useState(true);
   const [doorShown, setDoorShown] = useState(true);
 
+  // Each of the three steps below is kept on the phone when there is no
+  // signal, and the card moves on as if it had gone through; the list above
+  // the cards says what is still waiting, and a refusal is shown there.
   async function pickUp() {
     setBusy('pickup');
     setError(null);
     try {
-      onChange(await api.markPickedUp(d.id));
+      const sent = await sendOrQueue<Delivery>({ kind: 'pickedUp', deliveryId: d.id }, `${d.martOrderId} collected`);
+      onChange(sent.queued ? { ...d, status: 'PICKED_UP', statusLabel: 'Collected · waiting for signal' } : sent.result);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not save that.');
     } finally {
@@ -233,7 +255,13 @@ function JobCard({ d, onChange }: { d: Delivery; onChange: (next: Delivery) => v
     setError(null);
     setUnreachable(null);
     try {
-      onChange(await api.completeDelivery(d.id, code.trim()));
+      // With no signal the code waits and is checked when there is some; if it
+      // turns out wrong the rider is told and the order stays open (as decided).
+      const sent = await sendOrQueue<Delivery>(
+        { kind: 'complete', deliveryId: d.id, code: code.trim() },
+        `${d.martOrderId} delivered`
+      );
+      onChange(sent.queued ? { ...d, status: 'DELIVERED', statusLabel: 'Delivered · confirming' } : sent.result);
       setCode('');
     } catch (e) {
       // 503 is "we could not ask". It must never be shown as a wrong code.
@@ -248,7 +276,11 @@ function JobCard({ d, onChange }: { d: Delivery; onChange: (next: Delivery) => v
     setBusy('fail');
     setError(null);
     try {
-      onChange(await api.failDelivery(d.id, reason.trim()));
+      const sent = await sendOrQueue<Delivery>(
+        { kind: 'failed', deliveryId: d.id, reason: reason.trim() },
+        `${d.martOrderId} not delivered`
+      );
+      onChange(sent.queued ? { ...d, status: 'FAILED', statusLabel: 'Not delivered · waiting for signal' } : sent.result);
       setFailing(false);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not record that.');
@@ -729,8 +761,21 @@ function OfferCard({
 export default function DeliveriesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const load = useAsync((signal) => api.myDeliveries(signal));
+  // Kept, so a rider in a dead zone still has the address and the order.
+  const load = useAsync((signal) => api.myDeliveries(signal), [], { cacheKey: 'deliveries' });
   const [jobs, setJobs] = useState<Delivery[] | null>(null);
+  const queue = useOutbox();
+  const reload = load.reload;
+  // A queued step that went through: load again for the real state.
+  useEffect(() => onSent((i) => ('deliveryId' in i.action ? reload() : undefined)), [reload]);
+  // And one that was refused - a wrong code - puts the card back as it really
+  // is, rather than leaving it showing "Delivered".
+  const refused = queue.filter((i) => i.state === 'failed' && 'deliveryId' in i.action).length;
+  const lastRefused = React.useRef(refused);
+  useEffect(() => {
+    if (refused > lastRefused.current) reload();
+    lastRefused.current = refused;
+  }, [refused, reload]);
 
   // Where the courier is, asked once when the screen opens. Not watched: this
   // is a list of shops to ride to, not a geofence, and a subscription would run
@@ -802,7 +847,7 @@ export default function DeliveriesScreen() {
     setJobs((cur) => (cur ?? []).map((j) => (j.id === next.id ? { ...j, ...next } : j)));
   }
 
-  const all = jobs ?? [];
+  const all = (jobs ?? []).map((j) => withQueued(j, queue));
   const live = all.filter((j) => LIVE.includes(j.status));
   const done = all.filter((j) => !LIVE.includes(j.status));
   const available = offers ?? [];
@@ -822,6 +867,8 @@ export default function DeliveriesScreen() {
       >
         <AppBackHeader title="Deliveries" onBack={() => router.back()} />
         {live.length > 0 ? <Text style={styles.subtitle}>{live.length} on the go</Text> : null}
+        <OfflineNote savedAt={load.savedAt} />
+        <OutboxBanner />
         <OnlineCard />
 
         {load.loading && !jobs ? (

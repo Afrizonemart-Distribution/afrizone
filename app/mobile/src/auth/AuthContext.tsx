@@ -9,6 +9,7 @@ import React, {
 import { api } from '../api/client';
 import { SECURE_TOKEN_KEY, SECURE_USER_KEY } from '../api/config';
 import { getItem, setItem, deleteItem } from '../lib/storage';
+import { clearCache } from '../lib/offlineCache';
 import { stopBackground } from '../lib/presence';
 import {
   isTwoFactorRequired,
@@ -223,6 +224,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await stopBackground();
     await deleteItem(SECURE_TOKEN_KEY);
     await deleteItem(SECURE_USER_KEY);
+    // Saved copies of screens include customers' names and addresses.
+    await clearCache();
     setToken(null);
     setUser(null);
   }, []);

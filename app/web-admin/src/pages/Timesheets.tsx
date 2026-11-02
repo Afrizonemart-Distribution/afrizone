@@ -140,6 +140,14 @@ export default function Timesheets() {
                     </TableCell>
                     <TableCell className="tnum" style={{ fontWeight: 700 }}>
                       {t.hours}h
+                      {t.clock && t.clock.offline > 0 && (
+                        <div
+                          style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)' }}
+                          title="Clocked with no signal and sent later, so the time is the phone's"
+                        >
+                          {t.clock.offline} of {t.clock.events} clock times recorded offline
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>{slaPill(t.slaHoursLeft) ?? '—'}</TableCell>
                     <TableCell>

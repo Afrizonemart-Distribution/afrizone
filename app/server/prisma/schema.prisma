@@ -375,11 +375,19 @@ model ClockEvent {
   lng         Float?
   withinFence Boolean
   note        String?
+  /// When it happened. For an event queued on the phone without signal, the
+  /// phone's time, within the limits in services/clockTime.ts.
   createdAt   DateTime @default(now())
+  /// The phone's id for this event, so a resend finds the first copy.
+  clientId        String?
+  /// Arrived noticeably after it happened; its time is the phone's.
+  recordedOffline Boolean   @default(false)
+  receivedAt      DateTime?
 
   worker User @relation(fields: [workerId], references: [id])
   task   Task @relation(fields: [taskId], references: [id])
 
+  @@unique([workerId, clientId])
   @@index([workerId, taskId, createdAt])
 }
 

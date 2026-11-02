@@ -11,8 +11,11 @@ import { obColors, obRadii } from '../../src/onboarding/onboardingTheme';
 import { api, ApiError } from '../../src/api/client';
 import { useAsync } from '../../src/lib/useAsync';
 import { formatElapsed, payLabel, formatDate } from '../../src/lib/format';
-import type { EvidenceRequirement, Task, Timesheet } from '../../src/api/types';
-import EvidencePanel, { takeEvidencePhoto } from '../../src/components/EvidencePanel';
+import type { ClockResult, EvidenceRequirement, Task, Timesheet } from '../../src/api/types';
+import EvidencePanel, { capturePhoto } from '../../src/components/EvidencePanel';
+import { cachedCall } from '../../src/lib/offlineCache';
+import { newClientId, sendOrQueue, useOutbox } from '../../src/lib/outbox';
+import { OfflineNote, OutboxBanner } from '../../src/components/OfflineStatus';
 
 /**
  * Restyled onto the navy/gold palette. Every piece of behaviour below - the
@@ -51,7 +54,8 @@ export default function ActiveTaskScreen() {
   // Task context: fetched once on mount for the header card.
   const taskQ = useAsync<Task | null>(
     (signal) => (id ? api.task(id, signal) : Promise.resolve(null)),
-    [id]
+    [id],
+    { cacheKey: id ? `task:${id}` : null }
   );
   const t = taskQ.data;
 
@@ -75,7 +79,31 @@ export default function ActiveTaskScreen() {
   const periodStart = useRef<string | null>(null);
   const workerCoords = useRef<{ lat: number; lng: number } | null>(null);
 
+  // Clock events made with no signal and not yet sent (src/lib/outbox.ts).
+  // Newer than anything the server knows, so the last one decides whether the
+  // Tasker is on the clock.
+  const outbox = useOutbox();
+  const queuedClocks = outbox.filter(
+    (i) => i.state === 'waiting' && i.action.kind === 'clock' && i.action.taskId === id
+  );
+  const queuedRef = useRef(queuedClocks);
+  queuedRef.current = queuedClocks;
+  useEffect(() => {
+    const last = queuedClocks[queuedClocks.length - 1];
+    if (!last || last.action.kind !== 'clock') return;
+    if (last.action.type === 'IN') {
+      startedAt.current = Date.parse(last.action.occurredAt);
+      if (!periodStart.current) periodStart.current = last.action.occurredAt;
+      setClockedIn(true);
+    } else {
+      setClockedIn(false);
+    }
+    // Only when the queue for this job grows or empties.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queuedClocks.length]);
+
   // Resume clock state and check for a prior submitted timesheet on mount.
+  // Both kept, so the screen opens on the right state with no signal.
   useEffect(() => {
     if (!id) return;
     let active = true;
@@ -83,11 +111,12 @@ export default function ActiveTaskScreen() {
     (async () => {
       try {
         const [s, sheets] = await Promise.all([
-          api.clockState(id, ctrl.signal),
-          api.myTimesheets(ctrl.signal),
+          cachedCall(`clock:${id}`, () => api.clockState(id, ctrl.signal)),
+          cachedCall('timesheets', () => api.myTimesheets(ctrl.signal)),
         ]);
         if (!active) return;
-        if (s.clockedIn) {
+        // Anything queued is newer than what the server said.
+        if (s.clockedIn && queuedRef.current.length === 0) {
           startedAt.current = Date.now() - s.elapsedSeconds * 1000;
           periodStart.current = s.lastEventAt ?? new Date(startedAt.current).toISOString();
           setElapsed(s.elapsedSeconds);
@@ -111,8 +140,7 @@ export default function ActiveTaskScreen() {
   useEffect(() => {
     if (!id) return;
     const ctrl = new AbortController();
-    api
-      .myEvidence(id, ctrl.signal)
+    cachedCall(`evidence:${id}`, () => api.myEvidence(id, ctrl.signal))
       .then((r) => setNeeds(r.requirements))
       .catch(() => undefined);
     return () => ctrl.abort();
@@ -171,19 +199,42 @@ export default function ActiveTaskScreen() {
     try {
       // A fresh photo every time this job asks for one: the camera opens as
       // part of tapping the button, so there is no separate step to forget.
-      let evidenceId: string | null = null;
+      let photo = null;
       if (needsStage(clockType === 'IN' ? 'CLOCK_IN' : 'CLOCK_OUT')) {
-        const photo = await takeEvidencePhoto(id, clockType === 'IN' ? 'CLOCK_IN' : 'CLOCK_OUT');
+        photo = await capturePhoto();
         if (!photo) return; // backed out of the camera: not clocked, nothing to say
-        evidenceId = photo.id;
       }
-      const res = await api.clock({
-        taskId: id,
-        type: clockType,
-        lat: workerCoords.current?.lat ?? null,
-        lng: workerCoords.current?.lng ?? null,
-        evidenceId,
-      });
+      // The moment of the tap, and an id for it, go every time: with no
+      // signal the event waits on the phone and the server records it at this
+      // time when it arrives (server services/clockTime.ts).
+      const tappedAt = new Date().toISOString();
+      const sent = await sendOrQueue<ClockResult>(
+        {
+          kind: 'clock',
+          taskId: id,
+          type: clockType,
+          lat: workerCoords.current?.lat ?? null,
+          lng: workerCoords.current?.lng ?? null,
+          occurredAt: tappedAt,
+          clientId: newClientId(),
+          photo,
+        },
+        clockType === 'IN' ? 'Clock in' : 'Clock out'
+      );
+      if (sent.queued) {
+        // Shown as done, because it is: the time is fixed at the tap.
+        if (clockType === 'IN') {
+          startedAt.current = Date.parse(tappedAt);
+          if (!periodStart.current) periodStart.current = tappedAt;
+          setElapsed(0);
+          setClockedIn(true);
+        } else {
+          setElapsed(startedAt.current ? Math.floor((Date.parse(tappedAt) - startedAt.current) / 1000) : elapsed);
+          setClockedIn(false);
+        }
+        return;
+      }
+      const res = sent.result;
       if (res.clockedIn) {
         startedAt.current = Date.now() - res.elapsedSeconds * 1000;
         if (!periodStart.current) periodStart.current = res.event.createdAt;
@@ -203,6 +254,12 @@ export default function ActiveTaskScreen() {
 
   async function submitTimesheet() {
     if (!id) return;
+    // Handing in says the work is done; the server has to have the clock
+    // times first, or the job is handed in before it was started.
+    if (queuedClocks.length > 0) {
+      setError('Your clock times are still waiting for signal. Hand in once they have been sent.');
+      return;
+    }
     setBusy(true);
     setError(null);
     const hours = Math.max(0.01, elapsed / 3600);
@@ -256,6 +313,8 @@ export default function ActiveTaskScreen() {
         showsVerticalScrollIndicator={false}
       >
         <AppBackHeader title="Active task" onBack={() => router.back()} />
+        <OfflineNote savedAt={taskQ.savedAt} />
+        <OutboxBanner filter={(i) => 'taskId' in i.action && i.action.taskId === id} />
 
         {error ? (
           <Banner tone="danger" icon="alert" title="Something went wrong" message={error} />

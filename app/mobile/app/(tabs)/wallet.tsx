@@ -12,6 +12,7 @@ import { Icon } from '../../src/components/Icon';
 import { obColors, obRadii } from '../../src/onboarding/onboardingTheme';
 import { api, ApiError } from '../../src/api/client';
 import { useAsync } from '../../src/lib/useAsync';
+import { OfflineNote } from '../../src/components/OfflineStatus';
 import { useAuth } from '../../src/auth/AuthContext';
 import { formatNaira, formatDate } from '../../src/lib/format';
 import type { Wallet, Transaction } from '../../src/api/types';
@@ -38,9 +39,9 @@ export default function WalletScreen() {
   const [period, setPeriod] = useState<'week' | 'month' | 'all'>('all');
 
   // REAL: GET /api/me/wallet → derived balances
-  const wallet = useAsync<Wallet>((signal) => api.myWallet(signal), []);
+  const wallet = useAsync<Wallet>((signal) => api.myWallet(signal), [], { cacheKey: 'wallet' });
   // REAL: GET /api/me/transactions
-  const txns = useAsync<Transaction[]>((signal) => api.myTransactions(signal), []);
+  const txns = useAsync<Transaction[]>((signal) => api.myTransactions(signal), [], { cacheKey: 'transactions' });
 
   const balances = wallet.data ?? { pending: 0, available: 0, withdrawn: 0 };
   const belowMin = balances.available < WITHDRAW_MIN;
@@ -125,6 +126,7 @@ export default function WalletScreen() {
         }
       >
         <Text style={styles.title}>Wallet</Text>
+        <OfflineNote savedAt={wallet.savedAt} />
         <View style={{ height: 14 }} />
 
         {wallet.loading && !wallet.data ? (

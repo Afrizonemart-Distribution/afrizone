@@ -17,6 +17,7 @@ import { Icon } from '../../src/components/Icon';
 import { obColors, obRadii } from '../../src/onboarding/onboardingTheme';
 import { api } from '../../src/api/client';
 import { useAsync } from '../../src/lib/useAsync';
+import { OfflineNote, OutboxBanner } from '../../src/components/OfflineStatus';
 import { CourierDeliveryBanner } from '../../src/components/CourierDeliveryBanner';
 import { useAuth } from '../../src/auth/AuthContext';
 import StoreHomeScreen from '../store';
@@ -80,8 +81,8 @@ export default function HomeScreen() {
   // being the inline row, per that reference.
   const [categoryFilter, setCategoryFilter] = useState('');
 
-  const tasks = useAsync<Task[]>((signal) => api.tasks(signal), []);
-  const walletQ = useAsync<Wallet>((signal) => api.myWallet(signal), []);
+  const tasks = useAsync<Task[]>((signal) => api.tasks(signal), [], { cacheKey: 'tasks' });
+  const walletQ = useAsync<Wallet>((signal) => api.myWallet(signal), [], { cacheKey: 'wallet' });
 
   const firstName = user?.name?.split(' ')[0] ?? 'there';
   const wallet = walletQ.data ?? { pending: 0, available: 0, withdrawn: 0 };
@@ -253,6 +254,8 @@ export default function HomeScreen() {
           />
         }
       >
+        <OfflineNote savedAt={tasks.savedAt} />
+        <OutboxBanner />
         <View style={styles.topRow}>
           <View>
             <Text style={styles.eyebrow}>{greeting()}</Text>

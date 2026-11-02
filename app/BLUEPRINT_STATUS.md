@@ -268,8 +268,6 @@ distinguishable from a quiet week.
 
 - **CallyValley** as the certification feeder and **VOLTRON** as a labour
   consumer (§2). Neither system has been discussed before.
-- **Offline-tolerant mobile flows** (§16). The app currently assumes
-  connectivity throughout.
 
 ---
 
@@ -446,9 +444,29 @@ order themselves.** Everything below is in the order it is worth doing:
    → Referrals and a referral code on store registration; mobile "Refer and
    earn" screen (next APK). The sign-up screens do not ask for a code yet - a
    new Tasker adds it from the profile.
-7. **Shared identity
-   with AZM** (§13, blocked on Mart exposing an identity provider), and
-   **offline-tolerant mobile flows** (§16).
+7. **Offline-tolerant mobile flows (§16) — built 2 November 2026, not yet
+   deployed; needs the next APK.** Field actions work with no signal: clock in
+   and out, job photos and signatures, and a delivery's collected / delivered /
+   could-not-deliver are kept on the phone (`mobile/src/lib/outbox.ts`) and
+   sent in order when there is signal - on app start, on coming back to the
+   front, and every 20 seconds while anything waits. A refusal (a wrong
+   delivery code, a job taken away) is shown with the server's reason and a
+   local notification until dismissed; a queued wrong code puts the order back
+   to open. Applying, withdrawing, KYC and sign-in still need signal. A clock
+   event carries the tapped time and a phone id (`ClockEvent.clientId`, so a
+   resend records once); the server keeps the phone's time if it is in the
+   past, at most 24 hours old and not before the previous event, otherwise the
+   arrival time, and marks it `recordedOffline` either way
+   (`services/clockTime.ts`). Admin Timesheets shows "n of m clock times
+   recorded offline". Home, jobs, wallet, deliveries, the active job, and
+   contract and job details show their last loaded copy with its time when
+   there is no signal (`mobile/src/lib/offlineCache.ts`), deleted on sign-out
+   because deliveries carry customer details. Handing in a timesheet waits for
+   queued clock times. Work queued by one account is dropped if another signs
+   in on the phone. Migration `0029_offline_clock.sql`, 6 tests in
+   `test/offlineClock.test.ts`. Not yet tried on a phone in airplane mode.
+8. **Shared identity
+   with AZM** (§13, blocked on Mart exposing an identity provider).
 
 Three things have a deliberate ceiling worth revisiting when there is a reason:
 

@@ -16,6 +16,7 @@ import {
   subscribeToTokenRefresh,
 } from '../src/lib/notifications';
 import { usePresenceHeartbeat } from '../src/lib/presence';
+import { OutboxSync } from '../src/components/OfflineStatus';
 
 // Configure foreground notification display before any component mounts.
 configureNotificationHandler();
@@ -192,6 +193,7 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <NotificationHandler />
           <PresenceHeartbeat />
+          <OutboxSync />
           <DeepLinkHandler />
           <AuthGate>
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: obColors.bg } }}>

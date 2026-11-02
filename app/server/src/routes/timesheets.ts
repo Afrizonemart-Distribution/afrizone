@@ -51,6 +51,32 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
     orderBy: { createdAt: "desc" },
     include: { worker: true, task: true },
   });
+  // The clock events behind each sheet, summarised: how many there were and
+  // how many arrived late from a phone without signal, whose times are the
+  // phone's (services/clockTime.ts). One query for the page, not one a row.
+  const events = sheets.length
+    ? await prisma.clockEvent.findMany({
+        where: {
+          taskId: { in: [...new Set(sheets.map((t) => t.taskId))] },
+          workerId: { in: [...new Set(sheets.map((t) => t.workerId))] },
+        },
+        select: { workerId: true, taskId: true, createdAt: true, recordedOffline: true, withinFence: true },
+      })
+    : [];
+  const clockFor = (t: (typeof sheets)[number]) => {
+    const mine = events.filter(
+      (e) =>
+        e.workerId === t.workerId &&
+        e.taskId === t.taskId &&
+        e.createdAt >= t.periodStart &&
+        e.createdAt <= t.periodEnd
+    );
+    return {
+      events: mine.length,
+      offline: mine.filter((e) => e.recordedOffline).length,
+      outsideFence: mine.filter((e) => !e.withinFence).length,
+    };
+  };
   const now = Date.now();
   res.json(
     sheets.map((t) => {
@@ -67,6 +93,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
         gpsNote: t.gpsNote,
         createdAt: t.createdAt,
         slaHoursLeft,
+        clock: clockFor(t),
         worker: {
           id: t.worker.id,
           name: t.worker.name,

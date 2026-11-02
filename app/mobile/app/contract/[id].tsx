@@ -33,7 +33,8 @@ export default function ContractDetailScreen() {
 
   const contractQ = useAsync<ContractDetail | null>(
     (signal) => (id ? api.myContractDetail(id, signal) : Promise.resolve(null)),
-    [id]
+    [id],
+    { cacheKey: id ? `contract:${id}` : null }
   );
   const c = contractQ.data;
 

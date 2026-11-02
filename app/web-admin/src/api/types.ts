@@ -289,6 +289,8 @@ export interface Timesheet {
   gpsNote?: string | null
   createdAt?: string
   slaHoursLeft?: number
+  /** Clock events in the period; `offline` ones carry the phone's time. Admin list only. */
+  clock?: { events: number; offline: number; outsideFence: number }
   worker?: WorkerSummary
   task?: TaskSummary
 }
