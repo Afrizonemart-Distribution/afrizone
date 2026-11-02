@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError } from '../api/client'
+import { isTwoFactorRequired } from '../api/types'
 import GoogleButton from '../auth/GoogleButton'
 import Button from '../components/ui/Button'
 import OtpInput from '../components/ui/OtpInput'
@@ -189,7 +190,11 @@ export default function Login() {
               <span>or</span>
             </div>
 
-            <GoogleButton onSuccess={applySession} />
+            <GoogleButton
+              onSuccess={(res) =>
+                isTwoFactorRequired(res) ? setChallenge(res.challenge) : applySession(res)
+              }
+            />
 
             {DEV && (
               <div className="login-hint">

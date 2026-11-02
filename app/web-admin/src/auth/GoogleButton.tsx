@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, api } from '../api/client'
-import type { AuthSuccess } from '../api/types'
+import type { LoginResponse } from '../api/types'
 import { GOOGLE_CLIENT_ID, loadGoogleIdentity } from './google'
 import './GoogleButton.css'
 
 interface Props {
-  /** called with a full session on a successful Google sign-in */
-  onSuccess: (res: AuthSuccess) => void
+  /** called with a full session, or a 2FA challenge for staff with TOTP on */
+  onSuccess: (res: LoginResponse) => void
   disabled?: boolean
 }
 
