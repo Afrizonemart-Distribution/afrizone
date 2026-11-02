@@ -26,6 +26,8 @@ export interface User {
   createdAt?: string
   /** whether the admin account has TOTP 2FA enabled */
   totpEnabled?: boolean
+  /** AfriZone account id when linked (Settings > Security). */
+  afrizoneUserId?: string | null
 }
 
 export interface Task {

@@ -3,6 +3,7 @@ import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import { TIER_LABELS } from '../lib/format'
 import { useAuth } from '../auth/AuthContext'
+import { getAfrizoneIdentityToken } from '../lib/afrizone'
 import type {
   Category,
   Funding,
@@ -1123,6 +1124,68 @@ function BillingTab({ canEdit }: { canEdit: boolean }) {
   )
 }
 
+/**
+ * Link this staff account to an AfriZone account. The portal's "Continue with
+ * AfriZone" refuses staff emails on purpose (it would hand a staff session to
+ * whoever controls the AfriZone account), so staff link here instead: being
+ * signed in to both at once is the proof of owning both.
+ *
+ * No unlink: the server has none yet. Ask an engineer if one is ever needed.
+ */
+function AfrizoneLinkCard() {
+  const { user, refreshUser } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const linked = !!user?.afrizoneUserId
+
+  // Not async: the popup must open in the click's own tick or it is blocked.
+  function link() {
+    setBusy(true)
+    setError(null)
+    getAfrizoneIdentityToken()
+      .then((t) => api.afrizoneLink(t))
+      .then(() => refreshUser())
+      .catch((err) =>
+        setError(err instanceof ApiError || err instanceof Error ? err.message : 'Could not link your account.'),
+      )
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <Glass reveal style={{ padding: 20, marginTop: 16 }}>
+      <div className="card-h" style={{ marginBottom: 14, alignItems: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <span className="twofa-ic" style={{ color: linked ? 'var(--money)' : 'var(--gold)' }}>
+            <Icon name="users" size={22} />
+          </span>
+          <div>
+            <h3 style={{ fontSize: 16 }}>AfriZone account</h3>
+            <p className="tabhint" style={{ marginTop: 4 }}>
+              Link the account you use on afrizonemart.com. You will be asked to sign in to
+              AfriZone in a pop-up if you are not already.
+            </p>
+            <span className={`twofa-status ${linked ? 'on' : ''}`}>
+              <span className="dot" />
+              {linked ? 'Linked' : 'Not linked'}
+            </span>
+          </div>
+        </div>
+      </div>
+      {error && (
+        <div className="login-error" role="alert" style={{ marginBottom: 14 }}>
+          <Icon name="alert" size={15} />
+          <span>{error}</span>
+        </div>
+      )}
+      {!linked && (
+        <Button variant="primary" icon="key" onClick={link} disabled={busy}>
+          {busy ? 'Waiting for AfriZone…' : 'Link AfriZone account'}
+        </Button>
+      )}
+    </Glass>
+  )
+}
+
 function SecurityTab() {
   const { user, refreshUser } = useAuth()
   const [enableOpen, setEnableOpen] = useState(false)
@@ -1172,6 +1235,8 @@ function SecurityTab() {
           )}
         </div>
       </Glass>
+
+      <AfrizoneLinkCard />
 
       <EnableTwoFactorModal
         open={enableOpen}
