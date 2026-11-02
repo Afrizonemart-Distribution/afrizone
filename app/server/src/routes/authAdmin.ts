@@ -20,6 +20,7 @@ import {
   requireAuth,
   signToken,
   verifyChallenge,
+  signChallenge,
   publicUser,
   hashPassword,
   isAdmin,
@@ -181,6 +182,11 @@ router.post("/google", async (req, res) => {
       where: { id: user.id },
       data: { googleId: verified.sub },
     });
+  }
+  // Staff with TOTP on must pass it here too, exactly like password login:
+  // without this, a staff member's Google account alone skipped their 2FA.
+  if (isAdmin(user.role) && user.totpEnabled) {
+    return res.json({ requires2fa: true, challenge: signChallenge(user.id) });
   }
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });
   return res.json({ token, user: publicUser(user), isNewUser });

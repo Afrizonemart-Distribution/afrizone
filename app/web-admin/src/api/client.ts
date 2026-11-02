@@ -205,7 +205,7 @@ export const api = {
 
   // Auth: Google SSO. May throw ApiError(503) when not configured.
   googleSignIn: (idToken: string) =>
-    request<AuthSuccess>('/auth/google', { method: 'POST', body: { idToken } }),
+    request<LoginResponse>('/auth/google', { method: 'POST', body: { idToken } }),
 
   // Auth: password reset
   passwordForgot: (email: string) =>
