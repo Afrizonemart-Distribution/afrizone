@@ -1,10 +1,16 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
+import { generateKeyPairSync } from "node:crypto";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
 
 export default defineConfig(async () => {
   const migrationsPath = path.join(__dirname, "migrations");
   const migrations = await readD1Migrations(migrationsPath);
+
+  // Throwaway AfriZone identity key pair, made fresh per run and never
+  // committed: the public half stands in for AfriZone's published key, the
+  // private half lets test/afrizoneLogin.test.ts sign tokens like AfriZone does.
+  const afrizoneKeys = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
 
   return {
     plugins: [
@@ -18,6 +24,9 @@ export default defineConfig(async () => {
             JWT_SECRET: "test-secret-for-automated-tests-only",
             NODE_ENV: "test",
             MART_INBOUND_SECRET: "local-dev-mart-inbound-secret",
+            AFRIZONE_LOGIN_ENABLED: "true",
+            AFRIZONE_IDENTITY_PUBLIC_KEY: afrizoneKeys.publicKey.export({ type: "spki", format: "pem" }) as string,
+            TEST_AFRIZONE_PRIVATE_KEY: afrizoneKeys.privateKey.export({ type: "pkcs8", format: "pem" }) as string,
           },
         },
       }),
