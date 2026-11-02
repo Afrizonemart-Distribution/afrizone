@@ -207,6 +207,11 @@ export const api = {
   googleSignIn: (idToken: string) =>
     request<LoginResponse>('/auth/google', { method: 'POST', body: { idToken } }),
 
+  // Auth: tie the signed-in account to an AfriZone account (identity token
+  // from lib/afrizone.ts). 409 when either side is already linked elsewhere.
+  afrizoneLink: (identityToken: string) =>
+    request<{ user: User }>('/auth/afrizone/link', { method: 'POST', body: { identityToken } }),
+
   // Auth: password reset
   passwordForgot: (email: string) =>
     request<PasswordForgotResponse>('/auth/password/forgot', {
