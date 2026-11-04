@@ -16,6 +16,7 @@ import Glass from '../components/ui/Glass'
 import Button from '../components/ui/Button'
 import StatusPill from '../components/ui/StatusPill'
 import Modal from '../components/ui/Modal'
+import TalentProfileModal from '../components/TalentProfileModal'
 import Icon from '../components/Icon'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/StateView'
 import Select from '../components/ui/Select'
@@ -370,6 +371,7 @@ export default function Workers() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [ratingWorker, setRatingWorker] = useState<Worker | null>(null)
   const [kycWorker, setKycWorker] = useState<Worker | null>(null)
+  const [profileWorkerId, setProfileWorkerId] = useState<string | null>(null)
 
   const workers = data ?? []
   const pendingKyc = workers.filter((w) => w.kycStatus === 'PENDING').length
@@ -505,6 +507,15 @@ export default function Workers() {
                         >
                           Docs
                         </Button>
+                        <Button
+                          variant="glass"
+                          size="sm"
+                          icon="users"
+                          onClick={() => setProfileWorkerId(w.id)}
+                          title="CV, work history, education and verified work"
+                        >
+                          Profile
+                        </Button>
                         {w.kycStatus !== 'PENDING' && (
                           <Button variant="glass" size="sm" onClick={() => setRatingWorker(w)}>
                             Rate
@@ -527,6 +538,10 @@ export default function Workers() {
           onDecide={decide}
           busyId={busy}
         />
+      )}
+
+      {profileWorkerId && (
+        <TalentProfileModal workerId={profileWorkerId} onClose={() => setProfileWorkerId(null)} />
       )}
 
       {ratingWorker && (
