@@ -71,6 +71,20 @@ export interface IdentityFlag {
   }[]
 }
 
+/** A large withdrawal waiting for the selfie check (server: routes/adminWithdrawals.ts). */
+export interface WithdrawalCheck {
+  id: string
+  amount: number
+  bankMasked: string
+  status: string
+  createdAt: string
+  worker: { id: string; name: string; kycStatus: string; bankMasked?: string | null }
+  /** Why payouts are held on this account, when an identity case is open. */
+  identityHold: string | null
+  payoutSelfieUrl: string | null
+  kycSelfieUrl: string | null
+}
+
 /** A saved task form. `payload` holds the form's fields. */
 export interface TaskTemplate {
   id: string

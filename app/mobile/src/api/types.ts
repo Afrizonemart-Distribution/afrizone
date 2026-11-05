@@ -13,7 +13,7 @@ export type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT';
 export type JobStatus = 'OPEN' | 'CLOSED';
 // v3 (worker-facing)
 export type ClockType = 'IN' | 'OUT';
-export type WithdrawalStatus = 'PROCESSING' | 'PAID';
+export type WithdrawalStatus = 'REVIEW' | 'PROCESSING' | 'PAID' | 'FAILED';
 /**
  * The WORK lifecycle for one worker on one task, not the signature state.
  *

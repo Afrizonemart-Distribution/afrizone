@@ -1,3 +1,4 @@
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, TextInput, ActivityIndicator, ScrollView, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -255,6 +256,10 @@ function WithdrawSheet({
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set once the server says this amount needs a selfie; holds its message. */
+  const [needSelfie, setNeedSelfie] = useState<string | null>(null);
+  /** The withdrawal went in for a face check rather than straight to the bank. */
+  const [inReview, setInReview] = useState(false);
   const value = Number(amount.replace(/\D/g, '')) || 0;
   const displayAmount = value > 0 ? value.toLocaleString('en-NG') : '';
   const tooMuch = value > available;
@@ -270,21 +275,63 @@ function WithdrawSheet({
   // separate withdrawal gets a fresh key.
   const idemKeyRef = useRef<string | null>(null);
 
-  async function submit() {
+  async function submit(selfieDocumentId?: string) {
     setBusy(true);
     setError(null);
     if (!idemKeyRef.current) {
       idemKeyRef.current = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     }
     try {
-      await api.withdraw(value, idemKeyRef.current);
+      const w = await api.withdraw(value, idemKeyRef.current, selfieDocumentId);
+      setInReview((w as { status?: string }).status === 'REVIEW');
+      setNeedSelfie(null);
       setDone(true);
       onWithdrawn();
     } catch (e) {
-      const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Could not request withdrawal.';
-      setError(msg);
+      const body = e instanceof ApiError && e.body && typeof e.body === 'object' ? (e.body as { code?: string }) : null;
+      if (body?.code === 'SELFIE_REQUIRED') {
+        setNeedSelfie(e instanceof Error ? e.message : 'This withdrawal needs a quick selfie.');
+      } else {
+        const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Could not request withdrawal.';
+        setError(msg);
+      }
     } finally {
       setBusy(false);
+    }
+  }
+
+  /**
+   * Front camera only, never the gallery: the point is a face taken now, for
+   * this withdrawal, that a person compares with the verified one.
+   */
+  async function selfieThenSubmit() {
+    setError(null);
+    try {
+      const cam = await ImagePicker.requestCameraPermissionsAsync();
+      if (cam.status !== 'granted') {
+        setError('Allow the camera in Settings to take the selfie.');
+        return;
+      }
+      const shot = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        cameraType: ImagePicker.CameraType.front,
+        quality: 0.6,
+        allowsEditing: false,
+        exif: false,
+      });
+      if (shot.canceled) return;
+      setBusy(true);
+      const asset = shot.assets[0];
+      const doc = await api.uploadKycDocument({
+        docType: 'PAYOUT_SELFIE',
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? 'image/jpeg',
+        filename: `payout-selfie-${Date.now()}.jpg`,
+      });
+      await submit(doc.id);
+    } catch (e) {
+      setBusy(false);
+      setError(e instanceof Error ? e.message : 'Could not send the selfie.');
     }
   }
 
@@ -292,6 +339,8 @@ function WithdrawSheet({
     setDone(false);
     setAmount('');
     setError(null);
+    setNeedSelfie(null);
+    setInReview(false);
     // A new sheet is a new withdrawal intent, so it must not reuse the key -
     // otherwise the server would treat a genuine second withdrawal as a retry
     // of the first and return the old row instead of paying out again.
@@ -309,9 +358,11 @@ function WithdrawSheet({
             <View style={styles.doneIcon}>
               <Icon name="check" size={30} color={obColors.mgreen} strokeWidth={3} />
             </View>
-            <Text style={styles.sheetTitle}>Withdrawal queued</Text>
+            <Text style={styles.sheetTitle}>{inReview ? 'Selfie sent for checking' : 'Withdrawal queued'}</Text>
             <Text style={styles.sheetSub}>
-              {formatNaira(value)} to {bankMasked ?? 'your bank'}: arrives T+1 (next business day).
+              {inReview
+                ? `${formatNaira(value)} is set aside. We compare your selfie with your verified photo, usually within a working day, then send it to ${bankMasked ?? 'your bank'}.`
+                : `${formatNaira(value)} to ${bankMasked ?? 'your bank'}: arrives T+1 (next business day).`}
             </Text>
             <AppPrimaryButton label="Done" onPress={close} variant="outline" />
           </View>
@@ -346,10 +397,15 @@ function WithdrawSheet({
             ) : value > 0 && tooLittle ? (
               <Text style={styles.warnText}>Below minimum ({formatNaira(WITHDRAW_MIN)}).</Text>
             ) : null}
+            {needSelfie ? (
+              <Text style={styles.warnText}>
+                {needSelfie} It keeps your money safe if your phone or account is ever used by someone else.
+              </Text>
+            ) : null}
             <View style={{ marginTop: 8 }}>
               <AppPrimaryButton
-                label="Confirm withdrawal"
-                onPress={submit}
+                label={needSelfie ? 'Take selfie and withdraw' : 'Confirm withdrawal'}
+                onPress={() => (needSelfie ? selfieThenSubmit() : submit())}
                 loading={busy}
                 disabled={value <= 0 || tooMuch || tooLittle || !bankMasked}
               />

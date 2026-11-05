@@ -14,6 +14,7 @@ import type {
   TaskTemplate,
   ApproveBody,
   IdentityFlag,
+  WithdrawalCheck,
   DashboardStats,
   Dispute,
   AuditOutcome,
@@ -351,6 +352,10 @@ export const api = {
     request<IdentityFlag[]>(`/admin/identity-flags?status=${status}`, { signal }),
   decideIdentityFlag: (id: string, decision: 'CLEARED' | 'CONFIRMED', note: string) =>
     request<IdentityFlag>(`/admin/identity-flags/${id}/decide`, { method: 'POST', body: { decision, note } }),
+  withdrawalChecks: (signal?: AbortSignal) => request<WithdrawalCheck[]>('/admin/withdrawals', { signal }),
+  approveWithdrawal: (id: string) => request<unknown>(`/admin/withdrawals/${id}/approve`, { method: 'POST' }),
+  rejectWithdrawal: (id: string, reason: string) =>
+    request<unknown>(`/admin/withdrawals/${id}/reject`, { method: 'POST', body: { reason } }),
   scanIdentity: () =>
     request<{ scanned: number; openCases: number }>('/admin/identity-flags/scan', { method: 'POST' }),
   workerKycDocuments: (id: string, signal?: AbortSignal) =>

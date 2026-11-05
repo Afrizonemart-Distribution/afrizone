@@ -523,10 +523,12 @@ export const api = {
    * The caller generates it once when the user confirms, not per attempt: a key
    * generated inside a retry loop defeats the whole mechanism.
    */
-  withdraw(amount: number, idempotencyKey: string): Promise<Withdrawal> {
+  withdraw(amount: number, idempotencyKey: string, selfieDocumentId?: string): Promise<Withdrawal> {
     return request<Withdrawal>('/wallet/withdraw', {
       method: 'POST',
-      body: { amount, idempotencyKey },
+      // A large withdrawal carries a selfie taken for it (403 SELFIE_REQUIRED
+      // without one); it then waits for a person to compare faces.
+      body: { amount, idempotencyKey, ...(selfieDocumentId ? { selfieDocumentId } : {}) },
     });
   },
 
@@ -579,7 +581,7 @@ export const api = {
    * Uses multipart/form-data (not JSON). Returns the created document record.
    */
   async uploadKycDocument(params: {
-    docType: 'ID' | 'SELFIE' | 'DOCS' | 'CV' | 'CREDENTIAL' | 'PORTFOLIO';
+    docType: 'ID' | 'SELFIE' | 'DOCS' | 'CV' | 'CREDENTIAL' | 'PORTFOLIO' | 'PAYOUT_SELFIE';
     uri: string;
     mimeType: string;
     filename: string;

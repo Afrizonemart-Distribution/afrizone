@@ -457,14 +457,21 @@ model Withdrawal {
   workerId      String
   amount        Int
   bankMasked    String
-  status        String   @default("PROCESSING") // WithdrawalStatus enum (PROCESSING | PAID | FAILED)
+  status        String   @default("PROCESSING") // REVIEW | PROCESSING | PAID | FAILED
   provider      String? // "paystack" | "simulated"
   reference     String?  @unique // our idempotency key, also sent to Paystack
   providerRef   String? // Paystack transfer_code
   failureReason String?
+  /// A large withdrawal waits in REVIEW with a fresh selfie until a person
+  /// compares it with the KYC selfie (routes/adminWithdrawals.ts).
+  selfieDocumentId String?   @unique
+  reviewedById     String?
+  reviewedAt       DateTime?
   createdAt     DateTime @default(now())
 
   worker User @relation(fields: [workerId], references: [id])
+
+  @@index([status])
 }
 
 // Platform-level inbound funding (Afrizone Mart topping up the balance that
