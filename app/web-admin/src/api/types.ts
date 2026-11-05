@@ -47,6 +47,30 @@ export interface ApplicationAnswer {
   answer: string | number | boolean
 }
 
+/** Accounts sharing something one person should have (server: services/identityGuard.ts). */
+export interface IdentityFlag {
+  id: string
+  kind: 'BANK' | 'ID_NUMBER' | 'DEVICE'
+  label: string
+  severity: 'HIGH' | 'LOW'
+  status: 'OPEN' | 'CLEARED' | 'CONFIRMED'
+  note?: string | null
+  decidedAt?: string | null
+  createdAt: string
+  updatedAt: string
+  holdsPayouts: boolean
+  accounts: {
+    id: string
+    name: string
+    email: string
+    phone?: string | null
+    kycStatus: string
+    bankMasked?: string | null
+    createdAt: string
+    completedCount: number
+  }[]
+}
+
 /** A saved task form. `payload` holds the form's fields. */
 export interface TaskTemplate {
   id: string

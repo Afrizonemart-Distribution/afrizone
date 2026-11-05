@@ -92,6 +92,7 @@ model User {
 
   tasksCreated        Task[]               @relation("TaskCreatedBy")
   taskTemplates       TaskTemplate[]       @relation("TaskTemplateCreatedBy")
+  identitySignals     IdentitySignal[]
   applications        Application[]
   crewInvites         CrewInvite[]
   referralsMade       Referral[]           @relation("ReferralReferrer")
@@ -1425,4 +1426,42 @@ model PortfolioItem {
   document KycDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+}
+
+/// A fact that should belong to one person only (services/identityGuard.ts):
+/// a payout bank account, a government ID number, a device. Hashed, never raw.
+model IdentitySignal {
+  id         String   @id @default(cuid())
+  userId     String
+  /// BANK | ID_NUMBER | DEVICE
+  kind       String
+  valueHash  String
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, valueHash, userId])
+  @@index([userId])
+}
+
+/// Two or more accounts sharing one signal, for a person to decide.
+model IdentityFlag {
+  id          String    @id @default(cuid())
+  kind        String
+  valueHash   String
+  /// JSON array of user ids, sorted.
+  userIds     String
+  /// HIGH pauses payouts for every account on it; LOW is shown, not enforced.
+  severity    String
+  /// OPEN | CLEARED | CONFIRMED
+  status      String    @default("OPEN")
+  note        String?
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@unique([kind, valueHash])
+  @@index([status])
 }

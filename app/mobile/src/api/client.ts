@@ -436,6 +436,11 @@ export const api = {
     });
   },
 
+  /** POST /api/me/device: this install's id, compared across accounts by staff. */
+  registerDevice(deviceId: string): Promise<void> {
+    return request<void>('/me/device', { method: 'POST', body: { deviceId } });
+  },
+
   /** GET /api/me/referral: this Tasker's code and who they have brought in. */
   myReferral(signal?: AbortSignal): Promise<ReferralSummary> {
     return request<ReferralSummary>('/me/referral', { signal });

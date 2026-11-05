@@ -1,3 +1,4 @@
+import { idNumberFrom, recordSignal } from "../services/identityGuard";
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireEvidence } from "../services/evidence";
@@ -138,7 +139,23 @@ router.patch("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   }
 
   const user = await prisma.user.update({ where: { id: req.user!.id }, data });
+  // The payout account belongs to one person (services/identityGuard.ts).
+  if ((bankAccountNumber !== undefined || bankCode !== undefined) && user.bankAccountNumber && user.bankCode) {
+    await recordSignal(user.id, "BANK", `${user.bankCode}:${user.bankAccountNumber}`);
+  }
   res.json(formatUser(user));
+});
+
+/**
+ * POST /api/me/device {deviceId} - the app's own install id, sent once a
+ * session starts. A shared phone is shown to staff, never enforced: families
+ * share phones (services/identityGuard.ts).
+ */
+router.post("/device", requireAuth, async (req: AuthedRequest, res: Response) => {
+  const deviceId = typeof req.body?.deviceId === "string" ? req.body.deviceId : "";
+  if (!/^[A-Za-z0-9_-]{16,128}$/.test(deviceId)) return res.status(400).json({ error: "Invalid deviceId" });
+  await recordSignal(req.user!.id, "DEVICE", deviceId);
+  res.status(204).end();
 });
 
 // GET /api/me/applications → worker's applications joined with task summary + paymentId.
@@ -857,6 +874,10 @@ router.post("/kyc/submit", requireAuth, async (req: AuthedRequest, res: Response
           },
         });
 
+        // The document's number belongs to one person, whatever the verdict.
+        const idNumber = idNumberFrom(result.raw);
+        if (idNumber) await recordSignal(user.id, "ID_NUMBER", `${idType}:${idNumber}`);
+
         if (result.final) {
           kycStatus = result.approved ? "VERIFIED" : "REJECTED";
           kycNote = result.approved
@@ -883,6 +904,9 @@ router.post("/kyc/submit", requireAuth, async (req: AuthedRequest, res: Response
       kycNote,
     },
   });
+  if (updated.bankAccountNumber && updated.bankCode) {
+    await recordSignal(updated.id, "BANK", `${updated.bankCode}:${updated.bankAccountNumber}`);
+  }
   res.json(formatUser(updated));
 });
 

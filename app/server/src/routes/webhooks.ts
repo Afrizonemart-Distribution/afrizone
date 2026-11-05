@@ -1,3 +1,4 @@
+import { idNumberFrom, recordSignal } from "../services/identityGuard";
 import { Router, Request, Response } from "express";
 import { prisma } from "../prisma";
 import { paystack } from "../services/paystack";
@@ -107,6 +108,8 @@ router.post("/smile", async (req: Request, res: Response) => {
         raw: JSON.stringify(body),
       },
     });
+    const idNumber = idNumberFrom(body);
+    if (idNumber) await recordSignal(verification.workerId, "ID_NUMBER", idNumber);
     await prisma.user.update({
       where: { id: verification.workerId },
       data: {

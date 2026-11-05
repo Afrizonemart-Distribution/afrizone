@@ -53,10 +53,11 @@ function KycDocsModal({
 }: {
   worker: Worker
   onClose: () => void
-  onDecide: (id: string, decision: 'TIER_APPROVED' | 'REJECTED') => void
+  onDecide: (id: string, decision: 'TIER_APPROVED' | 'REJECTED', idNumber?: string) => void
   busyId: string | null
 }) {
   const [docs, setDocs] = useState<KycDocument[] | null>(null)
+  const [idNumber, setIdNumber] = useState('')
   const [loadErr, setLoadErr] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<KycDocument | null>(null)
 
@@ -137,6 +138,25 @@ function KycDocsModal({
           )}
 
           {isPending && (
+            <div style={{ marginTop: 20 }}>
+              <label htmlFor="kyc-idnum" style={{ fontSize: 12, fontWeight: 600 }}>
+                ID number on the document
+              </label>
+              <input
+                id="kyc-idnum"
+                className="input"
+                value={idNumber}
+                onChange={(e) => setIdNumber(e.target.value)}
+                placeholder="NIN, passport or licence number"
+                maxLength={40}
+                style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--line-2)' }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                Compared with every other account, so one document can't verify two. Stored only as a fingerprint.
+              </div>
+            </div>
+          )}
+          {isPending && (
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--line)' }}>
               <Button
                 variant="danger"
@@ -151,7 +171,7 @@ function KycDocsModal({
                 size="sm"
                 icon="check"
                 loading={busyId === worker.id + 'TIER_APPROVED'}
-                onClick={() => { onDecide(worker.id, 'TIER_APPROVED'); onClose() }}
+                onClick={() => { onDecide(worker.id, 'TIER_APPROVED', idNumber.trim() || undefined); onClose() }}
               >
                 Approve KYC
               </Button>
@@ -376,11 +396,11 @@ export default function Workers() {
   const workers = data ?? []
   const pendingKyc = workers.filter((w) => w.kycStatus === 'PENDING').length
 
-  async function decide(id: string, decision: 'TIER_APPROVED' | 'REJECTED') {
+  async function decide(id: string, decision: 'TIER_APPROVED' | 'REJECTED', idNumber?: string) {
     setBusy(id + decision)
     setActionError(null)
     try {
-      const updated = await api.reviewKyc(id, decision)
+      const updated = await api.reviewKyc(id, decision, idNumber)
       setData((prev) => (prev ?? []).map((w) => (w.id === id ? { ...w, ...updated } : w)))
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'KYC review failed')

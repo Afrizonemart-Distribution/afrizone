@@ -552,6 +552,23 @@ axis, separate from `Task` and `Contract`.
 > **before** the global JSON parser. Signature verification needs the exact bytes;
 > a re-serialized body will not match.
 
+## One person, one account
+
+Some facts should belong to one person only: the payout bank account, a government ID number, a phone (`services/identityGuard.ts`). Each is stored as an `IdentitySignal`: a SHA-256 hash with a fixed salt, never the raw value. When two or more accounts share one, an `IdentityFlag` case opens.
+
+| Signal | Recorded when | Severity |
+|---|---|---|
+| `BANK` (`bankCode:accountNumber`) | `PATCH /api/me` and `POST /api/me/kyc/submit` | HIGH |
+| `ID_NUMBER` | Smile ID result (sync and webhook), or the `idNumber` an admin types on `POST /api/workers/:id/kyc` | HIGH |
+| `DEVICE` | `POST /api/me/device {deviceId}`, which the app sends once per session | LOW |
+
+- **Payout hold.** A HIGH case that is OPEN or CONFIRMED pauses withdrawals for every account on it: `POST /api/wallet/withdraw` returns 403 `IDENTITY_HOLD`. Payments can still be approved and released into the in-app wallet; only money leaving the platform is stopped. LOW cases are only shown to staff.
+- **Clearing.** A CLEARED case is reopened automatically if a new account joins the same value.
+- **Staff** (SUPER_ADMIN, HR_ADMIN):
+  - `GET /api/admin/identity-flags?status=OPEN|CLEARED|CONFIRMED|ALL` lists cases.
+  - `POST /api/admin/identity-flags/:id/decide {decision: CLEARED|CONFIRMED, note}` records a decision. `note` is required.
+  - `POST /api/admin/identity-flags/scan` (SUPER_ADMIN) records every saved bank account once, so accounts from before this feature are compared too.
+
 ## Talent Profile
 
 The worker's shareable hiring profile. Proven and claimed are kept apart: work history, education, portfolio and skills are self-declared. Credentials count only once VERIFIED. `workRecord` is computed from RELEASED payments and can't be typed in.

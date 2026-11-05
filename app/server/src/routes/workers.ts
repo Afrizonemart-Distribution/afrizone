@@ -1,3 +1,4 @@
+import { recordSignal } from "../services/identityGuard";
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest, publicUser } from "../auth";
@@ -121,7 +122,14 @@ router.post(
       where: { id: worker.id },
       data: { kycStatus: decision },
     });
-    await writeAudit(userActor(req.user!.id), "KYC_DECISION", "User", worker.id, { decision });
+    // The reviewer can type the ID number they checked, so a manual review
+    // catches a second account on the same document as Smile ID would.
+    const idNumber = typeof req.body?.idNumber === "string" ? req.body.idNumber : "";
+    if (idNumber.trim()) await recordSignal(worker.id, "ID_NUMBER", idNumber);
+    await writeAudit(userActor(req.user!.id), "KYC_DECISION", "User", worker.id, {
+      decision,
+      idNumberRecorded: !!idNumber.trim(),
+    });
 
     await notifyWorker(
       prisma,

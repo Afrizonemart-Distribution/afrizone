@@ -32,6 +32,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: '/workers', label: 'Workers', icon: 'users' },
       { to: '/verification', label: 'Verification', icon: 'shield' },
+      { to: '/identity', label: 'Identity checks', icon: 'lock' },
       { to: '/organizations', label: 'Organizations', icon: 'tag' },
       { to: '/audits', label: 'Audits', icon: 'check' },
       { to: '/network', label: 'Network', icon: 'pin' },
