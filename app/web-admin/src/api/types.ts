@@ -30,11 +30,39 @@ export interface User {
   afrizoneUserId?: string | null
 }
 
+/** What a task asks applicants (server: services/taskQuestions.ts). */
+export type QuestionType = 'TEXT' | 'LONG_TEXT' | 'NUMBER' | 'YES_NO' | 'CHOICE' | 'LINK'
+export interface TaskQuestion {
+  id: string
+  label: string
+  type: QuestionType
+  required: boolean
+  options?: string[]
+}
+/** An applicant's answer, with the question's wording as they saw it. */
+export interface ApplicationAnswer {
+  id: string
+  label: string
+  type: QuestionType
+  answer: string | number | boolean
+}
+
+/** A saved task form. `payload` holds the form's fields. */
+export interface TaskTemplate {
+  id: string
+  name: string
+  payload: Partial<CreateTaskBody>
+  createdBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Task {
   id: string
   title: string
   description: string
   category: string
+  questions?: TaskQuestion[]
   tier: Tier
   payModel: PayModel
   rate?: number | null
@@ -256,6 +284,7 @@ export interface Application {
   taskId: string
   workerId: string
   pitch?: string | null
+  answers?: ApplicationAnswer[]
   status: AppStatus
   reason?: string | null
   createdAt?: string

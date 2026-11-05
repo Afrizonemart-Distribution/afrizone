@@ -18,8 +18,11 @@ import type {
   QualifyingCount,
   Skill,
   Task,
+  TaskQuestion,
+  TaskTemplate,
   Tier,
 } from '../api/types'
+import QuestionsEditor from '../components/QuestionsEditor'
 import Switch from '../components/ui/Switch'
 import PageHeader from '../components/PageHeader'
 import Button from '../components/ui/Button'
@@ -280,6 +283,7 @@ interface FormState {
   requiresIdentityVerified: boolean
   skillIds: string[]
   credentialTypeIds: string[]
+  questions: TaskQuestion[]
 }
 
 const EMPTY_FORM: FormState = {
@@ -308,6 +312,58 @@ const EMPTY_FORM: FormState = {
   requiresIdentityVerified: true,
   skillIds: [],
   credentialTypeIds: [],
+  questions: [],
+}
+
+/** The form's reusable part: everything but dates, which are never the same twice. */
+function templatePayload(f: FormState): Partial<CreateTaskBody> {
+  return {
+    title: f.title.trim(),
+    description: f.description.trim(),
+    category: f.category.trim(),
+    tier: f.tier,
+    payModel: f.payModel,
+    rate: f.rate ? Number(f.rate) : undefined,
+    budget: f.budget ? Number(f.budget) : undefined,
+    locationType: f.locationType,
+    address: f.address.trim() || undefined,
+    lat: f.lat ? Number(f.lat) : undefined,
+    lng: f.lng ? Number(f.lng) : undefined,
+    geofenceRadius: Number(f.geofenceRadius) || 100,
+    slots: Number(f.slots) || 1,
+    crewMax: Number(f.crewMax) || 0,
+    requiresIdentityVerified: f.requiresIdentityVerified,
+    skillIds: f.skillIds,
+    credentialTypeIds: f.credentialTypeIds,
+    questions: f.questions,
+  }
+}
+
+/** A template back into the form. Missing fields keep the blank form's value. */
+function formFromTemplate(t: TaskTemplate): FormState {
+  const p = t.payload
+  const str = (v: unknown) => (v === undefined || v === null ? '' : String(v))
+  return {
+    ...EMPTY_FORM,
+    title: str(p.title),
+    description: str(p.description),
+    category: str(p.category),
+    tier: TIERS.includes(p.tier as Tier) ? (p.tier as Tier) : EMPTY_FORM.tier,
+    payModel: p.payModel === 'FIXED' ? 'FIXED' : 'HOURLY',
+    rate: str(p.rate),
+    budget: str(p.budget),
+    locationType: p.locationType === 'REMOTE' ? 'REMOTE' : 'PHYSICAL',
+    address: str(p.address),
+    lat: str(p.lat),
+    lng: str(p.lng),
+    geofenceRadius: str(p.geofenceRadius) || '100',
+    slots: str(p.slots) || '1',
+    crewMax: p.crewMax ? String(p.crewMax) : '',
+    requiresIdentityVerified: p.requiresIdentityVerified !== false,
+    skillIds: Array.isArray(p.skillIds) ? p.skillIds : [],
+    credentialTypeIds: Array.isArray(p.credentialTypeIds) ? p.credentialTypeIds : [],
+    questions: Array.isArray(p.questions) ? p.questions : [],
+  }
 }
 
 function NewTaskModal({
@@ -325,10 +381,43 @@ function NewTaskModal({
   // Two steps, not one long form. Requirements decide who can ever see the
   // task, which is a different kind of decision from what it pays - and it is
   // the only one that needs its consequence shown back (see QualifyingPanel).
-  const [step, setStep] = useState<1 | 2>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [templateId, setTemplateId] = useState('')
+  const [saveAsTemplate, setSaveAsTemplate] = useState(false)
+  const [templateName, setTemplateName] = useState('')
 
   const skills = useApi((signal) => api.skills(false, signal))
   const credTypes = useApi((signal) => api.credentialTypes(false, signal))
+  const categories = useApi((signal) => api.categories(signal))
+  const templates = useApi((signal) => api.taskTemplates(signal))
+
+  const activeCategories = useMemo(
+    () => (categories.data ?? []).filter((c) => c.active).map((c) => c.name),
+    [categories.data]
+  )
+  const typedCategory = form.category.trim().replace(/\s+/g, ' ')
+  // Same rule as the server (services/categories.ts): case and spacing never
+  // make a new category.
+  const isNewCategory =
+    typedCategory !== '' &&
+    !(categories.data ?? []).some((c) => c.name.toLowerCase() === typedCategory.toLowerCase())
+
+  function applyTemplate(id: string) {
+    setTemplateId(id)
+    const t = templates.data?.find((x) => x.id === id)
+    if (t) setForm(formFromTemplate(t))
+  }
+
+  async function removeTemplate() {
+    if (!templateId) return
+    try {
+      await api.deleteTaskTemplate(templateId)
+      setTemplateId('')
+      templates.reload()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not remove the template')
+    }
+  }
 
   const skillGroups = useMemo(() => {
     const map = new Map<string, Skill[]>()
@@ -357,6 +446,9 @@ function NewTaskModal({
     setForm(EMPTY_FORM)
     setStep(1)
     setError(null)
+    setTemplateId('')
+    setSaveAsTemplate(false)
+    setTemplateName('')
     onClose()
   }
 
@@ -364,9 +456,9 @@ function NewTaskModal({
     e.preventDefault()
     // Step 1 submits by advancing, so the browser still runs its own required-
     // field validation on the details before requirements are chosen.
-    if (step === 1) {
+    if (step < 3) {
       setError(null)
-      setStep(2)
+      setStep(step === 1 ? 2 : 3)
       return
     }
     setError(null)
@@ -374,7 +466,7 @@ function NewTaskModal({
     const body: CreateTaskBody = {
       title: form.title.trim(),
       description: form.description.trim(),
-      category: form.category.trim() || TIER_LABELS[form.tier],
+      category: typedCategory || TIER_LABELS[form.tier],
       tier: form.tier,
       payModel: form.payModel,
       rate: form.payModel === 'HOURLY' ? Number(form.rate) || 0 : undefined,
@@ -392,13 +484,24 @@ function NewTaskModal({
       requiresIdentityVerified: form.requiresIdentityVerified,
       skillIds: form.skillIds,
       credentialTypeIds: form.credentialTypeIds,
+      questions: form.questions.map((q) => ({
+        ...q,
+        label: q.label.trim(),
+        options: q.type === 'CHOICE' ? q.options?.map((o) => o.trim()).filter(Boolean) : undefined,
+      })),
     }
     try {
       const created = await api.createTask(body)
       onCreated(created)
-      setForm(EMPTY_FORM)
-      setStep(1)
-      onClose()
+      // The task is out; a template that fails to save must not undo that.
+      if (saveAsTemplate && templateName.trim()) {
+        await api
+          .createTaskTemplate(templateName.trim(), templatePayload(form))
+          .then(() => templates.reload())
+          .catch(() => {})
+      }
+      categories.reload()
+      close()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Failed to create task')
       // Back to the step that can actually be corrected: every field the
@@ -413,13 +516,40 @@ function NewTaskModal({
     <Modal
       open={open}
       title="Post a new task"
-      subtitle={step === 1 ? 'Step 1 of 2 · The work' : 'Step 2 of 2 · Who can take it'}
+      subtitle={
+        step === 1
+          ? 'Step 1 of 3 · The work'
+          : step === 2
+            ? 'Step 2 of 3 · Who can take it'
+            : 'Step 3 of 3 · What to ask applicants'
+      }
       onClose={close}
-      size={step === 2 ? 'wide' : 'default'}
+      size={step === 1 ? 'default' : 'wide'}
     >
       <form onSubmit={submit}>
         {step === 1 && (
         <div className="formgrid">
+          {(templates.data?.length ?? 0) > 0 && (
+            <div className="field span2">
+              <Label htmlFor="t-tpl">Start from a template</Label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ flex: 1 }}>
+                  <Select
+                    id="t-tpl"
+                    value={templateId}
+                    onChange={applyTemplate}
+                    placeholder="Blank task"
+                    options={(templates.data ?? []).map((t) => ({ value: t.id, label: t.name }))}
+                  />
+                </div>
+                {templateId && (
+                  <Button type="button" variant="glass" size="sm" onClick={removeTemplate} title="Delete this template">
+                    Delete template
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
           <div className="field span2">
             <Label htmlFor="t-title">Title</Label>
             <Input
@@ -443,10 +573,22 @@ function NewTaskModal({
             <Label htmlFor="t-cat">Category</Label>
             <Input
               id="t-cat"
+              list="t-cat-list"
+              maxLength={60}
               value={form.category}
               onChange={(e) => set('category', e.target.value)}
-              placeholder="Dispatch"
+              placeholder="Pick or type a new one"
             />
+            <datalist id="t-cat-list">
+              {activeCategories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            {isNewCategory && (
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                New category: “{typedCategory}” is added to the list when you publish
+              </div>
+            )}
           </div>
           <div className="field">
             <Label htmlFor="t-tier">Tier</Label>
@@ -698,6 +840,38 @@ function NewTaskModal({
           </div>
         )}
 
+        {step === 3 && (
+          <div style={{ display: 'grid', gap: 18 }}>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+              Anything you need to know before choosing people: their area, their equipment, a
+              sample of their work. Applicants answer in the app when they apply, and you see the
+              answers beside each application.
+            </p>
+            <QuestionsEditor value={form.questions} onChange={(q) => set('questions', q)} />
+            <div className="reqblock">
+              <div className="reqhead">
+                <div>
+                  <b>Save as a template</b>
+                  <span>Post this kind of task again in one click. Dates are not saved.</span>
+                </div>
+                <Switch checked={saveAsTemplate} onChange={setSaveAsTemplate} label="Save as a template" />
+              </div>
+              {saveAsTemplate && (
+                <div style={{ marginTop: 10 }}>
+                  <Input
+                    aria-label="Template name"
+                    value={templateName}
+                    maxLength={80}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder={form.title ? `e.g. ${form.title}` : 'Template name'}
+                    required
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="login-error" role="alert" style={{ marginTop: 16 }}>
             <Icon name="alert" size={15} />
@@ -709,17 +883,17 @@ function NewTaskModal({
           <Button
             type="button"
             variant="glass"
-            onClick={() => (step === 2 ? setStep(1) : close())}
+            onClick={() => (step > 1 ? setStep(step === 3 ? 2 : 1) : close())}
           >
-            {step === 2 ? 'Back' : 'Cancel'}
+            {step > 1 ? 'Back' : 'Cancel'}
           </Button>
           <Button
             type="submit"
             variant="primary"
-            icon={step === 1 ? undefined : 'check'}
+            icon={step < 3 ? undefined : 'check'}
             loading={submitting}
           >
-            {step === 1 ? 'Next: requirements' : 'Publish task'}
+            {step === 1 ? 'Next: requirements' : step === 2 ? 'Next: questions' : 'Publish task'}
           </Button>
         </div>
       </form>

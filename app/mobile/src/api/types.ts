@@ -118,11 +118,22 @@ export interface OrgMember {
   phone?: string | null;
 }
 
+/** A question the task asks applicants (server: services/taskQuestions.ts). */
+export interface TaskQuestion {
+  id: string;
+  label: string;
+  type: 'TEXT' | 'LONG_TEXT' | 'NUMBER' | 'YES_NO' | 'CHOICE' | 'LINK';
+  required: boolean;
+  options?: string[];
+}
+
 export interface Task {
   id: string;
   title: string;
   description: string;
   category: string;
+  /** Older servers omit it; treat missing as none. */
+  questions?: TaskQuestion[];
   tier: Tier;
   payModel: PayModel;
   rate?: number | null;

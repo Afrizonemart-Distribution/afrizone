@@ -91,6 +91,7 @@ model User {
   createdAt         DateTime @default(now())
 
   tasksCreated        Task[]               @relation("TaskCreatedBy")
+  taskTemplates       TaskTemplate[]       @relation("TaskTemplateCreatedBy")
   applications        Application[]
   crewInvites         CrewInvite[]
   referralsMade       Referral[]           @relation("ReferralReferrer")
@@ -179,6 +180,10 @@ model Task {
   // eligibility snapshot can be recognised as belonging to an older shape.
   requirementsVersion      Int     @default(0)
 
+  /// JSON array of TaskQuestion (services/taskQuestions.ts): what an applicant
+  /// is asked when they apply. '[]' = nothing extra.
+  questions String @default("[]")
+
   createdBy    User          @relation("TaskCreatedBy", fields: [createdById], references: [id])
   applications Application[]
   timesheets   Timesheet[]
@@ -249,6 +254,8 @@ model Application {
   eligibilitySnapshot String?
   /// The lead's own share on a crew application; null when applying alone.
   crewLeadShare       Int?
+  /// JSON array of {id, label, type, answer}, wording copied in at apply time.
+  answers             String?
   createdAt           DateTime @default(now())
 
   task        Task         @relation(fields: [taskId], references: [id])
@@ -363,6 +370,22 @@ model TaxRate {
   whtRate      Float
   vatRate      Float
   active       Boolean @default(true)
+}
+
+/// A saved task form, so a recurring kind of task is posted in one click.
+model TaskTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  /// JSON of the task form's fields (routes/taskTemplates.ts TEMPLATE_KEYS).
+  payload     String
+  createdById String
+  archived    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  createdBy User @relation("TaskTemplateCreatedBy", fields: [createdById], references: [id])
+
+  @@index([archived])
 }
 
 model Category {

@@ -11,6 +11,8 @@ import {
   summarise,
   type TaskRequirements,
 } from "../services/eligibility";
+import { parseQuestions, readQuestions } from "../services/taskQuestions";
+import { cleanCategoryName, ensureCategory } from "../services/categories";
 
 const router = Router();
 
@@ -54,10 +56,15 @@ async function countsFor(taskIds: string[]) {
   return counts;
 }
 
+/** Task.questions is stored as JSON text; every response sends the list. */
+function shape<T extends { questions?: string | null }>(task: T) {
+  return { ...task, questions: readQuestions(task.questions) };
+}
+
 /** Single-task convenience over the batch version, for create/update responses. */
 async function withCounts(task: any) {
   const counts = await countsFor([task.id]);
-  return { ...task, ...counts.get(task.id)! };
+  return { ...shape(task), ...counts.get(task.id)! };
 }
 
 /** The requirements block every task response carries, gated or not. */
@@ -189,7 +196,7 @@ router.get("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     tasks.map((t) => {
       const reqs = requirements.get(t.id)!;
       return {
-        ...t,
+        ...shape(t),
         ...counts.get(t.id)!,
         requirements: requirementsPayload(reqs),
         eligibility: profile ? decide(profile, reqs) : null,
@@ -218,17 +225,27 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
   const crewMax = crewMaxFrom(b.crewMax, b.payModel);
   if (crewMax === null) return res.status(400).json({ error: CREW_MAX_ERROR });
 
+  if (!cleanCategoryName(b.category)) {
+    return res.status(400).json({ error: "category must be 1 to 60 characters" });
+  }
+  const questions = parseQuestions(b.questions);
+  if (!questions.ok) return res.status(400).json({ error: questions.error });
+
   const skillIds = idList(b.skillIds) ?? [];
   const credentialTypeIds = idList(b.credentialTypeIds) ?? [];
   const resolved = await resolveRequirementIds(skillIds, credentialTypeIds);
   if (!resolved.ok) return res.status(400).json({ error: resolved.error });
 
   try {
+    // A category typed for the first time joins the list here, so the admin
+    // never has to leave the task form to set one up.
+    const category = await ensureCategory(b.category, { tier: b.tier, payModel: b.payModel });
     const task = await prisma.task.create({
       data: {
         title: b.title,
         description: b.description,
-        category: b.category,
+        category: category.name,
+        questions: JSON.stringify(questions.value),
         tier: b.tier,
         payModel: b.payModel,
         rate: b.rate ?? null,
@@ -458,7 +475,7 @@ router.patch("/:id", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), as
 
   const b = req.body || {};
   const data: any = {};
-  const stringFields = ["title", "description", "category", "tier", "payModel", "locationType", "address", "status"];
+  const stringFields = ["title", "description", "tier", "payModel", "locationType", "address", "status"];
   for (const f of stringFields) if (b[f] !== undefined) data[f] = b[f];
   const intFields = ["rate", "budget", "geofenceRadius", "slots"];
   for (const f of intFields) if (b[f] !== undefined) data[f] = b[f];
@@ -468,6 +485,23 @@ router.patch("/:id", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), as
   for (const f of dateFields) if (b[f] !== undefined) data[f] = new Date(b[f]);
   if (b.requiresIdentityVerified !== undefined) {
     data.requiresIdentityVerified = b.requiresIdentityVerified === true;
+  }
+  if (b.questions !== undefined) {
+    // Editing questions after people applied is allowed: each application
+    // keeps the wording it was answered against (services/taskQuestions.ts).
+    const questions = parseQuestions(b.questions);
+    if (!questions.ok) return res.status(400).json({ error: questions.error });
+    data.questions = JSON.stringify(questions.value);
+  }
+  if (b.category !== undefined) {
+    if (!cleanCategoryName(b.category)) {
+      return res.status(400).json({ error: "category must be 1 to 60 characters" });
+    }
+    const category = await ensureCategory(b.category, {
+      tier: b.tier ?? existing.tier,
+      payModel: b.payModel ?? existing.payModel,
+    });
+    data.category = category.name;
   }
   if (b.crewMax !== undefined || b.payModel !== undefined) {
     const current = await prisma.task.findUnique({

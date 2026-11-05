@@ -201,7 +201,24 @@ export default function Applications() {
                       )}
                     </TableCell>
                     <TableCell>{kyc ? <StatusPill variant={kyc.variant} label={kyc.label} /> : '—'}</TableCell>
-                    <TableCell style={{ maxWidth: 260, color: 'var(--muted)' }}>{a.pitch || '—'}</TableCell>
+                    <TableCell style={{ maxWidth: 260, color: 'var(--muted)' }}>
+                      {a.pitch || (a.answers?.length ? null : '—')}
+                      {/* The task's own questions, in the wording the applicant saw. */}
+                      {a.answers?.map((ans) => (
+                        <div key={ans.id} style={{ fontSize: 12, marginTop: 4 }}>
+                          <span>{ans.label}</span>{' '}
+                          <b style={{ color: 'var(--text)', wordBreak: 'break-word' }}>
+                            {ans.type === 'YES_NO' ? (ans.answer ? 'Yes' : 'No') : ans.type === 'LINK' ? (
+                              <a href={String(ans.answer)} target="_blank" rel="noopener noreferrer nofollow">
+                                {String(ans.answer)}
+                              </a>
+                            ) : (
+                              String(ans.answer)
+                            )}
+                          </b>
+                        </div>
+                      ))}
+                    </TableCell>
                     <TableCell>
                       <StatusPill variant={pill.variant} label={pill.label} />
                     </TableCell>
