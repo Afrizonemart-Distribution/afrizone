@@ -63,7 +63,7 @@ function TaskCard({ task, delay }: { task: Task; delay: string }) {
           <span className="d" style={{ background: TIER_COLORS[task.tier] }} />
           {TIER_LABELS[task.tier]}
         </Badge>
-        <span className="pay">{taskPay(task.rate, task.budget, task.payModel)}</span>
+        <span className="pay">{taskPay(task.rate, task.budget, task.payModel, task.unitLabel)}</span>
       </div>
       <h4>{task.title}</h4>
       <div className="mrow">
@@ -284,6 +284,13 @@ interface FormState {
   skillIds: string[]
   credentialTypeIds: string[]
   questions: TaskQuestion[]
+  /** PER_UNIT: what one unit is, and the most one person may hand in. */
+  unitLabel: string
+  maxUnits: string
+  /** Photos of the finished work required at hand-in. */
+  proofPhotos: string
+  /** What the reviewer confirms before approving, one per line. */
+  acceptanceCriteria: string[]
 }
 
 const EMPTY_FORM: FormState = {
@@ -313,6 +320,10 @@ const EMPTY_FORM: FormState = {
   skillIds: [],
   credentialTypeIds: [],
   questions: [],
+  unitLabel: '',
+  maxUnits: '',
+  proofPhotos: '0',
+  acceptanceCriteria: [],
 }
 
 /** The form's reusable part: everything but dates, which are never the same twice. */
@@ -336,6 +347,10 @@ function templatePayload(f: FormState): Partial<CreateTaskBody> {
     skillIds: f.skillIds,
     credentialTypeIds: f.credentialTypeIds,
     questions: f.questions,
+    unitLabel: f.unitLabel.trim() || undefined,
+    maxUnits: f.maxUnits ? Number(f.maxUnits) : undefined,
+    proofPhotos: Number(f.proofPhotos) || 0,
+    acceptanceCriteria: f.acceptanceCriteria.map((c) => c.trim()).filter(Boolean),
   }
 }
 
@@ -349,7 +364,7 @@ function formFromTemplate(t: TaskTemplate): FormState {
     description: str(p.description),
     category: str(p.category),
     tier: TIERS.includes(p.tier as Tier) ? (p.tier as Tier) : EMPTY_FORM.tier,
-    payModel: p.payModel === 'FIXED' ? 'FIXED' : 'HOURLY',
+    payModel: p.payModel === 'FIXED' || p.payModel === 'PER_UNIT' ? p.payModel : 'HOURLY',
     rate: str(p.rate),
     budget: str(p.budget),
     locationType: p.locationType === 'REMOTE' ? 'REMOTE' : 'PHYSICAL',
@@ -363,6 +378,10 @@ function formFromTemplate(t: TaskTemplate): FormState {
     skillIds: Array.isArray(p.skillIds) ? p.skillIds : [],
     credentialTypeIds: Array.isArray(p.credentialTypeIds) ? p.credentialTypeIds : [],
     questions: Array.isArray(p.questions) ? p.questions : [],
+    unitLabel: str(p.unitLabel),
+    maxUnits: str(p.maxUnits),
+    proofPhotos: str(p.proofPhotos) || '0',
+    acceptanceCriteria: Array.isArray(p.acceptanceCriteria) ? p.acceptanceCriteria : [],
   }
 }
 
@@ -469,7 +488,11 @@ function NewTaskModal({
       category: typedCategory || TIER_LABELS[form.tier],
       tier: form.tier,
       payModel: form.payModel,
-      rate: form.payModel === 'HOURLY' ? Number(form.rate) || 0 : undefined,
+      rate: form.payModel !== 'FIXED' ? Number(form.rate) || 0 : undefined,
+      unitLabel: form.payModel === 'PER_UNIT' ? form.unitLabel.trim() : undefined,
+      maxUnits: form.payModel === 'PER_UNIT' && form.maxUnits ? Number(form.maxUnits) : undefined,
+      proofPhotos: Number(form.proofPhotos) || 0,
+      acceptanceCriteria: form.acceptanceCriteria.map((c) => c.trim()).filter(Boolean),
       budget: form.payModel === 'FIXED' ? Number(form.budget) || 0 : undefined,
       startDate: form.startDate || new Date().toISOString(),
       endDate: form.endDate || new Date().toISOString(),
@@ -521,7 +544,7 @@ function NewTaskModal({
           ? 'Step 1 of 3 · The work'
           : step === 2
             ? 'Step 2 of 3 · Who can take it'
-            : 'Step 3 of 3 · What to ask applicants'
+            : 'Step 3 of 3 · Questions and proof of work'
       }
       onClose={close}
       size={step === 1 ? 'default' : 'wide'}
@@ -608,10 +631,50 @@ function NewTaskModal({
               options={[
                 { value: 'HOURLY', label: 'Hourly' },
                 { value: 'FIXED', label: 'Fixed' },
+                { value: 'PER_UNIT', label: 'Per unit (per photo, per survey…)' },
               ]}
             />
           </div>
-          {form.payModel === 'HOURLY' ? (
+          {form.payModel === 'PER_UNIT' ? (
+            <>
+              <div className="field">
+                <Label htmlFor="t-unit">One unit is a…</Label>
+                <Input
+                  id="t-unit"
+                  value={form.unitLabel}
+                  maxLength={30}
+                  onChange={(e) => set('unitLabel', e.target.value)}
+                  placeholder="photo"
+                  required
+                />
+              </div>
+              <div className="field">
+                <Label htmlFor="t-urate">Pay per {form.unitLabel.trim() || 'unit'} (₦)</Label>
+                <Input
+                  id="t-urate"
+                  className="tnum"
+                  type="number"
+                  min="1"
+                  value={form.rate}
+                  onChange={(e) => set('rate', e.target.value)}
+                  placeholder="150"
+                  required
+                />
+              </div>
+              <div className="field">
+                <Label htmlFor="t-umax">Most per person (optional)</Label>
+                <Input
+                  id="t-umax"
+                  className="tnum"
+                  type="number"
+                  min="1"
+                  value={form.maxUnits}
+                  onChange={(e) => set('maxUnits', e.target.value)}
+                  placeholder="No limit"
+                />
+              </div>
+            </>
+          ) : form.payModel === 'HOURLY' ? (
             <div className="field">
               <Label htmlFor="t-rate">Rate (₦/hour)</Label>
               <Input
@@ -848,6 +911,66 @@ function NewTaskModal({
               answers beside each application.
             </p>
             <QuestionsEditor value={form.questions} onChange={(q) => set('questions', q)} />
+            <div className="reqblock" style={{ display: 'grid', gap: 10 }}>
+              <div className="reqhead">
+                <div>
+                  <b>Proof of work</b>
+                  <span>
+                    What has to be true before anyone is paid. The reviewer ticks every check
+                    before approving, and the worker sees them before they start.
+                  </span>
+                </div>
+              </div>
+              {form.acceptanceCriteria.map((c, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8 }}>
+                  <Input
+                    aria-label={`Check ${i + 1}`}
+                    value={c}
+                    maxLength={200}
+                    onChange={(e) =>
+                      set('acceptanceCriteria', form.acceptanceCriteria.map((x, j) => (j === i ? e.target.value : x)))
+                    }
+                    placeholder="e.g. Every shelf photographed, price tags readable"
+                  />
+                  <Button
+                    type="button"
+                    variant="glass"
+                    size="sm"
+                    onClick={() => set('acceptanceCriteria', form.acceptanceCriteria.filter((_, j) => j !== i))}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+              {form.acceptanceCriteria.length < 10 && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="glass"
+                    size="sm"
+                    icon="plus"
+                    onClick={() => set('acceptanceCriteria', [...form.acceptanceCriteria, ''])}
+                  >
+                    Add a check
+                  </Button>
+                </div>
+              )}
+              <div className="field" style={{ maxWidth: 260 }}>
+                <Label htmlFor="t-proof">Photos of the finished work</Label>
+                <Input
+                  id="t-proof"
+                  className="tnum"
+                  type="number"
+                  min="0"
+                  max="10"
+                  value={form.proofPhotos}
+                  onChange={(e) => set('proofPhotos', e.target.value)}
+                />
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
+                  Taken in the app, with time and place, before they can hand in. 0 = none.
+                </div>
+              </div>
+            </div>
             <div className="reqblock">
               <div className="reqhead">
                 <div>
@@ -893,7 +1016,7 @@ function NewTaskModal({
             icon={step < 3 ? undefined : 'check'}
             loading={submitting}
           >
-            {step === 1 ? 'Next: requirements' : step === 2 ? 'Next: questions' : 'Publish task'}
+            {step === 1 ? 'Next: requirements' : step === 2 ? 'Next: questions and proof' : 'Publish task'}
           </Button>
         </div>
       </form>

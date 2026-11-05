@@ -488,7 +488,10 @@ export const api = {
     taskId: string;
     periodStart: string;
     periodEnd: string;
-    hours: number;
+    hours?: number;
+    /** PER_UNIT: how many units are handed in. */
+    units?: number;
+    note?: string;
   }): Promise<unknown> {
     return request('/timesheets', { method: 'POST', body: input });
   },

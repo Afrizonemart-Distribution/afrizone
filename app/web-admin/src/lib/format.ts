@@ -131,6 +131,8 @@ export function timesheetPill(s: TimesheetStatus): { variant: PillVariant; label
       return { variant: 'ready', label: 'Approved' }
     case 'DISPUTED':
       return { variant: 'danger', label: 'Disputed' }
+    case 'REWORK':
+      return { variant: 'pending', label: 'Sent back' }
   }
 }
 
@@ -216,7 +218,13 @@ export function martEventPill(s: string): { variant: PillVariant; label: string 
 }
 
 /** Display pay for a task ("₦2.5k/h" or "₦18k"). */
-export function taskPay(rate?: number | null, budget?: number | null, payModel?: string): string {
+export function taskPay(
+  rate?: number | null,
+  budget?: number | null,
+  payModel?: string,
+  unitLabel?: string | null,
+): string {
+  if (payModel === 'PER_UNIT' && rate != null) return `${formatNairaCompact(rate)}/${unitLabel || 'unit'}`
   if (payModel === 'HOURLY' && rate != null) return `${formatNairaCompact(rate)}/h`
   if (budget != null) return formatNairaCompact(budget)
   if (rate != null) return `${formatNairaCompact(rate)}/h`

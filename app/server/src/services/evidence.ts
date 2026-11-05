@@ -44,6 +44,8 @@ interface TaskShape {
   kind: string;
   payModel: string;
   locationType: string;
+  /** Photos of the finished work the task itself asks for (services/proof.ts). */
+  proofPhotos?: number | null;
 }
 
 /**
@@ -59,6 +61,15 @@ interface TaskShape {
  *   geofence that already runs.
  */
 export function required(task: TaskShape, stage: EvidenceStage): number {
+  const own = kindRequired(task, stage);
+  // The task can ask for more photos of the finished work than its kind does,
+  // never fewer.
+  if (stage === "WORK") return Math.max(own, task.proofPhotos ?? 0);
+  return own;
+}
+
+/** What the task's kind alone asks for at this stage. */
+function kindRequired(task: TaskShape, stage: EvidenceStage): number {
   const onSite = task.locationType === "PHYSICAL";
   switch (stage) {
     case "PICKUP":
@@ -84,7 +95,10 @@ export function required(task: TaskShape, stage: EvidenceStage): number {
  */
 export function signatureRequired(task: TaskShape, stage: EvidenceStage): boolean {
   if (stage === "CLOCK_IN" || stage === "CLOCK_OUT") return false;
-  return required(task, stage) > 0;
+  // Only the kind's own handovers have somebody on the other side to sign.
+  // Photos a task asks for on top (proofPhotos) are often remote work, with
+  // nobody there.
+  return kindRequired(task, stage) > 0;
 }
 
 /** Who signs at each step, as the Tasker is asked for it. */

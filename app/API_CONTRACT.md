@@ -574,3 +574,20 @@ Files (CV, portfolio) upload through `POST /api/me/kyc/documents` with `docType`
 - **Questions.** `Task.questions` is a list of `{id, label, type, required, options?}`. `type` is one of TEXT, LONG_TEXT, NUMBER, YES_NO, CHOICE (2 to 20 `options`) or LINK (http/https only). At most 15 per task. Send `questions` on create or PATCH; every task response returns it as a list.
 - **Answers.** `POST /api/applications` takes `answers: {questionId: value}`. A required question left blank, or an answer of the wrong kind, gets a 400 with `code: "ANSWERS_INVALID"` and the question in the message. Answers to questions the task doesn't ask are dropped. The stored answers (`[{id, label, type, answer}]`) keep the wording the applicant saw. They are returned by `GET /api/applications`.
 - **Templates** (SUPER_ADMIN, TASK_MANAGER): `GET/POST /api/task-templates`, `PATCH/DELETE /api/task-templates/:id`. A template is `{name, payload}`, where `payload` holds only the task form's fields (TEMPLATE_KEYS); anything else is dropped. Delete archives it. A task is never created from a template directly: the form fills in from it and then goes through `POST /api/tasks`.
+
+## Proof-to-pay
+
+- **Pay per unit.** `payModel: "PER_UNIT"` with `rate` = ₦ per unit (required), `unitLabel` (required, ≤30, e.g. "photo") and `maxUnits` (optional, the most one person may hand in). Committed amounts stay null until approval, as for hourly work.
+- **What "done" means**, on the task: `acceptanceCriteria` (up to 10 sentences) and `proofPhotos` (0 to 10 photos of the finished work, WORK stage). Photos asked for this way don't require a signature; signatures stay tied to the task kind's own handovers.
+- **Hand-in** (`POST /api/timesheets`): PER_UNIT needs `units` (1 to `maxUnits`), and `hours` is optional; other pay models need `hours` as before. An optional `note` can be added (≤1000).
+  - 409 `AWAITING_REVIEW` while an earlier hand-in is still waiting.
+  - 409 `ALREADY_DECIDED` once the contract is VERIFIED, PAID, CLOSED, CANCELLED or DISPUTED.
+  - A CLAIMED or REWORK contract passes through IN_PROGRESS on its way to SUBMITTED.
+- **Approve** (`POST /api/timesheets/:id/approve`) takes `{checks, acceptedUnits?, note?}`.
+  - `checks` must include every acceptance criterion, as worded; otherwise 400 `CHECKS_INCOMPLETE` with an `unconfirmed` list.
+  - PER_UNIT pays `acceptedUnits × rate`; `acceptedUnits` runs from 1 to the units handed in and defaults to all of them.
+  - A FIXED task is paid once per person: a second approval gets 409 `ALREADY_PAID`.
+  - Only SUBMITTED or DISPUTED work can be approved. The reviewer, the time, the checks and the note are recorded on the timesheet, and `Payment.approvedById` is set.
+- **Send back** (`POST /api/timesheets/:id/rework {reason}`): `reason` is required. The timesheet becomes REWORK, the contract goes to REWORK, and the worker gets a notification with the reason. They hand in again as a new timesheet.
+- **Second person for large payments.** At or above Setting `payments.secondApprovalOver` (₦ gross, default 50,000), the admin who approved the work cannot release the payment: 409 `SECOND_APPROVER_REQUIRED`. `release-all` skips those payments, reports them as `heldBack`, and now also moves each contract to PAID and marks its commitment paid, as a single release does.
+- `GET /api/me/timesheets` now includes `units`, `acceptedUnits`, `note` and `reviewNote`, so the app can show why work was sent back.

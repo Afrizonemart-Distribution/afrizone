@@ -7,6 +7,7 @@ import { notifyWorker, notifyWorkers } from "../services/push";
 
 import { transitionContract, type ContractState } from "../services/contractState";
 import { markPaidForContract } from "../services/commitments";
+import { releaseBlock, secondApprovalLine } from "../services/proof";
 
 const router = Router();
 
@@ -57,6 +58,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
       whtAmount: p.whtAmount,
       net: p.net,
       status: p.status,
+      approvedById: p.approvedById,
       createdAt: p.createdAt,
       worker: { id: p.worker.id, name: p.worker.name },
       task: { id: p.task.id, title: p.task.title },
@@ -69,6 +71,10 @@ router.post("/:id/release", requireAuth, requireRole("SUPER_ADMIN"), async (req:
   const payment = await prisma.payment.findUnique({ where: { id: req.params.id } });
   if (!payment) return res.status(404).json({ error: "Payment not found" });
   if (payment.status === "RELEASED") return res.status(400).json({ error: "Payment already released" });
+  if (payment.status !== "APPROVED") return res.status(409).json({ error: "Only an approved payment can be released" });
+
+  const block = releaseBlock(payment, req.user!.id, await secondApprovalLine());
+  if (block) return res.status(409).json({ error: block, code: "SECOND_APPROVER_REQUIRED" });
 
   const updated = await prisma.payment.update({
     where: { id: payment.id },
@@ -108,7 +114,12 @@ router.post("/:id/release", requireAuth, requireRole("SUPER_ADMIN"), async (req:
 
 // POST /api/payments/release-all → releases all APPROVED → {released, totalNet}
 router.post("/release-all", requireAuth, requireRole("SUPER_ADMIN"), async (req: AuthedRequest, res: Response) => {
-  const approved = await prisma.payment.findMany({ where: { status: "APPROVED" } });
+  // Large payments this admin approved themselves are left for somebody else,
+  // exactly as the one-at-a-time release refuses them.
+  const line = await secondApprovalLine();
+  const pending = await prisma.payment.findMany({ where: { status: "APPROVED" } });
+  const approved = pending.filter((p) => !releaseBlock(p, req.user!.id, line));
+  const heldBack = pending.length - approved.length;
   const totalNet = approved.reduce((sum, p) => sum + p.net, 0);
 
   // ARRAY FORM, NOT THE CALLBACK FORM. D1 does not support interactive
@@ -120,7 +131,10 @@ router.post("/release-all", requireAuth, requireRole("SUPER_ADMIN"), async (req:
   // writeAudit() for that reason: writeAudit writes on its own and would fall
   // outside the batch.
   await prisma.$transaction([
-    prisma.payment.updateMany({ where: { status: "APPROVED" }, data: { status: "RELEASED" } }),
+    prisma.payment.updateMany({
+      where: { id: { in: approved.map((p) => p.id) }, status: "APPROVED" },
+      data: { status: "RELEASED" },
+    }),
     ...approved.map((p) =>
       prisma.auditLog.create({
         data: auditData(userActor(req.user!.id), "PAYMENT_RELEASED", "Payment", p.id, {
@@ -134,6 +148,22 @@ router.post("/release-all", requireAuth, requireRole("SUPER_ADMIN"), async (req:
   ]);
 
   // Notify each worker whose payment was released
+  // The same follow-through as a single release: the contract reaches PAID and
+  // its ring-fence is marked paid. The batch used to skip both, leaving every
+  // batch-paid job looking approved-but-unpaid.
+  for (const p of approved) {
+    await advanceContract(p.taskId, p.workerId, "PAID", userActor(req.user!.id), {
+      via: "payment-released",
+      paymentId: p.id,
+      batch: true,
+    });
+    const c = await prisma.contract.findFirst({
+      where: { taskId: p.taskId, workerId: p.workerId },
+      select: { id: true },
+    });
+    if (c) await markPaidForContract(c.id, userActor(req.user!.id));
+  }
+
   const workerIds = [...new Set(approved.map((p) => p.workerId))];
   for (const id of workerIds) await onPaymentReleased(id);
   await notifyWorkers(
@@ -145,7 +175,7 @@ router.post("/release-all", requireAuth, requireRole("SUPER_ADMIN"), async (req:
     "notifPay"
   );
 
-  res.json({ released: approved.length, totalNet });
+  res.json({ released: approved.length, totalNet, heldBack });
 });
 
 export default router;

@@ -48,8 +48,8 @@ export function AppTaskCard({ task, onPress }: { task: Task; onPress?: () => voi
       accessibilityRole="button"
       accessibilityLabel={
         locked
-          ? `${task.title}, ${payLabel(task.payModel, task.rate, task.budget)}, locked: ${lockLine}`
-          : `${task.title}, ${payLabel(task.payModel, task.rate, task.budget)}`
+          ? `${task.title}, ${payLabel(task.payModel, task.rate, task.budget, task.unitLabel)}, locked: ${lockLine}`
+          : `${task.title}, ${payLabel(task.payModel, task.rate, task.budget, task.unitLabel)}`
       }
       style={({ pressed }) => [styles.card, locked && styles.cardLocked, pressed && !locked && styles.pressed]}
     >

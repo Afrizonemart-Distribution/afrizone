@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
-import { avatarGradient, formatDate, initials, timesheetPill } from '../lib/format'
+import { avatarGradient, formatDate, formatNaira, initials, timesheetPill } from '../lib/format'
+import type { Timesheet } from '../api/types'
 import PageHeader from '../components/PageHeader'
 import Glass from '../components/ui/Glass'
 import Button from '../components/ui/Button'
@@ -11,6 +12,7 @@ import EvidenceButton from '../components/EvidenceButton'
 import Icon from '../components/Icon'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/StateView'
 import Textarea from '../components/ui/Textarea'
+import Input from '../components/ui/Input'
 import { Label } from '@/components/shadcn/label'
 import { Avatar, AvatarFallback } from '@/components/shadcn/avatar'
 import {
@@ -28,6 +30,164 @@ function slaPill(hoursLeft?: number) {
   return <StatusPill variant={variant} label={`${Math.max(0, Math.round(hoursLeft))}h left`} />
 }
 
+/** What was handed in, in the task's own terms. */
+function handedIn(t: Timesheet): string {
+  if (t.task?.payModel === 'PER_UNIT') return `${t.units ?? 0} ${t.task.unitLabel || 'units'}`
+  return `${t.hours}h`
+}
+
+/**
+ * Approving is a decision about proof, not a button press: every acceptance
+ * check the task set is ticked here, and for per-unit work the reviewer says
+ * how many units they accept. The server refuses anything less
+ * (routes/timesheets.ts), so this only makes the decision visible.
+ */
+function ReviewModal({
+  sheet,
+  onClose,
+  onDone,
+}: {
+  sheet: Timesheet
+  onClose: () => void
+  onDone: (updated: Timesheet) => void
+}) {
+  const criteria = sheet.task?.acceptanceCriteria ?? []
+  const perUnit = sheet.task?.payModel === 'PER_UNIT'
+  const [checked, setChecked] = useState<string[]>([])
+  const [accepted, setAccepted] = useState(String(sheet.units ?? ''))
+  const [note, setNote] = useState('')
+  const [mode, setMode] = useState<'approve' | 'rework'>('approve')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const allChecked = criteria.every((c) => checked.includes(c))
+  const acceptedNum = Number(accepted)
+  const unitsOk = !perUnit || (Number.isInteger(acceptedNum) && acceptedNum >= 1 && acceptedNum <= (sheet.units ?? 0))
+  const pay =
+    perUnit && unitsOk && sheet.task?.rate != null
+      ? formatNaira(acceptedNum * sheet.task.rate)
+      : null
+
+  async function submit() {
+    setBusy(true)
+    setError(null)
+    try {
+      const updated =
+        mode === 'approve'
+          ? await api.approveTimesheet(sheet.id, {
+              checks: checked,
+              acceptedUnits: perUnit ? acceptedNum : undefined,
+              note: note.trim() || undefined,
+            })
+          : await api.reworkTimesheet(sheet.id, note.trim())
+      onDone(updated)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save the decision')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Modal
+      open
+      title={`Check work · ${sheet.worker?.name ?? 'Worker'}`}
+      subtitle={`${sheet.task?.title ?? 'Task'} · handed in ${handedIn(sheet)}`}
+      onClose={onClose}
+    >
+      <div style={{ display: 'grid', gap: 16 }}>
+        {sheet.note && (
+          <div>
+            <Label>Their note</Label>
+            <p style={{ margin: '4px 0 0', whiteSpace: 'pre-line' }}>{sheet.note}</p>
+          </div>
+        )}
+        <div>
+          <EvidenceButton taskId={sheet.taskId} workerId={sheet.workerId} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant={mode === 'approve' ? 'primary' : 'glass'} size="sm" onClick={() => setMode('approve')}>
+            Approve
+          </Button>
+          <Button variant={mode === 'rework' ? 'danger' : 'glass'} size="sm" onClick={() => setMode('rework')}>
+            Send back
+          </Button>
+        </div>
+
+        {mode === 'approve' && criteria.length > 0 && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <Label>Confirm each check</Label>
+            {criteria.map((c) => (
+              <label key={c} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={checked.includes(c)}
+                  onChange={(e) =>
+                    setChecked((prev) => (e.target.checked ? [...prev, c] : prev.filter((x) => x !== c)))
+                  }
+                  style={{ marginTop: 3 }}
+                />
+                <span>{c}</span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        {mode === 'approve' && perUnit && (
+          <div className="field" style={{ maxWidth: 280 }}>
+            <Label htmlFor="rv-units">
+              {(sheet.task?.unitLabel || 'Units').replace(/^./, (x) => x.toUpperCase())} accepted (of {sheet.units ?? 0})
+            </Label>
+            <Input
+              id="rv-units"
+              className="tnum"
+              type="number"
+              min="1"
+              max={sheet.units ?? undefined}
+              value={accepted}
+              onChange={(e) => setAccepted(e.target.value)}
+            />
+            {pay && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>Pays {pay} before tax</div>}
+          </div>
+        )}
+
+        <div className="field">
+          <Label htmlFor="rv-note">{mode === 'approve' ? 'Note (optional)' : 'What needs fixing'}</Label>
+          <Textarea
+            id="rv-note"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder={mode === 'approve' ? '' : 'The worker sees this. Be specific: which photos, which rows.'}
+          />
+        </div>
+
+        {error && (
+          <div className="login-error" role="alert">
+            <Icon name="alert" size={15} />
+            {error}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Button variant="glass" onClick={onClose}>
+            Cancel
+          </Button>
+          {mode === 'approve' ? (
+            <Button variant="money" icon="check" loading={busy} disabled={!allChecked || !unitsOk} onClick={submit}>
+              Approve and owe pay
+            </Button>
+          ) : (
+            <Button variant="danger" loading={busy} disabled={!note.trim()} onClick={submit}>
+              Send back to worker
+            </Button>
+          )}
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Timesheets() {
   const { data, loading, error, reload, setData } = useApi((signal) =>
     api.timesheets('SUBMITTED', signal),
@@ -36,21 +196,9 @@ export default function Timesheets() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [disputeId, setDisputeId] = useState<string | null>(null)
   const [reason, setReason] = useState('')
+  const [reviewing, setReviewing] = useState<Timesheet | null>(null)
 
   const sheets = data ?? []
-
-  async function approve(id: string) {
-    setBusy(id)
-    setActionError(null)
-    try {
-      const updated = await api.approveTimesheet(id)
-      setData((prev) => (prev ?? []).map((t) => (t.id === id ? { ...t, ...updated } : t)))
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Approve failed')
-    } finally {
-      setBusy(null)
-    }
-  }
 
   async function confirmDispute() {
     if (!disputeId) return
@@ -72,11 +220,11 @@ export default function Timesheets() {
     <>
       <PageHeader
         crumb="Operations / Timesheets"
-        title="Timesheet approval"
+        title="Check handed-in work"
         sub={
           loading
             ? 'Loading…'
-            : `${sheets.length} submitted · GPS & clock logs · 24–48h SLA`
+            : `${sheets.length} waiting · proof, checks and GPS before pay · 24–48h SLA`
         }
       />
 
@@ -95,8 +243,8 @@ export default function Timesheets() {
         <Glass>
           <EmptyState
             icon="clock"
-            title="No timesheets to review"
-            sub="Submitted timesheets appear here with their SLA countdown."
+            title="Nothing waiting to be checked"
+            sub="Handed-in work appears here with its SLA countdown."
           />
         </Glass>
       ) : (
@@ -107,7 +255,7 @@ export default function Timesheets() {
                 <TableHead>Worker</TableHead>
                 <TableHead>Task</TableHead>
                 <TableHead>Period</TableHead>
-                <TableHead>Hours</TableHead>
+                <TableHead>Handed in</TableHead>
                 <TableHead>SLA</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
@@ -117,6 +265,7 @@ export default function Timesheets() {
               {sheets.map((t) => {
                 const name = t.worker?.name ?? 'Worker'
                 const pill = timesheetPill(t.status)
+                const checks = t.task?.acceptanceCriteria?.length ?? 0
                 return (
                   <TableRow key={t.id}>
                     <TableCell>
@@ -134,12 +283,24 @@ export default function Timesheets() {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>{t.task?.title ?? '—'}</TableCell>
+                    <TableCell>
+                      {t.task?.title ?? '—'}
+                      {checks > 0 && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {checks} check{checks === 1 ? '' : 's'} to confirm
+                        </div>
+                      )}
+                    </TableCell>
                     <TableCell style={{ color: 'var(--muted)' }}>
                       {formatDate(t.periodStart)} → {formatDate(t.periodEnd)}
                     </TableCell>
                     <TableCell className="tnum" style={{ fontWeight: 700 }}>
-                      {t.hours}h
+                      {handedIn(t)}
+                      {t.note && (
+                        <div style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)', maxWidth: 240 }}>
+                          “{t.note}”
+                        </div>
+                      )}
                       {t.clock && t.clock.offline > 0 && (
                         <div
                           style={{ fontSize: 12, fontWeight: 400, color: 'var(--muted)' }}
@@ -157,13 +318,8 @@ export default function Timesheets() {
                       {t.status === 'SUBMITTED' ? (
                         <div style={{ display: 'flex', gap: 8 }}>
                           <EvidenceButton taskId={t.taskId} workerId={t.workerId} />
-                          <Button
-                            variant="money"
-                            size="sm"
-                            loading={busy === t.id}
-                            onClick={() => approve(t.id)}
-                          >
-                            Approve
+                          <Button variant="money" size="sm" onClick={() => setReviewing(t)}>
+                            Check
                           </Button>
                           <Button
                             variant="danger"
@@ -177,7 +333,9 @@ export default function Timesheets() {
                           </Button>
                         </div>
                       ) : (
-                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>Resolved</span>
+                        <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                          {t.status === 'REWORK' ? 'Sent back' : 'Resolved'}
+                        </span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -186,6 +344,17 @@ export default function Timesheets() {
             </TableBody>
           </Table>
         </Glass>
+      )}
+
+      {reviewing && (
+        <ReviewModal
+          sheet={reviewing}
+          onClose={() => setReviewing(null)}
+          onDone={(updated) => {
+            setData((prev) => (prev ?? []).map((t) => (t.id === reviewing.id ? { ...t, ...updated } : t)))
+            setReviewing(null)
+          }}
+        />
       )}
 
       <Modal

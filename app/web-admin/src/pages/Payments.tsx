@@ -45,7 +45,12 @@ export default function Payments() {
     setBusy('all')
     setActionError(null)
     try {
-      await api.releaseAll()
+      const r = await api.releaseAll()
+      if (r.heldBack) {
+        setActionError(
+          `${r.heldBack} large payment${r.heldBack === 1 ? '' : 's'} you approved yourself ${r.heldBack === 1 ? 'was' : 'were'} left for another admin to release`,
+        )
+      }
       reload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Release-all failed')

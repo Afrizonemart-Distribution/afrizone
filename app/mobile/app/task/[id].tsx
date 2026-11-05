@@ -85,7 +85,7 @@ export default function TaskDetailScreen() {
               <AppMetaItem icon={remote ? 'globe' : 'map-pin'} label="Location" value={remote ? 'Remote' : t.address || 'On-site'} />
               <AppMetaItem icon="clock" label="Closes" value={formatDate(t.deadline)} />
               <AppMetaItem icon="list" label="Slots" value={`${Math.max(0, t.slots - (t.filledCount ?? 0))} of ${t.slots} left`} />
-              <AppMetaItem icon="briefcase" label="Pay model" value={payLabel(t.payModel, t.rate, t.budget)} />
+              <AppMetaItem icon="briefcase" label="Pay model" value={payLabel(t.payModel, t.rate, t.budget, t.unitLabel)} />
             </View>
 
             {!remote && t.lat != null && t.lng != null ? (

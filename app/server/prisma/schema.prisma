@@ -184,6 +184,15 @@ model Task {
   /// is asked when they apply. '[]' = nothing extra.
   questions String @default("[]")
 
+  // ── Proof-to-pay (services/proof.ts) ──
+  /// JSON array of strings the reviewer confirms before approving.
+  acceptanceCriteria String  @default("[]")
+  /// Photos of the finished work required at hand-in, on top of the kind's rule.
+  proofPhotos        Int     @default(0)
+  /// PER_UNIT: what one unit is, and the most one person may hand in.
+  unitLabel          String?
+  maxUnits           Int?
+
   createdBy    User          @relation("TaskCreatedBy", fields: [createdById], references: [id])
   applications Application[]
   timesheets   Timesheet[]
@@ -274,8 +283,18 @@ model Timesheet {
   periodStart DateTime
   periodEnd   DateTime
   hours       Float
-  status      String   @default("SUBMITTED") // TimesheetStatus enum
+  status      String   @default("SUBMITTED") // SUBMITTED | APPROVED | REWORK | DISPUTED
   gpsNote     String?
+  /// PER_UNIT: how many units were handed in, and how many the reviewer accepted.
+  units         Int?
+  acceptedUnits Int?
+  /// The worker's note at hand-in, and the reviewer's at approval or send-back.
+  note          String?
+  reviewNote    String?
+  /// JSON array of the acceptance criteria, as worded, the reviewer confirmed.
+  checks        String?
+  reviewedById  String?
+  reviewedAt    DateTime?
   createdAt   DateTime @default(now())
 
   task   Task @relation(fields: [taskId], references: [id])
@@ -294,6 +313,9 @@ model Payment {
   whtAmount Int
   net       Int
   status    String   @default("PENDING") // PaymentStatus enum
+  /// Who approved the work. A payment over the second-approval line must be
+  /// released by somebody else (services/proof.ts).
+  approvedById String?
   createdAt DateTime @default(now())
 
   worker User @relation(fields: [workerId], references: [id])
@@ -301,6 +323,7 @@ model Payment {
 
   @@index([status])
   @@index([workerId])
+  @@index([taskId, workerId])
 }
 
 model AuditLog {

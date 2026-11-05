@@ -3,11 +3,11 @@
 export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER';
 export type Tier = 'STUDENT' | 'DISPATCH' | 'REMOTE' | 'PROMO' | 'TRADE';
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'TIER_APPROVED' | 'REJECTED';
-export type PayModel = 'HOURLY' | 'FIXED';
+export type PayModel = 'HOURLY' | 'FIXED' | 'PER_UNIT';
 export type LocationType = 'PHYSICAL' | 'REMOTE';
 export type TaskStatus = 'OPEN' | 'FILLED' | 'CLOSED' | 'ARCHIVED';
 export type AppStatus = 'APPLIED' | 'APPROVED' | 'REJECTED';
-export type TimesheetStatus = 'SUBMITTED' | 'APPROVED' | 'DISPUTED';
+export type TimesheetStatus = 'SUBMITTED' | 'APPROVED' | 'DISPUTED' | 'REWORK';
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'RELEASED' | 'DISPUTED';
 export type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACT';
 export type JobStatus = 'OPEN' | 'CLOSED';
@@ -134,6 +134,11 @@ export interface Task {
   category: string;
   /** Older servers omit it; treat missing as none. */
   questions?: TaskQuestion[];
+  /** What the work is checked against before it is paid. */
+  acceptanceCriteria?: string[];
+  /** PER_UNIT: what one unit is, and the most one person may hand in. */
+  unitLabel?: string | null;
+  maxUnits?: number | null;
   tier: Tier;
   payModel: PayModel;
   rate?: number | null;
@@ -392,6 +397,11 @@ export interface Timesheet {
   periodStart: string;
   periodEnd: string;
   hours: number;
+  units?: number | null;
+  acceptedUnits?: number | null;
+  note?: string | null;
+  /** Why it was sent back, or the reviewer's note on approval. */
+  reviewNote?: string | null;
   status: TimesheetStatus;
   createdAt: string;
   task: Pick<Task, 'id' | 'title'>;
