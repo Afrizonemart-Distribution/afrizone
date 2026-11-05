@@ -27,6 +27,8 @@ import ratingsRouter from "./routes/ratings";
 import webhooksRouter from "./routes/webhooks";
 import kycDocumentsRouter, { handleKycUpload, handleKycFileGet } from "./routes/kycDocuments";
 import meTalentRouter from "./routes/meTalent";
+import meProfileRouter from "./routes/meProfile";
+import publicProfilesRouter from "./routes/publicProfiles";
 import credentialsRouter from "./routes/credentials";
 import searchRouter from "./routes/search";
 import healthRouter from "./routes/health";
@@ -227,6 +229,9 @@ app.use("/api/admin/referrals", adminReferralsRouter);
 app.use("/api/me", meRouter);
 // Skills + credentials, also under /api/me (see routes/meTalent.ts).
 app.use("/api/me", meTalentRouter);
+// Talent Profile: own edit, and the public share link (no auth; LINK only).
+app.use("/api/me", meProfileRouter);
+app.use("/api/public/profiles", publicProfilesRouter);
 // GET only here - POST is intercepted before Express, see the fetch handler below.
 app.use("/api/me/kyc/documents", kycDocumentsRouter);
 app.use("/api/clock", clockRouter);

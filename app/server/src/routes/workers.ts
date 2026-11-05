@@ -6,6 +6,7 @@ import { referralEarnings } from "../services/referrals";
 import { tiersToArray, tiersToString, TIERS, Tier, isCredentialValid, isCredentialExpiring } from "../types";
 import { writeAudit, userActor } from "../util/audit";
 import { resolveUrl } from "../services/storage";
+import { buildProfile } from "../services/talentProfile";
 import { notifyWorker } from "../services/push";
 import { VEHICLE_LABEL, type VehicleType } from "../services/courier";
 
@@ -191,6 +192,9 @@ router.get(
         reviewedAt: c.reviewedAt,
         credentialType: c.credentialType,
       })),
+      // The Talent Profile, staff cut: CV, work history, education, portfolio,
+      // and the work record computed from released payments.
+      talent: await buildProfile(worker.id, "staff"),
     });
   }
 );
