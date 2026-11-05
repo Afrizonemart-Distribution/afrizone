@@ -73,6 +73,10 @@ export default function ActiveTaskScreen() {
   const [score, setScore] = useState('');
   const [notes, setNotes] = useState('');
   const [filed, setFiled] = useState<string | null>(null);
+  const [units, setUnits] = useState('');
+  const [handInNote, setHandInNote] = useState('');
+  /** Why the last hand-in was sent back, when it was. */
+  const [sentBack, setSentBack] = useState<string | null>(null);
   const needsStage = (s: EvidenceRequirement['stage']) => needs.some((n) => n.stage === s);
 
   const startedAt = useRef<number | null>(null);
@@ -122,11 +126,11 @@ export default function ActiveTaskScreen() {
           setElapsed(s.elapsedSeconds);
           setClockedIn(true);
         }
-        // Show submitted state if a timesheet already exists for this task.
-        const prior = sheets.find(
-          (ts: Timesheet) => ts.taskId === id && (ts.status === 'SUBMITTED' || ts.status === 'APPROVED')
-        );
-        if (prior) setSubmitted(true);
+        // The latest hand-in for this task decides what shows: waiting or
+        // approved means done; sent back means hand in again, with the reason.
+        const latest = sheets.find((ts: Timesheet) => ts.taskId === id);
+        if (latest && (latest.status === 'SUBMITTED' || latest.status === 'APPROVED')) setSubmitted(true);
+        if (latest?.status === 'REWORK') setSentBack(latest.reviewNote ?? 'The reviewer asked for changes.');
       } catch (e) {
         if ((e as { name?: string } | null)?.name === 'AbortError') return; // not instanceof DOMException: Hermes has none
       }
@@ -260,6 +264,12 @@ export default function ActiveTaskScreen() {
       setError('Your clock times are still waiting for signal. Hand in once they have been sent.');
       return;
     }
+    const perUnit = t?.payModel === 'PER_UNIT';
+    const count = Number(units);
+    if (perUnit && (!Number.isInteger(count) || count < 1)) {
+      setError(`Say how many ${t?.unitLabel ?? 'units'} you are handing in.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     const hours = Math.max(0.01, elapsed / 3600);
@@ -270,9 +280,12 @@ export default function ActiveTaskScreen() {
         taskId: id,
         periodStart: start,
         periodEnd: end,
-        hours: Number(hours.toFixed(2)),
+        hours: perUnit && elapsed === 0 ? undefined : Number(hours.toFixed(2)),
+        units: perUnit ? count : undefined,
+        note: handInNote.trim() || undefined,
       });
       setSubmitted(true);
+      setSentBack(null);
     } catch (e) {
       const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Could not submit timesheet.';
       setError(msg);
@@ -303,8 +316,12 @@ export default function ActiveTaskScreen() {
   const isAudit = needsStage('AUDIT');
   const remote = t?.locationType === 'REMOTE';
   const pay = t
-    ? payLabel(t.payModel, t.payModel === 'HOURLY' ? t.rate : t.budget)
+    ? payLabel(t.payModel, t.payModel === 'FIXED' ? t.budget : t.rate, t.budget, t.unitLabel)
     : null;
+  // Hourly work is handed in from the clock. Fixed and per-unit work done
+  // without clocking in (remote, mostly) is handed in when it is finished.
+  const clockless = t ? t.payModel !== 'HOURLY' : false;
+  const criteria = t?.acceptanceCriteria ?? [];
 
   return (
     <View style={styles.root}>
@@ -429,6 +446,25 @@ export default function ActiveTaskScreen() {
           </View>
         ) : null}
 
+        {/* What the work is checked against, before anyone starts. */}
+        {criteria.length > 0 && !submitted ? (
+          <View style={[styles.contextCard, { marginTop: 24 }]}>
+            <Text style={styles.sectionTitle}>How this is checked before you are paid</Text>
+            {criteria.map((c) => (
+              <View key={c} style={styles.metaRow}>
+                <Icon name="check-circle" size={14} color={obColors.forest} />
+                <Text style={styles.metaText}>{c}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {sentBack && !submitted ? (
+          <View style={{ marginTop: 20 }}>
+            <Banner tone="danger" icon="alert" title="Sent back: needs another look" message={sentBack} />
+          </View>
+        ) : null}
+
         {/* Timesheet submission */}
         {isAudit ? null : submitted ? (
           <View style={{ marginTop: 28 }}>
@@ -441,12 +477,39 @@ export default function ActiveTaskScreen() {
           </View>
         ) : (
           <View style={{ marginTop: 28, gap: 10 }}>
+            {t?.payModel === 'PER_UNIT' ? (
+              <>
+                <Text style={styles.fieldLabel}>
+                  How many {t.unitLabel ?? 'units'}?{t.maxUnits ? ` (up to ${t.maxUnits})` : ''}
+                </Text>
+                <TextInput
+                  value={units}
+                  onChangeText={(v) => setUnits(v.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor={obColors.textMut}
+                  style={styles.input}
+                  maxLength={6}
+                  accessibilityLabel={`Number of ${t.unitLabel ?? 'units'}`}
+                />
+              </>
+            ) : null}
+            <Text style={styles.fieldLabel}>Note for the reviewer (optional)</Text>
+            <TextInput
+              value={handInNote}
+              onChangeText={setHandInNote}
+              placeholder="Anything they should know"
+              placeholderTextColor={obColors.textMut}
+              style={[styles.input, styles.inputMulti]}
+              multiline
+              maxLength={1000}
+            />
             <AppPrimaryButton
-              label="Submit timesheet"
+              label={sentBack ? 'Hand in again' : 'Hand in work'}
               icon="check"
               variant="outline"
               onPress={submitTimesheet}
-              disabled={clockedIn || elapsed === 0 || busy || !workShown}
+              disabled={clockedIn || (!clockless && elapsed === 0) || busy || !workShown}
             />
             {clockedIn ? (
               <Text style={styles.hint}>Clock out before submitting your hours.</Text>

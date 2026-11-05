@@ -10,10 +10,12 @@ export const NAIRA = '₦';
 
 /** "₦2,500/hr" or "₦18,000 fixed" depending on pay model. */
 export function payLabel(
-  payModel: 'HOURLY' | 'FIXED',
+  payModel: 'HOURLY' | 'FIXED' | 'PER_UNIT',
   rate?: number | null,
-  budget?: number | null
+  budget?: number | null,
+  unitLabel?: string | null
 ): string {
+  if (payModel === 'PER_UNIT') return `${formatNaira(rate)} per ${unitLabel || 'unit'}`;
   if (payModel === 'HOURLY') return `${formatNaira(rate)}/hr`;
   return `${formatNaira(budget ?? rate)} fixed`;
 }

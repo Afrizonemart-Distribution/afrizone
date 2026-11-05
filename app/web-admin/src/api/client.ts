@@ -12,6 +12,7 @@ import type {
   Candidate,
   Category,
   TaskTemplate,
+  ApproveBody,
   DashboardStats,
   Dispute,
   AuditOutcome,
@@ -316,8 +317,11 @@ export const api = {
     request<EvidenceReview>(
       `/admin/evidence?taskId=${encodeURIComponent(taskId)}${workerId ? `&workerId=${encodeURIComponent(workerId)}` : ''}`,
     ),
-  approveTimesheet: (id: string) =>
-    request<Timesheet>(`/timesheets/${id}/approve`, { method: 'POST' }),
+  approveTimesheet: (id: string, body: ApproveBody = {}) =>
+    request<Timesheet & { payment?: Payment }>(`/timesheets/${id}/approve`, { method: 'POST', body }),
+  /** Send the work back with what needs fixing; the worker is told why. */
+  reworkTimesheet: (id: string, reason: string) =>
+    request<Timesheet>(`/timesheets/${id}/rework`, { method: 'POST', body: { reason } }),
   disputeTimesheet: (id: string, reason: string) =>
     request<Timesheet>(`/timesheets/${id}/dispute`, {
       method: 'POST',

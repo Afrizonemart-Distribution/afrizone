@@ -372,6 +372,11 @@ router.get("/timesheets", requireAuth, async (req: AuthedRequest, res: Response)
       periodStart: ts.periodStart,
       periodEnd: ts.periodEnd,
       hours: ts.hours,
+      units: ts.units,
+      acceptedUnits: ts.acceptedUnits,
+      note: ts.note,
+      // Why it was sent back, or the reviewer's note on approval.
+      reviewNote: ts.reviewNote,
       status: ts.status,
       createdAt: ts.createdAt,
       task: { id: ts.task.id, title: ts.task.title },

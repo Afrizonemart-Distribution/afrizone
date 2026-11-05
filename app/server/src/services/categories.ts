@@ -44,7 +44,7 @@ export async function ensureCategory(
   }
 
   const tier = defaults.tier && (TIERS as string[]).includes(defaults.tier) ? defaults.tier : "REMOTE";
-  const payModel = defaults.payModel === "FIXED" ? "FIXED" : "HOURLY";
+  const payModel = defaults.payModel === "FIXED" || defaults.payModel === "PER_UNIT" ? defaults.payModel : "HOURLY";
   const created = await prisma.category.create({
     data: { name, tier, defaultPayModel: payModel, active: true },
   });

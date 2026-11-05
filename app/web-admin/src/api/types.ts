@@ -3,13 +3,13 @@
 export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER'
 export type Tier = 'STUDENT' | 'DISPATCH' | 'REMOTE' | 'PROMO' | 'TRADE'
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'TIER_APPROVED' | 'REJECTED'
-export type PayModel = 'HOURLY' | 'FIXED'
+export type PayModel = 'HOURLY' | 'FIXED' | 'PER_UNIT'
 export type LocationType = 'PHYSICAL' | 'REMOTE'
 export type TaskStatus = 'OPEN' | 'FILLED' | 'CLOSED' | 'ARCHIVED'
 export type AppStatus = 'APPLIED' | 'APPROVED' | 'REJECTED'
 export type DisputeStatus = 'OPEN' | 'RESOLVED' | 'CLOSED'
 export type DisputeEntityType = 'PAYMENT' | 'TIMESHEET'
-export type TimesheetStatus = 'SUBMITTED' | 'APPROVED' | 'DISPUTED'
+export type TimesheetStatus = 'SUBMITTED' | 'APPROVED' | 'DISPUTED' | 'REWORK'
 export type PaymentStatus = 'PENDING' | 'APPROVED' | 'RELEASED' | 'DISPUTED'
 
 export interface User {
@@ -63,6 +63,13 @@ export interface Task {
   description: string
   category: string
   questions?: TaskQuestion[]
+  /** What the reviewer confirms before approving. */
+  acceptanceCriteria?: string[]
+  /** Photos of the finished work required at hand-in. */
+  proofPhotos?: number
+  /** PER_UNIT: what one unit is, and the most one person may hand in. */
+  unitLabel?: string | null
+  maxUnits?: number | null
   tier: Tier
   payModel: PayModel
   rate?: number | null
@@ -314,6 +321,12 @@ export interface Timesheet {
   periodStart: string
   periodEnd: string
   hours: number
+  /** PER_UNIT: units handed in, and how many the reviewer accepted. */
+  units?: number | null
+  acceptedUnits?: number | null
+  /** The worker's note at hand-in; the reviewer's at approval or send-back. */
+  note?: string | null
+  reviewNote?: string | null
   status: TimesheetStatus
   gpsNote?: string | null
   createdAt?: string
@@ -321,7 +334,21 @@ export interface Timesheet {
   /** Clock events in the period; `offline` ones carry the phone's time. Admin list only. */
   clock?: { events: number; offline: number; outsideFence: number }
   worker?: WorkerSummary
-  task?: TaskSummary
+  task?: TaskSummary & {
+    payModel?: PayModel
+    rate?: number | null
+    budget?: number | null
+    unitLabel?: string | null
+    acceptanceCriteria?: string[]
+  }
+}
+
+/** What a reviewer sends when approving work (server: routes/timesheets.ts). */
+export interface ApproveBody {
+  /** Every acceptance check, as worded, confirmed. */
+  checks?: string[]
+  acceptedUnits?: number
+  note?: string
 }
 
 export interface Payment {
@@ -333,6 +360,8 @@ export interface Payment {
   whtAmount: number
   net: number
   status: PaymentStatus
+  /** Who approved the work. A large payment needs somebody else to release it. */
+  approvedById?: string | null
   createdAt?: string
   worker?: WorkerSummary
   task?: TaskSummary
@@ -469,6 +498,8 @@ export interface Dispute {
 export interface ReleaseAllResponse {
   released: number
   totalNet: number
+  /** Large payments this admin approved themselves, left for somebody else. */
+  heldBack?: number
 }
 
 // ===== v2: Hiring, Reports, Settings =====

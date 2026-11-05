@@ -13,6 +13,7 @@ import {
 } from "../services/eligibility";
 import { parseQuestions, readQuestions } from "../services/taskQuestions";
 import { cleanCategoryName, ensureCategory } from "../services/categories";
+import { parseCriteria, parsePay, parseProofPhotos, readCriteria } from "../services/proof";
 
 const router = Router();
 
@@ -57,8 +58,12 @@ async function countsFor(taskIds: string[]) {
 }
 
 /** Task.questions is stored as JSON text; every response sends the list. */
-function shape<T extends { questions?: string | null }>(task: T) {
-  return { ...task, questions: readQuestions(task.questions) };
+function shape<T extends { questions?: string | null; acceptanceCriteria?: string | null }>(task: T) {
+  return {
+    ...task,
+    questions: readQuestions(task.questions),
+    acceptanceCriteria: readCriteria(task.acceptanceCriteria),
+  };
 }
 
 /** Single-task convenience over the batch version, for create/update responses. */
@@ -230,6 +235,12 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
   }
   const questions = parseQuestions(b.questions);
   if (!questions.ok) return res.status(400).json({ error: questions.error });
+  const pay = parsePay(b);
+  if (!pay.ok) return res.status(400).json({ error: pay.error });
+  const criteria = parseCriteria(b.acceptanceCriteria);
+  if (!criteria.ok) return res.status(400).json({ error: criteria.error });
+  const proofPhotos = parseProofPhotos(b.proofPhotos);
+  if (!proofPhotos.ok) return res.status(400).json({ error: proofPhotos.error });
 
   const skillIds = idList(b.skillIds) ?? [];
   const credentialTypeIds = idList(b.credentialTypeIds) ?? [];
@@ -246,6 +257,10 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
         description: b.description,
         category: category.name,
         questions: JSON.stringify(questions.value),
+        acceptanceCriteria: JSON.stringify(criteria.value),
+        proofPhotos: proofPhotos.value,
+        unitLabel: pay.value.unitLabel,
+        maxUnits: pay.value.maxUnits,
         tier: b.tier,
         payModel: b.payModel,
         rate: b.rate ?? null,
@@ -492,6 +507,30 @@ router.patch("/:id", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), as
     const questions = parseQuestions(b.questions);
     if (!questions.ok) return res.status(400).json({ error: questions.error });
     data.questions = JSON.stringify(questions.value);
+  }
+  if (b.acceptanceCriteria !== undefined) {
+    const criteria = parseCriteria(b.acceptanceCriteria);
+    if (!criteria.ok) return res.status(400).json({ error: criteria.error });
+    data.acceptanceCriteria = JSON.stringify(criteria.value);
+  }
+  if (b.proofPhotos !== undefined) {
+    const proofPhotos = parseProofPhotos(b.proofPhotos);
+    if (!proofPhotos.ok) return res.status(400).json({ error: proofPhotos.error });
+    data.proofPhotos = proofPhotos.value;
+  }
+  if (b.payModel !== undefined || b.rate !== undefined || b.unitLabel !== undefined || b.maxUnits !== undefined) {
+    // The pay fields depend on each other, so they are checked as the task
+    // will be after this edit, not one at a time.
+    const pay = parsePay({
+      payModel: b.payModel ?? existing.payModel,
+      rate: b.rate !== undefined ? b.rate : existing.rate,
+      budget: b.budget !== undefined ? b.budget : existing.budget,
+      unitLabel: b.unitLabel !== undefined ? b.unitLabel : existing.unitLabel,
+      maxUnits: b.maxUnits !== undefined ? b.maxUnits : existing.maxUnits,
+    });
+    if (!pay.ok) return res.status(400).json({ error: pay.error });
+    data.unitLabel = pay.value.unitLabel;
+    data.maxUnits = pay.value.maxUnits;
   }
   if (b.category !== undefined) {
     if (!cleanCategoryName(b.category)) {

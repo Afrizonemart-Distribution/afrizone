@@ -9,7 +9,9 @@ import { computeWht } from "../util/tax";
 
 import { transitionContract, type ContractState } from "../services/contractState";
 import { releaseForContract } from "../services/commitments";
-import { userActor, type AuditActor } from "../util/audit";
+import { userActor, writeAudit, type AuditActor } from "../util/audit";
+import { readCriteria } from "../services/proof";
+import { notifyWorker } from "../services/push";
 
 const router = Router();
 
@@ -89,6 +91,10 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
         periodStart: t.periodStart,
         periodEnd: t.periodEnd,
         hours: t.hours,
+        units: t.units,
+        acceptedUnits: t.acceptedUnits,
+        note: t.note,
+        reviewNote: t.reviewNote,
         status: t.status,
         gpsNote: t.gpsNote,
         createdAt: t.createdAt,
@@ -101,7 +107,15 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
           kycStatus: t.worker.kycStatus,
           rating: t.worker.rating,
         },
-        task: { id: t.task.id, title: t.task.title, payModel: t.task.payModel, rate: t.task.rate, budget: t.task.budget },
+        task: {
+          id: t.task.id,
+          title: t.task.title,
+          payModel: t.task.payModel,
+          rate: t.task.rate,
+          budget: t.task.budget,
+          unitLabel: t.task.unitLabel,
+          acceptanceCriteria: readCriteria(t.task.acceptanceCriteria),
+        },
       };
     })
   );
@@ -111,13 +125,9 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
 // Acting worker = req.user.id; never trust a workerId from the body.
 router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   const workerId = req.user!.id;
-  const { taskId, periodStart, periodEnd, hours } = req.body || {};
-  if (!taskId || !periodStart || !periodEnd || hours == null) {
-    return res.status(400).json({ error: "taskId, periodStart, periodEnd and hours are required" });
-  }
-  const hoursNum = Number(hours);
-  if (!Number.isFinite(hoursNum) || hoursNum <= 0) {
-    return res.status(400).json({ error: "hours must be a positive number" });
+  const { taskId, periodStart, periodEnd, hours, units, note } = req.body || {};
+  if (!taskId || !periodStart || !periodEnd) {
+    return res.status(400).json({ error: "taskId, periodStart and periodEnd are required" });
   }
   // Hours can only be billed against a task this worker was actually given.
   // Approving a timesheet mints a Payment, so an unassigned row reaching the
@@ -125,6 +135,49 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   const assignment = await requireAssignedTask(workerId, taskId);
   if (!assignment.ok) return res.status(assignment.status).json({ error: assignment.error });
   const { task } = assignment;
+
+  // PER_UNIT work is handed in as a count; hours are optional there and
+  // required everywhere else, as before.
+  let unitsNum: number | null = null;
+  let hoursNum = 0;
+  if (task.payModel === "PER_UNIT") {
+    unitsNum = Number(units);
+    if (!Number.isInteger(unitsNum) || unitsNum < 1) {
+      return res.status(400).json({ error: `Say how many ${task.unitLabel ?? "units"} you are handing in` });
+    }
+    if (task.maxUnits != null && unitsNum > task.maxUnits) {
+      return res.status(400).json({ error: `This task takes at most ${task.maxUnits} ${task.unitLabel ?? "units"} per person` });
+    }
+    if (hours != null && hours !== "") {
+      hoursNum = Number(hours);
+      if (!Number.isFinite(hoursNum) || hoursNum < 0) return res.status(400).json({ error: "hours must be a number" });
+    }
+  } else {
+    if (hours == null) return res.status(400).json({ error: "hours is required" });
+    hoursNum = Number(hours);
+    if (!Number.isFinite(hoursNum) || hoursNum <= 0) {
+      return res.status(400).json({ error: "hours must be a positive number" });
+    }
+  }
+  const noteText = typeof note === "string" && note.trim() ? note.trim().slice(0, 1000) : null;
+
+  // One hand-in waiting at a time, and none once the work is approved. Before
+  // this, a second hand-in on a fixed-price task could be approved too and
+  // pay the whole budget twice.
+  const contract = await prisma.contract.findFirst({
+    where: { taskId: task.id, workerId },
+    select: { id: true, status: true },
+  });
+  if (contract && ["VERIFIED", "PAID", "CLOSED", "CANCELLED", "DISPUTED"].includes(contract.status)) {
+    return res.status(409).json({ error: "This work has already been handed in and decided", code: "ALREADY_DECIDED" });
+  }
+  const waiting = await prisma.timesheet.findFirst({
+    where: { taskId: task.id, workerId, status: "SUBMITTED" },
+    select: { id: true },
+  });
+  if (waiting) {
+    return res.status(409).json({ error: "Your last hand-in is still being checked", code: "AWAITING_REVIEW" });
+  }
 
   // Field and media work is handed in with a photo of the result.
   const shown = await requireEvidence(task, workerId, "WORK");
@@ -137,6 +190,8 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
       periodStart: new Date(periodStart),
       periodEnd: new Date(periodEnd),
       hours: hoursNum,
+      units: unitsNum,
+      note: noteText,
       status: "SUBMITTED",
     },
   });
@@ -144,6 +199,16 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   // Handing in a timesheet is the Tasker saying the work is done - Blueprint
   // §4.2's Submitted. Clocking out does not mean this: a worker clocks out for
   // the day and back in tomorrow.
+  //
+  // Work with no clock-in (remote, fixed-price) is still CLAIMED here, and
+  // work that was sent back is in REWORK; both pass through IN_PROGRESS, the
+  // only legal way to SUBMITTED.
+  if (contract && (contract.status === "CLAIMED" || contract.status === "REWORK")) {
+    await advanceContract(task.id, workerId, "IN_PROGRESS", userActor(workerId), {
+      via: "timesheet-submitted",
+      timesheetId: created.id,
+    });
+  }
   await advanceContract(task.id, workerId, "SUBMITTED", userActor(workerId), {
     via: "timesheet-submitted",
     timesheetId: created.id,
@@ -170,8 +235,50 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
   const sheet = await prisma.timesheet.findUnique({ where: { id: req.params.id }, include: { task: true } });
   if (!sheet) return res.status(404).json({ error: "Timesheet not found" });
   if (sheet.status === "APPROVED") return res.status(400).json({ error: "Timesheet already approved" });
+  if (sheet.status !== "SUBMITTED" && sheet.status !== "DISPUTED") {
+    return res.status(409).json({ error: "Only work waiting to be checked can be approved" });
+  }
 
   const task = sheet.task;
+  const b = req.body || {};
+
+  // Every acceptance check, confirmed by the person approving. Sent as the
+  // list of confirmed sentences; anything short of all of them is refused.
+  const criteria = readCriteria(task.acceptanceCriteria);
+  const confirmed: string[] = Array.isArray(b.checks) ? b.checks.filter((x: unknown) => typeof x === "string") : [];
+  const unconfirmed = criteria.filter((c) => !confirmed.includes(c));
+  if (unconfirmed.length > 0) {
+    return res.status(400).json({
+      error: `Confirm every acceptance check first: ${unconfirmed[0]}`,
+      code: "CHECKS_INCOMPLETE",
+      unconfirmed,
+    });
+  }
+
+  // PER_UNIT: the reviewer says how many units they accept, never more than
+  // were handed in. Defaults to all of them.
+  let acceptedUnits: number | null = null;
+  if (task.payModel === "PER_UNIT") {
+    const claimed = sheet.units ?? 0;
+    acceptedUnits = b.acceptedUnits === undefined || b.acceptedUnits === null ? claimed : Number(b.acceptedUnits);
+    if (!Number.isInteger(acceptedUnits) || acceptedUnits < 1 || acceptedUnits > claimed) {
+      return res.status(400).json({
+        error: `Accept between 1 and ${claimed} ${task.unitLabel ?? "units"}, or send it back instead`,
+      });
+    }
+  }
+
+  // A fixed price is paid once per person, whatever is handed in.
+  if (task.payModel === "FIXED") {
+    const paid = await prisma.payment.findFirst({
+      where: { taskId: sheet.taskId, workerId: sheet.workerId },
+      select: { id: true },
+    });
+    if (paid) {
+      return res.status(409).json({ error: "This person has already been paid for this task", code: "ALREADY_PAID" });
+    }
+  }
+  const reviewNote = typeof b.note === "string" && b.note.trim() ? b.note.trim().slice(0, 1000) : null;
   // A crew lead's contract carries their own share; the rest of the budget is
   // paid to the members below, each in their own Payment.
   const contractRow = await prisma.contract.findFirst({
@@ -181,6 +288,8 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
   let gross: number;
   if (task.payModel === "FIXED") {
     gross = contractRow?.share ?? task.budget ?? 0;
+  } else if (task.payModel === "PER_UNIT") {
+    gross = (acceptedUnits ?? 0) * (task.rate ?? 0);
   } else {
     gross = Math.round(sheet.hours * (task.rate ?? 0));
   }
@@ -199,7 +308,14 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
   const [updatedSheet, payment] = await prisma.$transaction([
     prisma.timesheet.update({
       where: { id: sheet.id },
-      data: { status: "APPROVED" },
+      data: {
+        status: "APPROVED",
+        acceptedUnits,
+        reviewNote,
+        checks: criteria.length ? JSON.stringify(criteria) : null,
+        reviewedById: req.user!.id,
+        reviewedAt: new Date(),
+      },
     }),
     prisma.payment.create({
       data: {
@@ -210,6 +326,7 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
         whtAmount,
         net,
         status: "APPROVED",
+        approvedById: req.user!.id,
       },
     }),
   ]);
@@ -243,6 +360,42 @@ router.post("/:id/approve", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGE
     payment: result.payment,
     ...(crewPayments.length > 0 ? { crewPayments } : {}),
   });
+});
+
+/**
+ * POST /api/timesheets/:id/rework {reason} -> send the work back.
+ *
+ * The reason is required and goes to the worker: "not good enough" with no
+ * reason is a dispute waiting to happen. They fix it and hand in again, which
+ * makes a new timesheet; this one stays as the record of the round.
+ */
+router.post("/:id/rework", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (req: AuthedRequest, res: Response) => {
+  const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().slice(0, 1000) : "";
+  if (!reason) return res.status(400).json({ error: "Say what needs fixing" });
+  const sheet = await prisma.timesheet.findUnique({ where: { id: req.params.id }, include: { task: true } });
+  if (!sheet) return res.status(404).json({ error: "Timesheet not found" });
+  if (sheet.status !== "SUBMITTED") {
+    return res.status(409).json({ error: "Only work waiting to be checked can be sent back" });
+  }
+
+  const updated = await prisma.timesheet.update({
+    where: { id: sheet.id },
+    data: { status: "REWORK", reviewNote: reason, reviewedById: req.user!.id, reviewedAt: new Date() },
+  });
+  await advanceContract(sheet.taskId, sheet.workerId, "REWORK", userActor(req.user!.id), {
+    via: "timesheet-rework",
+    timesheetId: sheet.id,
+  });
+  await writeAudit(userActor(req.user!.id), "timesheet.rework", "Timesheet", sheet.id, { reason });
+  await notifyWorker(
+    prisma,
+    sheet.workerId,
+    "Your work needs another look",
+    `${sheet.task.title}: ${reason}`,
+    { screen: "active", taskId: sheet.taskId },
+    "notifTasks"
+  ).catch(() => {});
+  res.json(updated);
 });
 
 // POST /api/timesheets/:id/dispute → body {reason}

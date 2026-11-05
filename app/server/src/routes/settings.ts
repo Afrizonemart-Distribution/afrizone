@@ -5,7 +5,7 @@ import { TIERS, REVIEW_MODES, ISSUER_MODES, slugify } from "../types";
 
 const router = Router();
 
-const PAY_MODELS = ["HOURLY", "FIXED"];
+const PAY_MODELS = ["HOURLY", "FIXED", "PER_UNIT"];
 
 // ── Tax rates ─────────────────────────────────────────────────────────────────
 
