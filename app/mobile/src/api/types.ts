@@ -289,6 +289,47 @@ export interface Job {
 
 export type Stage = 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED';
 
+export type OpportunityType = 'ALL' | 'TASKS' | 'HOURLY' | 'JOBS';
+
+/** One row of GET /api/opportunities: a task or a job, in one shape. */
+export interface Opportunity {
+  kind: 'TASK' | 'JOB';
+  type: 'TASKS' | 'HOURLY' | 'JOBS';
+  id: string;
+  title: string;
+  subtitle: string;
+  payModel?: PayModel;
+  rate?: number | null;
+  budget?: number | null;
+  unitLabel?: string | null;
+  employmentType?: EmploymentType;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  remote: boolean;
+  location?: string | null;
+  closesAt?: string | null;
+  createdAt: string;
+  applied: boolean;
+  /** Jobs only: where my application stands. */
+  stage: Stage | null;
+  /** Matches what I said I'm open to on my Hiring profile. */
+  forYou: boolean;
+}
+
+export interface OpportunityFeed {
+  openTo: string[];
+  items: Opportunity[];
+}
+
+export interface MyJobApplication {
+  id: string;
+  jobId: string;
+  stage: Stage;
+  createdAt: string;
+  updatedAt: string;
+  job: { id: string; title: string; department: string; employmentType: EmploymentType; status: JobStatus };
+}
+
 export interface JobCandidate {
   id: string;
   jobId: string;

@@ -51,6 +51,10 @@ import type {
   EvidenceStage,
   Signature,
   Presence,
+  Opportunity,
+  OpportunityFeed,
+  OpportunityType,
+  MyJobApplication,
 } from './types';
 
 export class ApiError extends Error {
@@ -398,14 +402,20 @@ export const api = {
   },
 
   /** POST /api/candidates: submit a job application. Returns the created candidate. */
-  applyJob(input: {
-    jobId: string;
-    name: string;
-    email: string;
-    phone?: string | null;
-    cvNote?: string;
-  }): Promise<JobCandidate> {
+  applyJob(input: { jobId: string; coverNote?: string }): Promise<JobCandidate> {
+    // Who is applying comes from the session on the server, with their
+    // Hiring profile; nothing about identity is sent from here.
     return request<JobCandidate>('/candidates', { method: 'POST', body: input });
+  },
+
+  /** GET /api/opportunities: tasks, hourly work and jobs in one list. */
+  opportunities(type: OpportunityType = 'ALL', signal?: AbortSignal): Promise<OpportunityFeed> {
+    return request<OpportunityFeed>(`/opportunities?type=${type}`, { signal });
+  },
+
+  /** GET /api/opportunities/my-jobs: where each of my job applications stands. */
+  myJobApplications(signal?: AbortSignal): Promise<MyJobApplication[]> {
+    return request<MyJobApplication[]>('/opportunities/my-jobs', { signal });
   },
 
   /* ---------------------------------------------------------------- *
