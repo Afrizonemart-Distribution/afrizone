@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, Pressable, TextInput, ScrollView, useWindowDimensions } from 'react-native';
+import { ApplyQuestions, missingAnswer, type AnswerValues } from '../../src/components/ApplyQuestions';
 import { directionsLabel, openDirections } from '../../src/lib/directions';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
@@ -154,6 +155,9 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [blockers, setBlockers] = useState<Blocker[]>([]);
+  const { height } = useWindowDimensions();
+  const questions = task.questions ?? [];
+  const [answers, setAnswers] = useState<AnswerValues>({});
 
   // A crew, when the task takes one (server services/crew.ts). The lead names
   // each person by phone and a share; whatever is left of the budget is the
@@ -170,9 +174,14 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
   }
 
   async function submit() {
-    setBusy(true);
     setError(null);
     setBlockers([]);
+    const missing = missingAnswer(questions, answers);
+    if (missing) {
+      setError(`Please answer: ${missing.label}`);
+      return;
+    }
+    setBusy(true);
     try {
       const crew = withCrew
         ? {
@@ -183,7 +192,7 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
           }
         : undefined;
       // REAL: POST /api/applications {taskId, pitch, crew?}
-      await api.apply(task.id, pitch.trim() || undefined, crew);
+      await api.apply(task.id, pitch.trim() || undefined, crew, questions.length ? answers : undefined);
       onApplied();
     } catch (e) {
       const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Could not submit application.';
@@ -200,8 +209,20 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
       <Pressable style={styles.backdrop} onPress={onClose} />
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.grabber} />
+        <ScrollView
+          style={{ maxHeight: height * 0.72 }}
+          contentContainerStyle={{ gap: 10 }}
+          keyboardShouldPersistTaps="handled"
+        >
         <Text style={styles.sheetTitle}>Apply</Text>
-        <Text style={styles.sheetSub}>Add a short pitch and your availability.</Text>
+        <Text style={styles.sheetSub}>
+          {questions.length ? 'Answer a few questions, then add a short pitch.' : 'Add a short pitch and your availability.'}
+        </Text>
+        <ApplyQuestions
+          questions={questions}
+          values={answers}
+          onChange={(id, v) => setAnswers((prev) => ({ ...prev, [id]: v }))}
+        />
         <TextInput
           value={pitch}
           onChangeText={setPitch}
@@ -271,6 +292,7 @@ function ApplySheet({ visible, task, onClose, onApplied }: { visible: boolean; t
               <Text key={`${b.code}-${b.ref ?? i}`} style={styles.blockerLine}>• {b.message}</Text>
             ))
           : null}
+        </ScrollView>
         <AppPrimaryButton
           label={withCrew ? 'Send to my crew' : 'Submit application'}
           onPress={submit}

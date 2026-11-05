@@ -424,10 +424,15 @@ export const api = {
   },
 
   /** POST /api/applications: apply to a task, alone or as the lead of a crew. */
-  apply(taskId: string, pitch?: string, crew?: CrewProposal): Promise<Application> {
+  apply(
+    taskId: string,
+    pitch?: string,
+    crew?: CrewProposal,
+    answers?: Record<string, string | boolean>
+  ): Promise<Application> {
     return request<Application>('/applications', {
       method: 'POST',
-      body: { taskId, pitch, ...(crew ? { crew } : {}) },
+      body: { taskId, pitch, ...(crew ? { crew } : {}), ...(answers ? { answers } : {}) },
     });
   },
 

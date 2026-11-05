@@ -11,6 +11,7 @@ import type {
   EvidenceReview,
   Candidate,
   Category,
+  TaskTemplate,
   DashboardStats,
   Dispute,
   AuditOutcome,
@@ -238,6 +239,10 @@ export const api = {
     request<Task>('/tasks', { method: 'POST', body }),
   updateTask: (id: string, body: CreateTaskBody) =>
     request<Task>(`/tasks/${id}`, { method: 'PATCH', body }),
+  taskTemplates: (signal?: AbortSignal) => request<TaskTemplate[]>('/task-templates', { signal }),
+  createTaskTemplate: (name: string, payload: Partial<CreateTaskBody>) =>
+    request<TaskTemplate>('/task-templates', { method: 'POST', body: { name, payload } }),
+  deleteTaskTemplate: (id: string) => request<void>(`/task-templates/${id}`, { method: 'DELETE' }),
   /**
    * How many workers a set of requirements would leave, for a task that does
    * not exist yet. Called as the form is edited, so the trade-off is visible at

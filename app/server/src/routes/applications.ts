@@ -15,6 +15,7 @@ import {
   loadTaskRequirements,
   loadWorkerProfile,
 } from "../services/eligibility";
+import { readAnswers, readQuestions, validateAnswers } from "../services/taskQuestions";
 
 const router = Router();
 
@@ -74,6 +75,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async (
       taskId: a.taskId,
       workerId: a.workerId,
       pitch: a.pitch,
+      answers: readAnswers(a.answers),
       status: a.status,
       reason: a.reason,
       createdAt: a.createdAt,
@@ -156,6 +158,11 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     });
   }
 
+  // The task's own questions. Checked after eligibility, so a worker who
+  // cannot take the task is not asked to fill anything in first.
+  const answers = validateAnswers(readQuestions(task.questions), req.body?.answers);
+  if (!answers.ok) return res.status(400).json({ error: answers.error, code: "ANSWERS_INVALID" });
+
   // A crew, when the lead brings one. Everybody named is checked before
   // anything is written, so a refusal leaves nothing half-made.
   const crewBody = req.body?.crew;
@@ -182,6 +189,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
       taskId: task.id,
       workerId,
       pitch: pitch ? String(pitch) : null,
+      answers: answers.value.length ? JSON.stringify(answers.value) : null,
       status: "APPLIED",
       crewLeadShare: crew ? crew.leadShare : null,
     },
@@ -191,6 +199,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   }
   res.status(201).json({
     ...created,
+    answers: readAnswers(created.answers),
     crew: crew ? crew.members.map((m) => ({ workerId: m.workerId, name: m.name, share: m.share, status: "INVITED" })) : null,
   });
 });

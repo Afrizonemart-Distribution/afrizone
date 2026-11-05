@@ -567,3 +567,10 @@ The worker's shareable hiring profile. Proven and claimed are kept apart: work h
 | GET | `/api/workers/:id/profile` | staff | Existing payload plus `talent` (staff cut: contact details and files) |
 
 Files (CV, portfolio) upload through `POST /api/me/kyc/documents` with `docType` `CV` or `PORTFOLIO`, then get referenced by id. Every write returns the whole updated profile. A section holds at most 30 entries.
+
+## Task builder
+
+- **Categories are created from the task form.** `POST /api/tasks` and `PATCH /api/tasks/:id` accept any `category` of 1 to 60 characters. A name that isn't on the list yet is added to it (services/categories.ts). Matching ignores case and spacing, and the task is saved under the existing spelling.
+- **Questions.** `Task.questions` is a list of `{id, label, type, required, options?}`. `type` is one of TEXT, LONG_TEXT, NUMBER, YES_NO, CHOICE (2 to 20 `options`) or LINK (http/https only). At most 15 per task. Send `questions` on create or PATCH; every task response returns it as a list.
+- **Answers.** `POST /api/applications` takes `answers: {questionId: value}`. A required question left blank, or an answer of the wrong kind, gets a 400 with `code: "ANSWERS_INVALID"` and the question in the message. Answers to questions the task doesn't ask are dropped. The stored answers (`[{id, label, type, answer}]`) keep the wording the applicant saw. They are returned by `GET /api/applications`.
+- **Templates** (SUPER_ADMIN, TASK_MANAGER): `GET/POST /api/task-templates`, `PATCH/DELETE /api/task-templates/:id`. A template is `{name, payload}`, where `payload` holds only the task form's fields (TEMPLATE_KEYS); anything else is dropped. Delete archives it. A task is never created from a template directly: the form fills in from it and then goes through `POST /api/tasks`.
