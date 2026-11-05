@@ -1,3 +1,4 @@
+import { payoutHold } from "../services/identityGuard";
 import { Router, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "../prisma";
@@ -37,6 +38,10 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
   if (!worker.bankMasked) {
     return res.status(400).json({ error: "No bank account on file. Submit KYC first." });
   }
+  // Money leaves the platform here, so this is where a shared bank account or
+  // ID number stops it (services/identityGuard.ts).
+  const hold = await payoutHold(workerId);
+  if (hold) return res.status(403).json({ error: hold, code: "IDENTITY_HOLD" });
 
   const provider = paystack.enabled ? "paystack" : "simulated";
 
