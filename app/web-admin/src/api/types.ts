@@ -47,6 +47,44 @@ export interface ApplicationAnswer {
   answer: string | number | boolean
 }
 
+/** Accounts sharing something one person should have (server: services/identityGuard.ts). */
+export interface IdentityFlag {
+  id: string
+  kind: 'BANK' | 'ID_NUMBER' | 'DEVICE'
+  label: string
+  severity: 'HIGH' | 'LOW'
+  status: 'OPEN' | 'CLEARED' | 'CONFIRMED'
+  note?: string | null
+  decidedAt?: string | null
+  createdAt: string
+  updatedAt: string
+  holdsPayouts: boolean
+  accounts: {
+    id: string
+    name: string
+    email: string
+    phone?: string | null
+    kycStatus: string
+    bankMasked?: string | null
+    createdAt: string
+    completedCount: number
+  }[]
+}
+
+/** A large withdrawal waiting for the selfie check (server: routes/adminWithdrawals.ts). */
+export interface WithdrawalCheck {
+  id: string
+  amount: number
+  bankMasked: string
+  status: string
+  createdAt: string
+  worker: { id: string; name: string; kycStatus: string; bankMasked?: string | null }
+  /** Why payouts are held on this account, when an identity case is open. */
+  identityHold: string | null
+  payoutSelfieUrl: string | null
+  kycSelfieUrl: string | null
+}
+
 /** A saved task form. `payload` holds the form's fields. */
 export interface TaskTemplate {
   id: string

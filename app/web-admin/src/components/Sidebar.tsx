@@ -22,6 +22,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/applications', label: 'Applications', icon: 'file' },
       { to: '/timesheets', label: 'Timesheets', icon: 'clock' },
       { to: '/payments', label: 'Payments', icon: 'card' },
+      { to: '/withdrawals', label: 'Withdrawal checks', icon: 'lock' },
       { to: '/disputes', label: 'Disputes', icon: 'alert' },
       { to: '/mart', label: 'Mart', icon: 'inbox' },
       { to: '/deliveries', label: 'Deliveries', icon: 'send' },
@@ -32,6 +33,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { to: '/workers', label: 'Workers', icon: 'users' },
       { to: '/verification', label: 'Verification', icon: 'shield' },
+      { to: '/identity', label: 'Identity checks', icon: 'lock' },
       { to: '/organizations', label: 'Organizations', icon: 'tag' },
       { to: '/audits', label: 'Audits', icon: 'check' },
       { to: '/network', label: 'Network', icon: 'pin' },

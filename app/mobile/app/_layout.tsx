@@ -7,6 +7,7 @@ import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import { useFonts, Raleway_500Medium, Raleway_700Bold, Raleway_800ExtraBold } from '@expo-google-fonts/raleway';
 import { AuthProvider, useAuth } from '../src/auth/AuthContext';
+import { registerDevice } from '../src/lib/device';
 import { homeRouteFor } from '../src/lib/accountType';
 import { obColors } from '../src/onboarding/onboardingTheme';
 import Splash from '../src/components/Splash';
@@ -36,6 +37,7 @@ function NotificationHandler() {
     if (!user || tokenRegistered.current) return;
     tokenRegistered.current = true;
     void registerPushToken();
+    void registerDevice();
   }, [user]);
 
   // Reset flag on logout so it re-registers on next login.

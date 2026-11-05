@@ -20,6 +20,8 @@ import Verification from './pages/Verification'
 import Mart from './pages/Mart'
 import Deliveries from './pages/Deliveries'
 import Network from './pages/Network'
+import IdentityChecks from './pages/IdentityChecks'
+import WithdrawalChecks from './pages/WithdrawalChecks'
 
 export default function App() {
   return (
@@ -42,6 +44,8 @@ export default function App() {
         <Route path="/disputes" element={<Disputes />} />
         <Route path="/audits" element={<Audits />} />
         <Route path="/verification" element={<Verification />} />
+        <Route path="/identity" element={<IdentityChecks />} />
+        <Route path="/withdrawals" element={<WithdrawalChecks />} />
         <Route path="/workers" element={<Workers />} />
         <Route path="/organizations" element={<Organizations />} />
         <Route path="/network" element={<Network />} />

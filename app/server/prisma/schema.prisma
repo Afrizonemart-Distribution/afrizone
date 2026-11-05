@@ -92,6 +92,7 @@ model User {
 
   tasksCreated        Task[]               @relation("TaskCreatedBy")
   taskTemplates       TaskTemplate[]       @relation("TaskTemplateCreatedBy")
+  identitySignals     IdentitySignal[]
   applications        Application[]
   crewInvites         CrewInvite[]
   referralsMade       Referral[]           @relation("ReferralReferrer")
@@ -456,14 +457,21 @@ model Withdrawal {
   workerId      String
   amount        Int
   bankMasked    String
-  status        String   @default("PROCESSING") // WithdrawalStatus enum (PROCESSING | PAID | FAILED)
+  status        String   @default("PROCESSING") // REVIEW | PROCESSING | PAID | FAILED
   provider      String? // "paystack" | "simulated"
   reference     String?  @unique // our idempotency key, also sent to Paystack
   providerRef   String? // Paystack transfer_code
   failureReason String?
+  /// A large withdrawal waits in REVIEW with a fresh selfie until a person
+  /// compares it with the KYC selfie (routes/adminWithdrawals.ts).
+  selfieDocumentId String?   @unique
+  reviewedById     String?
+  reviewedAt       DateTime?
   createdAt     DateTime @default(now())
 
   worker User @relation(fields: [workerId], references: [id])
+
+  @@index([status])
 }
 
 // Platform-level inbound funding (Afrizone Mart topping up the balance that
@@ -1448,4 +1456,42 @@ model PortfolioItem {
   document KycDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+}
+
+/// A fact that should belong to one person only (services/identityGuard.ts):
+/// a payout bank account, a government ID number, a device. Hashed, never raw.
+model IdentitySignal {
+  id         String   @id @default(cuid())
+  userId     String
+  /// BANK | ID_NUMBER | DEVICE
+  kind       String
+  valueHash  String
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([kind, valueHash, userId])
+  @@index([userId])
+}
+
+/// Two or more accounts sharing one signal, for a person to decide.
+model IdentityFlag {
+  id          String    @id @default(cuid())
+  kind        String
+  valueHash   String
+  /// JSON array of user ids, sorted.
+  userIds     String
+  /// HIGH pauses payouts for every account on it; LOW is shown, not enforced.
+  severity    String
+  /// OPEN | CLEARED | CONFIRMED
+  status      String    @default("OPEN")
+  note        String?
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@unique([kind, valueHash])
+  @@index([status])
 }

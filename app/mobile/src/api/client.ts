@@ -436,6 +436,11 @@ export const api = {
     });
   },
 
+  /** POST /api/me/device: this install's id, compared across accounts by staff. */
+  registerDevice(deviceId: string): Promise<void> {
+    return request<void>('/me/device', { method: 'POST', body: { deviceId } });
+  },
+
   /** GET /api/me/referral: this Tasker's code and who they have brought in. */
   myReferral(signal?: AbortSignal): Promise<ReferralSummary> {
     return request<ReferralSummary>('/me/referral', { signal });
@@ -518,10 +523,12 @@ export const api = {
    * The caller generates it once when the user confirms, not per attempt: a key
    * generated inside a retry loop defeats the whole mechanism.
    */
-  withdraw(amount: number, idempotencyKey: string): Promise<Withdrawal> {
+  withdraw(amount: number, idempotencyKey: string, selfieDocumentId?: string): Promise<Withdrawal> {
     return request<Withdrawal>('/wallet/withdraw', {
       method: 'POST',
-      body: { amount, idempotencyKey },
+      // A large withdrawal carries a selfie taken for it (403 SELFIE_REQUIRED
+      // without one); it then waits for a person to compare faces.
+      body: { amount, idempotencyKey, ...(selfieDocumentId ? { selfieDocumentId } : {}) },
     });
   },
 
@@ -574,7 +581,7 @@ export const api = {
    * Uses multipart/form-data (not JSON). Returns the created document record.
    */
   async uploadKycDocument(params: {
-    docType: 'ID' | 'SELFIE' | 'DOCS' | 'CV' | 'CREDENTIAL' | 'PORTFOLIO';
+    docType: 'ID' | 'SELFIE' | 'DOCS' | 'CV' | 'CREDENTIAL' | 'PORTFOLIO' | 'PAYOUT_SELFIE';
     uri: string;
     mimeType: string;
     filename: string;

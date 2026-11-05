@@ -13,6 +13,8 @@ import type {
   Category,
   TaskTemplate,
   ApproveBody,
+  IdentityFlag,
+  WithdrawalCheck,
   DashboardStats,
   Dispute,
   AuditOutcome,
@@ -343,8 +345,19 @@ export const api = {
   workers: (signal?: AbortSignal) => request<Worker[]>('/workers', { signal }),
   workerDetail: (id: string, signal?: AbortSignal) =>
     request<WorkerDetail>(`/workers/${id}`, { signal }),
-  reviewKyc: (id: string, decision: 'TIER_APPROVED' | 'REJECTED') =>
-    request<Worker>(`/workers/${id}/kyc`, { method: 'POST', body: { decision } }),
+  /** idNumber: the document number the reviewer checked, compared across accounts. */
+  reviewKyc: (id: string, decision: 'TIER_APPROVED' | 'REJECTED', idNumber?: string) =>
+    request<Worker>(`/workers/${id}/kyc`, { method: 'POST', body: { decision, idNumber } }),
+  identityFlags: (status: 'OPEN' | 'ALL' = 'OPEN', signal?: AbortSignal) =>
+    request<IdentityFlag[]>(`/admin/identity-flags?status=${status}`, { signal }),
+  decideIdentityFlag: (id: string, decision: 'CLEARED' | 'CONFIRMED', note: string) =>
+    request<IdentityFlag>(`/admin/identity-flags/${id}/decide`, { method: 'POST', body: { decision, note } }),
+  withdrawalChecks: (signal?: AbortSignal) => request<WithdrawalCheck[]>('/admin/withdrawals', { signal }),
+  approveWithdrawal: (id: string) => request<unknown>(`/admin/withdrawals/${id}/approve`, { method: 'POST' }),
+  rejectWithdrawal: (id: string, reason: string) =>
+    request<unknown>(`/admin/withdrawals/${id}/reject`, { method: 'POST', body: { reason } }),
+  scanIdentity: () =>
+    request<{ scanned: number; openCases: number }>('/admin/identity-flags/scan', { method: 'POST' }),
   workerKycDocuments: (id: string, signal?: AbortSignal) =>
     request<KycDocument[]>(`/workers/${id}/kyc/documents`, { signal }),
   rateWorker: (id: string, body: { taskId: string; score: number; note?: string }) =>

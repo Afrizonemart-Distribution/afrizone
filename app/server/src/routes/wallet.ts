@@ -1,3 +1,5 @@
+import { payoutHold } from "../services/identityGuard";
+import { SELFIE_MAX_AGE_MS, selfieLine, sendPayout } from "../services/payout";
 import { Router, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "../prisma";
@@ -37,6 +39,39 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
   if (!worker.bankMasked) {
     return res.status(400).json({ error: "No bank account on file. Submit KYC first." });
   }
+  // Money leaves the platform here, so this is where a shared bank account or
+  // ID number stops it (services/identityGuard.ts).
+  const hold = await payoutHold(workerId);
+  if (hold) return res.status(403).json({ error: hold, code: "IDENTITY_HOLD" });
+
+  // A large withdrawal comes with a selfie taken for it, and waits in REVIEW
+  // until a person compares that face with the KYC selfie. A stolen phone or
+  // a sold account can empty a wallet; it cannot produce the owner's face.
+  const line = await selfieLine();
+  let selfieDocumentId: string | null = null;
+  if (amt >= line) {
+    const docId = typeof req.body?.selfieDocumentId === "string" ? req.body.selfieDocumentId : "";
+    if (!docId) {
+      return res.status(403).json({
+        error: `Withdrawals of ₦${line.toLocaleString()} or more need a quick selfie first.`,
+        code: "SELFIE_REQUIRED",
+        selfieOver: line,
+      });
+    }
+    const doc = await prisma.kycDocument.findFirst({
+      where: { id: docId, userId: workerId, docType: "PAYOUT_SELFIE" },
+      select: { id: true, createdAt: true },
+    });
+    if (!doc || Date.now() - new Date(doc.createdAt).getTime() > SELFIE_MAX_AGE_MS) {
+      return res.status(403).json({ error: "Take a new selfie for this withdrawal.", code: "SELFIE_REQUIRED", selfieOver: line });
+    }
+    const used = await prisma.withdrawal.findFirst({ where: { selfieDocumentId: doc.id }, select: { id: true } });
+    if (used) {
+      return res.status(403).json({ error: "Take a new selfie for this withdrawal.", code: "SELFIE_REQUIRED", selfieOver: line });
+    }
+    selfieDocumentId = doc.id;
+  }
+  const initialStatus = selfieDocumentId ? "REVIEW" : "PROCESSING";
 
   const provider = paystack.enabled ? "paystack" : "simulated";
 
@@ -74,8 +109,8 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
   const id = `wd_${crypto.randomUUID()}`;
   const nowIso = new Date().toISOString();
   const inserted = await prisma.$executeRaw`
-    INSERT INTO "Withdrawal" ("id", "workerId", "amount", "bankMasked", "status", "provider", "reference", "createdAt")
-    SELECT ${id}, ${workerId}, ${amt}, ${worker.bankMasked}, 'PROCESSING', ${provider}, ${reference}, ${nowIso}
+    INSERT INTO "Withdrawal" ("id", "workerId", "amount", "bankMasked", "status", "provider", "reference", "selfieDocumentId", "createdAt")
+    SELECT ${id}, ${workerId}, ${amt}, ${worker.bankMasked}, ${initialStatus}, ${provider}, ${reference}, ${selfieDocumentId}, ${nowIso}
     WHERE (
       (SELECT COALESCE(SUM("net"), 0) FROM "Payment" WHERE "workerId" = ${workerId} AND "status" = 'RELEASED')
       + (SELECT COALESCE(SUM("net"), 0) FROM "Referral" WHERE "referrerId" = ${workerId} AND "status" = 'EARNED')
@@ -89,47 +124,14 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
 
   const withdrawal = await prisma.withdrawal.findUniqueOrThrow({ where: { id } });
 
-  if (paystack.enabled) {
-    // Real payout requires a NUBAN account + bank code on the worker.
-    if (!worker.bankAccountNumber || !worker.bankCode) {
-      await prisma.withdrawal.update({
-        where: { id: withdrawal.id },
-        data: { status: "FAILED", failureReason: "Missing payout account number / bank code" },
-      });
-      return res.status(400).json({
-        error: "Add a payout bank account (account number + bank code) before withdrawing.",
-      });
-    }
-    try {
-      const recipientCode = await paystack.createRecipient({
-        name: worker.name,
-        accountNumber: worker.bankAccountNumber,
-        bankCode: worker.bankCode,
-      });
-      const transfer = await paystack.initiateTransfer({
-        amountNaira: amt,
-        recipientCode,
-        reference,
-        reason: "AfriZone PartTime earnings payout",
-      });
-      const updated = await prisma.withdrawal.update({
-        where: { id: withdrawal.id },
-        data: { providerRef: transfer.transferCode },
-      });
-      // Paystack settles asynchronously; the webhook flips PROCESSING → PAID/FAILED.
-      return res.status(201).json(updated);
-    } catch (err: any) {
-      await prisma.withdrawal.update({
-        where: { id: withdrawal.id },
-        data: { status: "FAILED", failureReason: String(err?.message || err) },
-      });
-      return res.status(502).json({ error: `Payout failed: ${err?.message || "provider error"}` });
-    }
+  // Held for the selfie check: the money is reserved (REVIEW counts against
+  // the balance) but nothing is sent until staff approve it.
+  if (withdrawal.status === "REVIEW") {
+    return res.status(201).json({ ...withdrawal, review: true });
   }
 
-  // SIMULATED mode (no PAYSTACK_SECRET): stays PROCESSING. Use the dev-settle
-  // endpoint below (or a real webhook once live) to mark it PAID.
-  return res.status(201).json({ ...withdrawal, simulated: true });
+  const out = await sendPayout(withdrawal, worker);
+  return res.status(out.status).json(out.body);
 });
 
 // DEV ONLY, ADMIN ONLY: settle PROCESSING withdrawals to PAID so the full

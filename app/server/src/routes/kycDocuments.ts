@@ -7,8 +7,8 @@ import { sniffFileType, isAllowedMime, IDENTITY_MIMES, DOCUMENT_MIMES } from "..
 // ID and SELFIE are identity evidence and must be photographs. DOCS, CV and
 // CREDENTIAL are supporting paperwork, where a PDF is the normal form - a
 // scanned licence or a CV is far more often a PDF than a photo.
-const DOC_TYPES = ["ID", "SELFIE", "DOCS", "CV", "CREDENTIAL", "PORTFOLIO"] as const;
-const IDENTITY_DOC_TYPES: readonly string[] = ["ID", "SELFIE"];
+const DOC_TYPES = ["ID", "SELFIE", "DOCS", "CV", "CREDENTIAL", "PORTFOLIO", "PAYOUT_SELFIE"] as const;
+const IDENTITY_DOC_TYPES: readonly string[] = ["ID", "SELFIE", "PAYOUT_SELFIE"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 // The exact shape handleKycUpload generates: `${cuid}-${Date.now()}${ext}`.
