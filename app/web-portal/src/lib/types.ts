@@ -158,3 +158,48 @@ export interface Delivery {
   posted?: boolean
   warning?: string
 }
+
+/** GET /api/public/profiles/:slug: the public cut of a Talent Profile. */
+export interface PublicProfile {
+  name: string
+  headline: string | null
+  bio: string | null
+  location: string | null
+  openTo: string[]
+  memberSince: string
+  identityVerified: boolean
+  workRecord: {
+    paidTasks: number
+    byCategory: { category: string; count: number }[]
+    rating: number | null
+    ratingsCount: number
+  }
+  experience: {
+    id: string
+    title: string
+    company: string
+    location: string | null
+    startDate: string
+    endDate: string | null
+    description: string | null
+  }[]
+  education: {
+    id: string
+    institution: string
+    qualification: string
+    field: string | null
+    startYear: number | null
+    endYear: number | null
+  }[]
+  portfolio: { id: string; title: string; description: string | null; url: string | null }[]
+  skills: { name: string; group: string | null; years: number | null }[]
+  credentials: {
+    id: string
+    title: string
+    type: string
+    issuer: string | null
+    issuedAt: string | null
+    expiresAt: string | null
+    verified: boolean
+  }[]
+}
