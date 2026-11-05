@@ -569,6 +569,15 @@ Some facts should belong to one person only: the payout bank account, a governme
   - `POST /api/admin/identity-flags/:id/decide {decision: CLEARED|CONFIRMED, note}` records a decision. `note` is required.
   - `POST /api/admin/identity-flags/scan` (SUPER_ADMIN) records every saved bank account once, so accounts from before this feature are compared too.
 
+## Selfie before a large withdrawal
+
+- At or above Setting `payouts.selfieOver` (₦, default 100,000), `POST /api/wallet/withdraw` needs `selfieDocumentId`. That is a `PAYOUT_SELFIE` document the worker owns, uploaded in the last 15 minutes and not used before. Without one the server returns 403 `SELFIE_REQUIRED` with `selfieOver`. The app uses the front camera only, never the gallery.
+- A withdrawal like this is created with status `REVIEW`. Its amount is reserved against the balance, but nothing is sent to the bank yet.
+- Staff (`/api/admin/withdrawals`, SUPER_ADMIN and HR_ADMIN can read):
+  - `GET ?status=REVIEW` returns each withdrawal with `payoutSelfieUrl`, the worker's latest KYC `kycSelfieUrl` and any `identityHold`.
+  - `POST /:id/approve` (SUPER_ADMIN only) claims it atomically (REVIEW to PROCESSING) and sends it the same way as an ordinary withdrawal (`services/payout.ts`). It is refused while an identity case is open.
+  - `POST /:id/reject {reason}` (reason required) marks it FAILED, so the money is back in the wallet, and tells the worker why.
+
 ## Talent Profile
 
 The worker's shareable hiring profile. Proven and claimed are kept apart: work history, education, portfolio and skills are self-declared. Credentials count only once VERIFIED. `workRecord` is computed from RELEASED payments and can't be typed in.

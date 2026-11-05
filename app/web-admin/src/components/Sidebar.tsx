@@ -22,6 +22,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/applications', label: 'Applications', icon: 'file' },
       { to: '/timesheets', label: 'Timesheets', icon: 'clock' },
       { to: '/payments', label: 'Payments', icon: 'card' },
+      { to: '/withdrawals', label: 'Withdrawal checks', icon: 'lock' },
       { to: '/disputes', label: 'Disputes', icon: 'alert' },
       { to: '/mart', label: 'Mart', icon: 'inbox' },
       { to: '/deliveries', label: 'Deliveries', icon: 'send' },
