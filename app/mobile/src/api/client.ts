@@ -34,6 +34,8 @@ import type {
   TwoFactorStatus,
   PasswordForgotResponse,
   PasswordResetResponse,
+  TalentProfile,
+  ProfileSection,
 
   NotificationPage,
   Skill,
@@ -248,6 +250,35 @@ export const api = {
       body: { identityToken },
       auth: false,
     });
+  },
+
+  /* ── Talent Profile: every write answers with the whole updated profile ── */
+
+  myProfile(signal?: AbortSignal): Promise<TalentProfile> {
+    return request<TalentProfile>('/me/profile', { signal });
+  },
+
+  updateProfile(patch: Partial<{
+    headline: string | null;
+    bio: string | null;
+    location: string | null;
+    openTo: string[];
+    cvDocumentId: string | null;
+    visibility: 'PRIVATE' | 'LINK';
+  }>): Promise<TalentProfile> {
+    return request<TalentProfile>('/me/profile', { method: 'PATCH', body: patch });
+  },
+
+  addProfileEntry(section: ProfileSection, body: Record<string, unknown>): Promise<TalentProfile> {
+    return request<TalentProfile>(`/me/${section}`, { method: 'POST', body });
+  },
+
+  updateProfileEntry(section: ProfileSection, id: string, body: Record<string, unknown>): Promise<TalentProfile> {
+    return request<TalentProfile>(`/me/${section}/${id}`, { method: 'PATCH', body });
+  },
+
+  removeProfileEntry(section: ProfileSection, id: string): Promise<TalentProfile> {
+    return request<TalentProfile>(`/me/${section}/${id}`, { method: 'DELETE' });
   },
 
   /** POST /api/auth/google: worker context; auto-creates a WORKER if unknown. */
@@ -535,7 +566,7 @@ export const api = {
    * Uses multipart/form-data (not JSON). Returns the created document record.
    */
   async uploadKycDocument(params: {
-    docType: 'ID' | 'SELFIE' | 'DOCS' | 'CV' | 'CREDENTIAL';
+    docType: 'ID' | 'SELFIE' | 'DOCS' | 'CV' | 'CREDENTIAL' | 'PORTFOLIO';
     uri: string;
     mimeType: string;
     filename: string;

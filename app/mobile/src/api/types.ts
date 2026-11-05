@@ -850,3 +850,77 @@ export interface ReferralSummary {
   }[];
   referredBy: { name: string } | null;
 }
+
+/* ── Talent Profile (server: services/talentProfile.ts) ─────────────────── */
+
+export type OpenTo = 'TASKS' | 'HOURLY' | 'CONTRACT' | 'FULL_TIME';
+export type ProfileVisibility = 'PRIVATE' | 'LINK';
+
+export interface ProfileFile {
+  id: string;
+  name: string;
+  url: string;
+}
+
+export interface WorkExperience {
+  id: string;
+  title: string;
+  company: string;
+  location: string | null;
+  startDate: string;
+  endDate: string | null;
+  description: string | null;
+}
+
+export interface EducationEntry {
+  id: string;
+  institution: string;
+  qualification: string;
+  field: string | null;
+  startYear: number | null;
+  endYear: number | null;
+}
+
+export interface PortfolioEntry {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string | null;
+  file: ProfileFile | null;
+}
+
+export interface TalentProfile {
+  id?: string;
+  name: string;
+  headline: string | null;
+  bio: string | null;
+  location: string | null;
+  openTo: OpenTo[];
+  memberSince: string;
+  identityVerified: boolean;
+  visibility?: ProfileVisibility;
+  slug?: string | null;
+  cv?: ProfileFile | null;
+  /** Computed from released payments: cannot be typed in. */
+  workRecord: {
+    paidTasks: number;
+    byCategory: { category: string; count: number }[];
+    rating: number | null;
+    ratingsCount: number;
+  };
+  experience: WorkExperience[];
+  education: EducationEntry[];
+  portfolio: PortfolioEntry[];
+  skills: { name: string; group: string | null; years: number | null }[];
+  credentials: {
+    id: string;
+    title: string;
+    type: string;
+    issuer: string | null;
+    issuedAt: string | null;
+    expiresAt: string | null;
+    verified: boolean;
+  }[];
+}
+
+export type ProfileSection = 'experience' | 'education' | 'portfolio';
