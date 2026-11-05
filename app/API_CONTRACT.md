@@ -578,6 +578,28 @@ Some facts should belong to one person only: the payout bank account, a governme
   - `POST /:id/approve` (SUPER_ADMIN only) claims it atomically (REVIEW to PROCESSING) and sends it the same way as an ordinary withdrawal (`services/payout.ts`). It is refused while an identity case is open.
   - `POST /:id/reject {reason}` (reason required) marks it FAILED, so the money is back in the wallet, and tells the worker why.
 
+## Opportunities
+
+- `GET /api/opportunities?type=ALL|TASKS|HOURLY|JOBS` (any signed-in user) returns `{openTo, items}` in a single shape.
+  - TASKS are open FIXED and PER_UNIT tasks; HOURLY are open hourly tasks. Tasks past their deadline are left out.
+  - JOBS are open jobs.
+  - Each item carries `applied`, plus `stage` for jobs, and `forYou`, which is true when it matches what the worker said they're open to on their Hiring profile. Items are newest first.
+- `GET /api/opportunities/my-jobs` returns the worker's own job applications with their stage.
+- **Applying for a job** (`POST /api/candidates {jobId, coverNote?, cvNote?}` as a worker): name, email and phone come from the account, never the body, and the row is linked to the worker (`userId`). The checks below run on the server:
+
+  | Code | When |
+  |---|---|
+  | 403 `KYC_REQUIRED` | Identity isn't confirmed (VERIFIED or TIER_APPROVED) |
+  | 400 `JOB_CLOSED` | The job is closed, or past a closing date someone actually set |
+  | 409 `ALREADY_APPLIED` | Second application to the same job (also a unique index) |
+  | 400 `CV_REQUIRED` | `needsCv` and no CV on the Hiring profile |
+  | 400 `PORTFOLIO_REQUIRED` | `needsPortfolio` and no portfolio items |
+  | 400 `COVER_REQUIRED` | `needsCover` and a cover letter under 30 characters |
+
+  Staff can still add a candidate by hand with `{jobId, name, email}`.
+- `GET /api/candidates` now includes `userId`, `coverNote` and `profile {headline, hasCv, kycStatus}`. HR opens the full Hiring profile from `userId`.
+- Moving a linked candidate to INTERVIEW, OFFER, HIRED or REJECTED sends the worker a notification (`screen: "job"`).
+
 ## Talent Profile
 
 The worker's shareable hiring profile. Proven and claimed are kept apart: work history, education, portfolio and skills are self-declared. Credentials count only once VERIFIED. `workRecord` is computed from RELEASED payments and can't be typed in.

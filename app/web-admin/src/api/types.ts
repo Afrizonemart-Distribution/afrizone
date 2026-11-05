@@ -579,9 +579,14 @@ export interface Candidate {
   phone?: string | null
   stage: Stage
   cvNote?: string | null
+  /** Their cover letter, when the job asked for one. */
+  coverNote?: string | null
   rating?: number | null
   createdAt?: string
   updatedAt?: string
+  /** Set when they applied from the app: their Hiring profile opens from it. */
+  userId?: string | null
+  profile?: { headline: string | null; hasCv: boolean; kycStatus: string } | null
   job?: JobSummary
 }
 
