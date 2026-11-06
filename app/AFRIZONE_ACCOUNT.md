@@ -1,10 +1,9 @@
 # Continue with AfriZone: one account for Part-Time
 
-**Status:** the AfriZone side is built (afrizonemart-api #177) and
-switched off until its signing key is set. The Part-Time side below is a proposal
-for whoever owns this repo, and nothing here is built yet. It closes the
-"Shared identity with AZM (§13), blocked on AZM exposing an identity provider"
-item in `BLUEPRINT_STATUS.md`.
+**Status:** built and deployed on 2 November 2026, and on in production
+(`AFRIZONE_LOGIN_ENABLED`). The mobile button needs the next APK. This document
+began as the proposal and is kept as the design record; the code is right where
+they differ. See §9 item 8 of `BLUEPRINT_STATUS.md`.
 
 Decision (Magnus, 2026-11-02): Part-Time joins the one AfriZone Account now,
 like the storefront, Ink, the supplier portal and the HUD. A person signs in

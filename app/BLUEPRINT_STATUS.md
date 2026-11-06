@@ -10,8 +10,9 @@ can claim an order without waiting for an admin.** All of it is deployed and was
 exercised against the live API on 2 September 2026; see §10. **Ranked matching
 for deliveries is built and deployed** (8 October 2026; see §9). **Every
 other task now ranks its applicants for the manager** (deployed 27 October
-2026; see §9). What remains is the rest of §14,
-and the operational work of switching Mart on.
+2026; see §9). The §9 list is built and on the live API (6 November 2026; see
+§10). What remains is the next APK and a phone test, which the mobile half of
+recent work is waiting for, and the operational work of switching Mart on.
 
 Three things are built to a deliberate limit, and pretending otherwise would be
 the more expensive mistake: **CAC verification is a manual check** until a
@@ -89,10 +90,10 @@ courier may actually do is decided by credentials through the eligibility
 engine - which is account-type agnostic. So making courier-ness a skill role
 later changes who sees a menu row, not who can work.
 
-**Shared identity with AZM** (§13). The portal shipped today creates its own
-accounts. *Cost: medium-high.* If identity is shared, Part-Time should have a
-"continue with AfriZoneMart" button and no registration form. Blocked on AZM
-exposing an identity provider.
+**Shared identity with AZM** (§13). *Resolved, 2 November 2026* - "Continue with
+AfriZone" signs in with the AfriZone Account; see §9 item 8 and
+`AFRIZONE_ACCOUNT.md`. Part-Time keeps its own `User` rows and sessions, and the
+registration forms remain.
 
 **Escrow** (§10). *Resolved at no cost* — escrow as STATE rather than custody, see §4. Mart holds the money; PartTime records the ring-fence.
 
@@ -444,8 +445,8 @@ order themselves.** Everything below is in the order it is worth doing:
    → Referrals and a referral code on store registration; mobile "Refer and
    earn" screen (next APK). The sign-up screens do not ask for a code yet - a
    new Tasker adds it from the profile.
-7. **Offline-tolerant mobile flows (§16) — built 2 November 2026, not yet
-   deployed; needs the next APK.** Field actions work with no signal: clock in
+7. **Offline-tolerant mobile flows (§16) — server and admin console deployed 2
+   November 2026; the phone half needs the next APK.** Field actions work with no signal: clock in
    and out, job photos and signatures, and a delivery's collected / delivered /
    could-not-deliver are kept on the phone (`mobile/src/lib/outbox.ts`) and
    sent in order when there is signal - on app start, on coming back to the
@@ -465,8 +466,39 @@ order themselves.** Everything below is in the order it is worth doing:
    queued clock times. Work queued by one account is dropped if another signs
    in on the phone. Migration `0029_offline_clock.sql`, 6 tests in
    `test/offlineClock.test.ts`. Not yet tried on a phone in airplane mode.
-8. **Shared identity
-   with AZM** (§13, blocked on Mart exposing an identity provider).
+8. **Shared identity with AZM (§13) — deployed 2 November 2026; the mobile
+   button needs the next APK.** "Continue with AfriZone" on the portal and the
+   app, and linking an AfriZone account in admin Settings → Security. Linked
+   staff cannot sign in this way; the console stays their route. Design in
+   `AFRIZONE_ACCOUNT.md`, migration `0028_afrizone_account.sql`, 5 tests in
+   `test/afrizoneLogin.test.ts`. The route and AfriZone's signing keys both
+   answer on production, but a real sign-in has not been recorded here.
+
+Built after this list was written, all on the live API since 5 November 2026.
+The phone parts need the next APK:
+
+9. **Talent profile.** A Tasker's shareable hiring profile: about, CV, work
+   history, education and portfolio, and a work record computed from released
+   payments. Private until shared by link, and the public page at `/p/:slug` has
+   no contact details. Migration `0030_talent_profile.sql`, 4 tests in
+   `test/talentProfile.test.ts`.
+10. **Flexible task builder.** Type-in categories, applicant questions (answers
+   keep the wording the applicant saw) and task templates. Migration
+   `0031_task_builder.sql`, 4 tests in `test/taskBuilder.test.ts`.
+11. **Proof-to-pay.** Acceptance checks, required photos and pay per unit on a
+   task; a reviewer confirms the checks or sends the work back with a reason;
+   fixed-price work cannot be paid twice. A payment at or over
+   `payments.secondApprovalOver` (default 50,000) must be released by a different
+   admin. Migration `0032_proof_to_pay.sql`, 5 tests in `test/proofToPay.test.ts`.
+12. **One person, one account.** Payout bank account, ID number and app install
+   id are stored hashed. A shared bank account or ID number opens a case that
+   pauses withdrawals on every account involved until staff clear it; a shared
+   phone is only shown. Admin Identity checks page. Migration
+   `0033_identity_guard.sql`, 5 tests in `test/identityGuard.test.ts`.
+13. **Selfie before a large withdrawal.** At or over `payouts.selfieOver` (default
+   100,000) a withdrawal needs a fresh selfie and waits in REVIEW with the money
+   reserved; a person compares it on the admin Withdrawal checks page. Migration
+   `0034_payout_selfie.sql`, 4 tests in `test/payoutSelfie.test.ts`.
 
 Three things have a deliberate ceiling worth revisiting when there is a reason:
 
@@ -502,10 +534,31 @@ expensive to guess at. Verified 23 October 2026 against the live account and
 database rather than against documentation — see the warning about `README.md`
 below for why that distinction is not pedantry.
 
-**Everything described in this document is deployed** (verified 27 October
-2026). D1 is at migration `0027_referrals.sql`; the API worker is version
-`664df30c-f1ca-4539-8663-da7ae5aa7b79`, deployed 2 November 14:02 UTC from
-`cfe122d` with the referral loop. Roll back to
+**Everything described in this document is deployed, except the mobile work
+waiting for the next APK** (verified 6 November 2026). D1 is at migration
+`0034_payout_selfie.sql`; the API worker is version
+`c9a04350-fe3d-4b60-9c95-7336e3ccf90d`, deployed 5 November 22:38 UTC with the
+identity guard and the payout selfie.
+
+The versions below are matched to features by the time their migration was
+applied, because Cloudflare does not record a commit for them. Roll back to
+`d9c740be-0916-4892-9255-6954ec52dd92` (5 November 22:25 UTC, proof-to-pay) -
+the identity cases stop pausing withdrawals, and the old code has no route to
+decide a withdrawal in REVIEW, so clear those first. Before that,
+`a92062f3-fe21-477c-a701-5492aa41d25c` (21:42 UTC, task builder) - the second
+approver and the double-payment guard are gone, so settle open reviews and
+per-unit tasks by hand first. Before that,
+`adb0275e-1e59-49a8-ba91-49e50e241832` (18:18 UTC, talent profile) - questions
+and templates are unread. Before that,
+`7a25cd1d-2dad-467b-b78b-106b7d20ebc1` (2 November 19:47 UTC, `e9b20ca`, offline
+flows) - shared profile links stop working. Before that,
+`0f6910fc-f1ed-46f8-931f-5d5becd0d3cc` (17:14 UTC, AfriZone sign-in, no offline
+flows) - old code ignores `occurredAt` and `clientId`, so a queued clock event
+takes its arrival time and a resend records twice. Before that,
+`664df30c-f1ca-4539-8663-da7ae5aa7b79` (14:02 UTC, `cfe122d`, the referral loop,
+no AfriZone sign-in). `f7357ed3` (4 November) and `19fb98a9` (5 November 21:36
+UTC) applied no migration and are not matched to a feature, so skip them. Before
+that,
 `748ce60f-5bc8-4b79-a52e-6300b7d75370` (11:40 UTC, `c4fe419`, crew contracts,
 no referrals) - the `Referral` table and `User.referralCode` are then unread,
 and any referral bonus already EARNED drops out of the wallet balance, so a
@@ -524,9 +577,10 @@ ranking) - nothing in the database depends on the difference, and the queue
 simply returns to newest-first. Before that, `bf6c86bd-6683-4780-9ae5-dbb9d9ffd357`
 (11:47 UTC, `dd36a6e`, signatures but no audit list). Rolling back past
 signatures leaves a `Signature` table nothing reads, which is harmless. The
-admin console was uploaded by hand on 2 November at 11:47 UTC (Pages
-deployment `62a315c8`, from `cfe122d`, with the Referrals tab in Settings and the
-store referral code; before it `3237d882`, crew limit and crew review); the portal from `7d497f8` that morning.
+admin console is Pages deployment `53f35278` (5 November, labelled `6d59b91`; the
+live bundle has the Identity checks and Withdrawal checks pages), and before it
+`32d8dff4` (labelled `c3bbe33`). The portal is `74f41dc4` (5 November, labelled
+`3298f3d`, with the public profile page), and before it `70caf95e`.
 
 Earlier the same day: `bf46417c` (11:03 UTC, pass and background location)
 and `c65bce3b` (10:53, the rename and possibly part of the pass work).
