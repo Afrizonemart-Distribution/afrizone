@@ -564,6 +564,23 @@ export interface Job {
   createdAt?: string
   // augmented by GET /api/jobs
   candidateCount?: number
+  /** The partner company AfriZone is hiring for; null = AfriZone itself. */
+  partnerName?: string | null
+  partnerAbout?: string | null
+  /** When a job alert was last sent out. */
+  alertedAt?: string | null
+}
+
+export type AlertAudience = 'MATCHING' | 'EVERYONE'
+export type AlertChannel = 'PUSH' | 'EMAIL' | 'SMS' | 'WHATSAPP'
+
+/** GET /api/jobs/:id/alerts */
+export interface JobAlertInfo {
+  audience: AlertAudience
+  alertedAt: string | null
+  preview: { people: number; channels: Record<AlertChannel, number> }
+  /** channel -> status (PENDING | SENDING | SENT | FAILED | SKIPPED) -> count */
+  sent: Partial<Record<AlertChannel, Record<string, number>>>
 }
 
 export interface JobSummary {
@@ -587,7 +604,10 @@ export interface Candidate {
   /** Set when they applied from the app: their Hiring profile opens from it. */
   userId?: string | null
   profile?: { headline: string | null; hasCv: boolean; kycStatus: string } | null
-  job?: JobSummary
+  /** Partner jobs: when they agreed to share their profile, and when HR did. */
+  shareConsentAt?: string | null
+  sharedAt?: string | null
+  job?: JobSummary & { partnerName?: string | null }
 }
 
 export interface TaxRate {

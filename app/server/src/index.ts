@@ -39,6 +39,8 @@ import healthRouter from "./routes/health";
 import fundingRouter from "./routes/funding";
 import { purgeCustomerData } from "./services/deliveryPurge";
 import { advanceRankedOffers } from "./services/ranking";
+import { sendDueJobAlerts } from "./services/jobAlerts";
+import { prisma as cronPrisma } from "./prisma";
 import presenceRouter from "./routes/presence";
 import evidenceRouter, {
   adminRouter as adminEvidenceRouter,
@@ -365,6 +367,16 @@ export default {
           .catch((e) => {
             console.error(`[ranked-offers] FAILED: ${e instanceof Error ? e.message : String(e)}`);
           })
+      );
+      // Job alerts queued by HR go out a batch a minute (services/jobAlerts.ts).
+      ctx.waitUntil(
+        sendDueJobAlerts(cronPrisma)
+          .then((t) => {
+            if (t.sent || t.failed || t.skipped) {
+              console.log(`[job-alerts] sent ${t.sent}, failed ${t.failed}, skipped ${t.skipped}`);
+            }
+          })
+          .catch((e) => console.error(`[job-alerts] FAILED: ${e instanceof Error ? e.message : String(e)}`))
       );
       return;
     }

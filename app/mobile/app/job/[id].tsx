@@ -55,6 +55,9 @@ export default function JobDetailScreen() {
   const { user } = useAuth();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawNote, setWithdrawNote] = useState<string | null>(null);
 
   const job = useAsync<Job | null>(
     (signal) => (id ? api.jobById(id, signal) : Promise.resolve(null)),
@@ -71,7 +74,29 @@ export default function JobDetailScreen() {
     [applied],
     { cacheKey: 'my-jobs' }
   );
-  const stage: Stage | null = mine.data?.find((a) => a.jobId === id)?.stage ?? null;
+  const myApp = mine.data?.find((a) => a.jobId === id) ?? null;
+  const stage: Stage | null = myApp?.stage ?? null;
+
+  /** Two taps, so a stray one never throws an application away. */
+  async function withdraw() {
+    if (!myApp) return;
+    if (!confirmWithdraw) {
+      setConfirmWithdraw(true);
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const r = await api.withdrawJobApplication(myApp.id);
+      setWithdrawNote(r.message);
+      setApplied(false);
+      mine.reload();
+    } catch (e) {
+      setWithdrawNote(e instanceof Error ? e.message : 'Could not withdraw.');
+    } finally {
+      setWithdrawing(false);
+      setConfirmWithdraw(false);
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -102,6 +127,18 @@ export default function JobDetailScreen() {
             </View>
             <Text style={styles.title}>{j.title}</Text>
             <Text style={styles.dept}>{j.department}</Text>
+
+            {/* Who the job is really with. */}
+            <View style={styles.partnerCard}>
+              <Text style={styles.partnerLabel}>Hiring for</Text>
+              <Text style={styles.partnerName}>{j.partnerName || 'AfriZone'}</Text>
+              {j.partnerName ? (
+                <Text style={styles.partnerAbout}>
+                  {j.partnerAbout ? `${j.partnerAbout}\n\n` : ''}
+                  AfriZone runs the hiring for this company. Your profile is only sent to them if you agree when you apply.
+                </Text>
+              ) : null}
+            </View>
 
             {/* Salary card */}
             {j.salaryMin || j.salaryMax ? (
@@ -186,6 +223,19 @@ export default function JobDetailScreen() {
                   disabled={!identityOk}
                 />
               )}
+              {myApp?.sharedAt && j.partnerName ? (
+                <Text style={styles.shareNote}>
+                  Your profile was shared with {j.partnerName} on {formatDate(myApp.sharedAt)}.
+                </Text>
+              ) : null}
+              {myApp && myApp.stage !== 'HIRED' && myApp.stage !== 'REJECTED' ? (
+                <Pressable onPress={withdraw} disabled={withdrawing} hitSlop={8} style={{ marginTop: 14, alignSelf: 'center' }}>
+                  <Text style={styles.withdraw}>
+                    {withdrawing ? 'Withdrawing…' : confirmWithdraw ? 'Tap again to withdraw your application' : 'Withdraw application'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {withdrawNote ? <Text style={styles.shareNote}>{withdrawNote}</Text> : null}
             </View>
           </>
         )}
@@ -246,13 +296,21 @@ function ApplySheet({
   const missingCv = !!job.needsCv && !!p && !p.cv;
   const missingPortfolio = !!job.needsPortfolio && !!p && p.portfolio.length === 0;
   const coverShort = !!job.needsCover && coverNote.trim().length < 30;
-  const canSubmit = !!p && !missingCv && !missingPortfolio && !coverShort;
+  // A partner job sends the profile to another company: the worker says yes
+  // here, in so many words, or doesn't apply (NDPR consent).
+  const [consent, setConsent] = useState(false);
+  const needsConsent = !!job.partnerName && !consent;
+  const canSubmit = !!p && !missingCv && !missingPortfolio && !coverShort && !needsConsent;
 
   async function submit() {
     setBusy(true);
     setError(null);
     try {
-      await api.applyJob({ jobId: job.id, coverNote: coverNote.trim() || undefined });
+      await api.applyJob({
+        jobId: job.id,
+        coverNote: coverNote.trim() || undefined,
+        consentToShare: job.partnerName ? consent : undefined,
+      });
       onApplied();
     } catch (e) {
       setError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not submit application.');
@@ -316,6 +374,21 @@ function ApplySheet({
                 textAlignVertical="top"
               />
             </SheetField>
+
+            {job.partnerName ? (
+              <Pressable
+                onPress={() => setConsent((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: consent }}
+                style={styles.consentRow}
+              >
+                <Icon name={consent ? 'check-circle' : 'shield'} size={18} color={consent ? obColors.forest : obColors.textMut} />
+                <Text style={styles.consentText}>
+                  I agree that AfriZone may share my Hiring profile (CV, work history, education, portfolio and AfriZone
+                  work record) with {job.partnerName} for this job. I can withdraw my application at any time.
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </ScrollView>
 
@@ -379,6 +452,19 @@ const styles = StyleSheet.create({
   },
   reqText: { color: obColors.forest, fontSize: 12.5, fontWeight: '700' },
   desc: { color: obColors.text, fontSize: 14, lineHeight: 22 },
+  partnerCard: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: obRadii.card,
+    backgroundColor: obColors.sand,
+  },
+  partnerLabel: { fontSize: 11, fontWeight: '700', color: obColors.textMut, textTransform: 'uppercase' },
+  partnerName: { fontSize: 15, fontWeight: '800', color: obColors.navy, marginTop: 2 },
+  partnerAbout: { fontSize: 12.5, color: obColors.text, marginTop: 6, lineHeight: 18 },
+  consentRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 4 },
+  consentText: { flex: 1, fontSize: 12.5, color: obColors.text, lineHeight: 18 },
+  shareNote: { fontSize: 12.5, color: obColors.textMut, marginTop: 10, textAlign: 'center' },
+  withdraw: { fontSize: 13, fontWeight: '700', color: obColors.dangerInk },
   // sheet
   backdrop: { flex: 1, backgroundColor: obColors.scrim },
   sheet: {

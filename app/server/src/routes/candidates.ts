@@ -54,6 +54,10 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), async (req:
       cvNote: c.cvNote,
       coverNote: c.coverNote,
       rating: c.rating,
+      // Partner jobs: whether the worker agreed to their profile going to the
+      // partner, and whether HR has sent it.
+      shareConsentAt: c.shareConsentAt,
+      sharedAt: c.sharedAt,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
       // Set when they applied from the app: HR opens their full Hiring
@@ -62,7 +66,7 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), async (req:
       profile: c.user
         ? { headline: c.user.headline, hasCv: !!c.user.cvDocumentId, kycStatus: c.user.kycStatus }
         : null,
-      job: { id: c.job.id, title: c.job.title },
+      job: { id: c.job.id, title: c.job.title, partnerName: c.job.partnerName },
     }))
   );
 });
@@ -133,6 +137,14 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     return res.status(400).json({ error: "This job asks for a short cover letter", code: "COVER_REQUIRED" });
   }
   const note = typeof b.cvNote === "string" ? b.cvNote.trim().slice(0, MAX_TEXT) : "";
+  // A partner job means their profile will go to another company. Under the
+  // NDPR that needs their clear yes, given here, before anything is shared.
+  if (job.partnerName && b.consentToShare !== true) {
+    return res.status(400).json({
+      error: `Agree to share your Hiring profile with ${job.partnerName} to apply`,
+      code: "CONSENT_REQUIRED",
+    });
+  }
 
   try {
     const candidate = await prisma.jobApplication.create({
@@ -145,6 +157,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
         coverNote: coverNote || null,
         cvNote: note || null,
         stage: "SCREENING",
+        shareConsentAt: job.partnerName ? new Date() : null,
       },
     });
     res.status(201).json(candidate);
@@ -185,6 +198,46 @@ router.post("/:id/move", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), as
       id: candidate.jobId,
     }, "notifTasks").catch(() => {});
   }
+  res.json(updated);
+});
+
+/**
+ * POST /api/candidates/:id/share: HR records that this applicant's Hiring
+ * profile went to the partner company. Refused without the worker's consent
+ * (given when they applied), and only for partner jobs. The worker is told,
+ * and it is audited, so there is always an answer to "who has my data?".
+ */
+router.post("/:id/share", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), async (req: AuthedRequest, res: Response) => {
+  const c = await prisma.jobApplication.findUnique({
+    where: { id: req.params.id },
+    include: { job: { select: { id: true, title: true, partnerName: true } } },
+  });
+  if (!c) return res.status(404).json({ error: "Candidate not found" });
+  if (!c.job.partnerName) {
+    return res.status(400).json({ error: "This is an AfriZone job; there is no partner to share with", code: "NOT_PARTNER_JOB" });
+  }
+  if (!c.userId || !c.shareConsentAt) {
+    return res.status(403).json({ error: "This applicant hasn't agreed to their profile being shared", code: "NO_CONSENT" });
+  }
+  if (c.sharedAt) return res.json(c);
+
+  const updated = await prisma.jobApplication.update({
+    where: { id: c.id },
+    data: { sharedAt: new Date(), sharedById: req.user!.id },
+  });
+  await writeAudit(userActor(req.user!.id), "candidate.share", "JobApplication", c.id, {
+    jobId: c.jobId,
+    partner: c.job.partnerName,
+    userId: c.userId,
+  });
+  await notifyWorker(
+    prisma,
+    c.userId,
+    c.job.title,
+    `Your Hiring profile has been shared with ${c.job.partnerName}, as you agreed when you applied.`,
+    { screen: "job", id: c.jobId },
+    "notifTasks"
+  ).catch(() => {});
   res.json(updated);
 });
 
