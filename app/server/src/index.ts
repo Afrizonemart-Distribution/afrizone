@@ -10,6 +10,7 @@ import tasksRouter from "./routes/tasks";
 import taskTemplatesRouter from "./routes/taskTemplates";
 import identityFlagsRouter from "./routes/identityFlags";
 import adminWithdrawalsRouter from "./routes/adminWithdrawals";
+import opportunitiesRouter from "./routes/opportunities";
 import applicationsRouter from "./routes/applications";
 import timesheetsRouter from "./routes/timesheets";
 import paymentsRouter from "./routes/payments";
@@ -38,6 +39,8 @@ import healthRouter from "./routes/health";
 import fundingRouter from "./routes/funding";
 import { purgeCustomerData } from "./services/deliveryPurge";
 import { advanceRankedOffers } from "./services/ranking";
+import { sendDueJobAlerts } from "./services/jobAlerts";
+import { prisma as cronPrisma } from "./prisma";
 import presenceRouter from "./routes/presence";
 import evidenceRouter, {
   adminRouter as adminEvidenceRouter,
@@ -212,6 +215,7 @@ app.use("/api/tasks", tasksRouter);
 app.use("/api/task-templates", taskTemplatesRouter);
 app.use("/api/admin/identity-flags", identityFlagsRouter);
 app.use("/api/admin/withdrawals", adminWithdrawalsRouter);
+app.use("/api/opportunities", opportunitiesRouter);
 app.use("/api/applications", applicationsRouter);
 app.use("/api/timesheets", timesheetsRouter);
 app.use("/api/payments", paymentsRouter);
@@ -363,6 +367,16 @@ export default {
           .catch((e) => {
             console.error(`[ranked-offers] FAILED: ${e instanceof Error ? e.message : String(e)}`);
           })
+      );
+      // Job alerts queued by HR go out a batch a minute (services/jobAlerts.ts).
+      ctx.waitUntil(
+        sendDueJobAlerts(cronPrisma)
+          .then((t) => {
+            if (t.sent || t.failed || t.skipped) {
+              console.log(`[job-alerts] sent ${t.sent}, failed ${t.failed}, skipped ${t.skipped}`);
+            }
+          })
+          .catch((e) => console.error(`[job-alerts] FAILED: ${e instanceof Error ? e.message : String(e)}`))
       );
       return;
     }

@@ -578,6 +578,52 @@ Some facts should belong to one person only: the payout bank account, a governme
   - `POST /:id/approve` (SUPER_ADMIN only) claims it atomically (REVIEW to PROCESSING) and sends it the same way as an ordinary withdrawal (`services/payout.ts`). It is refused while an identity case is open.
   - `POST /:id/reject {reason}` (reason required) marks it FAILED, so the money is back in the wallet, and tells the worker why.
 
+## Opportunities
+
+- `GET /api/opportunities?type=ALL|TASKS|HOURLY|JOBS` (any signed-in user) returns `{openTo, items}` in a single shape.
+  - TASKS are open FIXED and PER_UNIT tasks; HOURLY are open hourly tasks. Tasks past their deadline are left out.
+  - JOBS are open jobs.
+  - Each item carries `applied`, plus `stage` for jobs, and `forYou`, which is true when it matches what the worker said they're open to on their Hiring profile. Items are newest first.
+- `GET /api/opportunities/my-jobs` returns the worker's own job applications with their stage.
+- **Applying for a job** (`POST /api/candidates {jobId, coverNote?, cvNote?}` as a worker): name, email and phone come from the account, never the body, and the row is linked to the worker (`userId`). The checks below run on the server:
+
+  | Code | When |
+  |---|---|
+  | 403 `KYC_REQUIRED` | Identity isn't confirmed (VERIFIED or TIER_APPROVED) |
+  | 400 `JOB_CLOSED` | The job is closed, or past a closing date someone actually set |
+  | 409 `ALREADY_APPLIED` | Second application to the same job (also a unique index) |
+  | 400 `CV_REQUIRED` | `needsCv` and no CV on the Hiring profile |
+  | 400 `PORTFOLIO_REQUIRED` | `needsPortfolio` and no portfolio items |
+  | 400 `COVER_REQUIRED` | `needsCover` and a cover letter under 30 characters |
+
+  Staff can still add a candidate by hand with `{jobId, name, email}`.
+- `GET /api/candidates` now includes `userId`, `coverNote` and `profile {headline, hasCv, kycStatus}`. HR opens the full Hiring profile from `userId`.
+- Moving a linked candidate to INTERVIEW, OFFER, HIRED or REJECTED sends the worker a notification (`screen: "job"`).
+
+## AI hiring helpers (Claude)
+
+Off until the `ANTHROPIC_API_KEY` secret is set; until then these answer `503 AI_OFF`. Model `claude-opus-5-5` (override with the `AI_MODEL` var), structured outputs, server-side refusal fallbacks (`fallbacks: "default"`). Code: `services/ai.ts`.
+
+`POST /api/me/profile/cv/read` (worker): reads the CV on their Hiring profile (PDF, JPEG, PNG or WebP; `400 NO_CV`, `415 CV_TYPE`, `413 CV_TOO_LARGE` over 10 MB) and returns `{ draft: { headline, bio, experience[], education[], skills[] } }`. **Saves nothing.** Five reads per worker per 24 h (`429 CV_READ_LIMIT`); each is audited as `cv.read`. `502 AI_FAILED` when the AI declines or can't be reached.
+
+`POST /api/me/profile/cv/import { headline?, bio?, experience?: [...], education?: [...] }` (worker): saves what they kept, each entry through the same checks as adding it by hand. Returns `{ added: { experience, education }, skipped: [{ section, index, error }], profile }`. Audited as `cv.import`.
+
+`POST /api/jobs/:id/shortlist { rescore?: boolean }` (SUPER_ADMIN, HR_ADMIN): scores up to 45 unscored app applicants per call against the job, from their Hiring profile and cover letter, sent **without name, email or phone** under an opaque reference. Stores `aiScore` (0-100), `aiNotes` and `aiScoredAt` on each application; returns `{ scored, remaining, error }` (press again while `remaining > 0`). `rescore` clears earlier scores first. Hand-entered candidates are not scored. A suggestion only: nobody is moved, hidden or rejected by it. `GET /api/candidates` adds `ai: { score, summary, strengths[], gaps[], scoredAt } | null`.
+
+## Partner hiring and job alerts
+
+AfriZone posts jobs on behalf of partner companies; partners never log in. `Job.partnerName` (null = AfriZone itself) and `Job.partnerAbout` are set on `POST /api/jobs` and `PATCH /api/jobs/:id` by HR. The feed (`GET /api/opportunities`) carries `partnerName` on job items, and their `subtitle` reads "Partner · Department".
+
+**Consent (NDPR).** Applying to a partner job needs `consentToShare: true` in `POST /api/candidates` (else `400 CONSENT_REQUIRED`); the application records `shareConsentAt`. HR records the share with `POST /api/candidates/:id/share` (SUPER_ADMIN, HR_ADMIN): `400 NOT_PARTNER_JOB` for AfriZone jobs, `403 NO_CONSENT` without consent; sets `sharedAt`/`sharedById`, writes AuditLog `candidate.share` and tells the worker. `GET /api/candidates` adds `shareConsentAt`, `sharedAt`, `job.partnerName`; `GET /api/opportunities/my-jobs` adds `shareConsentAt`, `sharedAt`, `job.partnerName`.
+
+`POST /api/opportunities/my-jobs/:id/withdraw` (the applicant only; `404` for anyone else): deletes the application before hiring (`400 ALREADY_HIRED` after). Returns `{ ok, alreadyShared, message }`; AuditLog `candidate.withdraw`.
+
+**Job alerts.** `GET /api/jobs/:id/alerts?audience=MATCHING|EVERYONE` (HR) returns `{ audience, alertedAt, preview: { people, channels: { PUSH, EMAIL, SMS, WHATSAPP } }, sent: { CHANNEL: { STATUS: count } } }`. `POST /api/jobs/:id/alerts { audience }` queues one `JobAlert` row per person per channel and returns `202 { audience, people, queued }`; people already alerted on a channel, or who already applied, are skipped, so a second press sends no one twice. `MATCHING` = workers whose Hiring profile "open to" fits the job, plus those who haven't said. The per-minute cron sends a batch each run (push 100, email 100 via Resend's batch API, SMS and WhatsApp 20 each); rows end `SENT`, `FAILED` (with `error`) or `SKIPPED` when the channel isn't configured.
+
+Channels follow `User.jobAlertEmail` (default on), `jobAlertSms`, `jobAlertWhatsapp` (default off), read and set through `GET`/`PATCH /api/me`. Push always goes as an inbox record; the push itself follows `notifTasks`. Placeholder emails (`*.local`) are never mailed.
+
+Config: `RESEND_API_KEY` (secret) turns email on, `EMAIL_FROM` overrides the sender (default `AfriZone Jobs <jobs@afrizonemart.com>`); `TERMII_WHATSAPP_FROM` (an approved Termii WhatsApp sender) turns WhatsApp on; SMS uses the existing Termii setup.
+
 ## Talent Profile
 
 The worker's shareable hiring profile. Proven and claimed are kept apart: work history, education, portfolio and skills are self-declared. Credentials count only once VERIFIED. `workRecord` is computed from RELEASED payments and can't be typed in.

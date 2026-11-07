@@ -51,6 +51,54 @@ export const sms = {
     }
   },
 
+  /**
+   * Send any text (job alerts). Returns false when no provider is configured,
+   * so the caller can record the message as skipped rather than sent.
+   */
+  async sendText(phone: string, text: string): Promise<boolean> {
+    if (!this.enabled) {
+      console.log(`[sms:sim] to ${phone}: ${text}`);
+      return false;
+    }
+    const { provider } = config();
+    if (provider === "termii") await this.sendTermii(phone, text);
+    else if (provider === "twilio") await this.sendTwilio(phone, text);
+    return true;
+  },
+
+  /**
+   * WhatsApp goes through Termii's WhatsApp channel, which needs a WhatsApp
+   * sender Termii has approved (TERMII_WHATSAPP_FROM). Until that is set it is
+   * off, and alerts on this channel are recorded as skipped.
+   */
+  get whatsappEnabled(): boolean {
+    const c = config();
+    return c.provider === "termii" && c.termiiApiKey.length > 0 && !!process.env.TERMII_WHATSAPP_FROM;
+  },
+
+  async sendWhatsapp(phone: string, text: string): Promise<boolean> {
+    if (!this.whatsappEnabled) {
+      console.log(`[whatsapp:sim] to ${phone}: ${text}`);
+      return false;
+    }
+    const { termiiBase, termiiApiKey } = config();
+    const res = await fetch(`${termiiBase}/api/sms/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        to: phone,
+        from: process.env.TERMII_WHATSAPP_FROM,
+        sms: text,
+        type: "plain",
+        channel: "whatsapp",
+        api_key: termiiApiKey,
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as any;
+    if (!res.ok) throw new Error(json.message || `Termii WhatsApp send failed (${res.status})`);
+    return true;
+  },
+
   async sendTermii(phone: string, text: string): Promise<void> {
     const { termiiBase, termiiApiKey } = config();
     const res = await fetch(`${termiiBase}/api/sms/send`, {

@@ -10,6 +10,8 @@ import type {
   AuthSuccess,
   EvidenceReview,
   Candidate,
+  AlertAudience,
+  JobAlertInfo,
   Category,
   TaskTemplate,
   ApproveBody,
@@ -388,6 +390,22 @@ export const api = {
   }) => request<Candidate>('/candidates', { method: 'POST', body }),
   moveCandidate: (id: string, stage: Stage) =>
     request<Candidate>(`/candidates/${id}/move`, { method: 'POST', body: { stage } }),
+  /** Record that a consenting applicant's profile went to the partner company. */
+  /** AI reads this job's app applicants and suggests a score with reasons. */
+  shortlistJob: (id: string, rescore = false) =>
+    request<{ scored: number; remaining: number; error?: string | null }>(`/jobs/${id}/shortlist`, {
+      method: 'POST',
+      body: { rescore },
+    }),
+  shareCandidate: (id: string) =>
+    request<Candidate>(`/candidates/${id}/share`, { method: 'POST' }),
+  jobAlerts: (id: string, audience: AlertAudience, signal?: AbortSignal) =>
+    request<JobAlertInfo>(`/jobs/${id}/alerts?audience=${audience}`, { signal }),
+  sendJobAlerts: (id: string, audience: AlertAudience) =>
+    request<{ audience: AlertAudience; people: number; queued: number }>(`/jobs/${id}/alerts`, {
+      method: 'POST',
+      body: { audience },
+    }),
 
   // Store audit findings (admin)
   audits: (outcome?: AuditOutcome | 'ALL', signal?: AbortSignal) =>

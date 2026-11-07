@@ -11,6 +11,8 @@ import { prisma } from "../prisma";
 import { requireAuth, AuthedRequest } from "../auth";
 import { writeAudit, userActor } from "../util/audit";
 import { buildProfile, mintSlug, OPEN_TO, VISIBILITIES } from "../services/talentProfile";
+import { getFileBuffer } from "../services/storage";
+import { aiEnabled, AiUnavailable, CV_TYPES, readCv } from "../services/ai";
 
 const router = Router();
 
@@ -277,5 +279,102 @@ for (const s of SECTIONS) {
     })
   );
 }
+
+/* ── CV reading (AI) ──────────────────────────────────────────────────────
+   Two steps on purpose. /cv/read returns a DRAFT and saves nothing: the
+   worker checks it in the app, fixes what the AI got wrong, then sends what
+   they kept to /cv/import. A CV read wrongly never lands on a profile HR sees
+   without the worker having looked at it. */
+
+/** Reads per worker per day: each one is a paid AI call. */
+const CV_READS_PER_DAY = 5;
+/** Larger than any CV; bounds what we send. */
+const CV_MAX_BYTES = 10 * 1024 * 1024;
+
+router.post(
+  "/profile/cv/read",
+  requireAuth,
+  handle(async (req, res) => {
+    const userId = req.user!.id;
+    if (!aiEnabled()) {
+      return res.status(503).json({ error: "Reading CVs automatically isn't switched on yet", code: "AI_OFF" });
+    }
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { cvDocumentId: true } });
+    const doc = user?.cvDocumentId
+      ? await prisma.kycDocument.findFirst({ where: { id: user.cvDocumentId, userId } })
+      : null;
+    if (!doc) return res.status(400).json({ error: "Upload your CV first", code: "NO_CV" });
+    const mime = (doc.mimeType || "").toLowerCase();
+    if (!(CV_TYPES as readonly string[]).includes(mime)) {
+      return res.status(415).json({ error: "Only PDF or photo CVs can be read. Fill in your profile by hand.", code: "CV_TYPE" });
+    }
+    const since = new Date(Date.now() - 24 * 3600 * 1000);
+    const used = await prisma.auditLog.count({ where: { actorId: userId, action: "cv.read", createdAt: { gte: since } } });
+    if (used >= CV_READS_PER_DAY) {
+      return res.status(429).json({ error: "You've read your CV a few times today. Try again tomorrow.", code: "CV_READ_LIMIT" });
+    }
+
+    const bytes = await getFileBuffer(doc.filename);
+    if (bytes.byteLength > CV_MAX_BYTES) return res.status(413).json({ error: "That CV file is too large to read", code: "CV_TOO_LARGE" });
+    // Counted before the call, so a failing call can't be retried without limit.
+    await writeAudit(userActor(userId), "cv.read", "KycDocument", doc.id);
+    try {
+      const draft = await readCv(new Uint8Array(bytes), mime);
+      res.json({ draft });
+    } catch (e) {
+      if (e instanceof AiUnavailable) return res.status(502).json({ error: e.message, code: e.code });
+      console.error(`[cv.read] ${e instanceof Error ? e.message : String(e)}`);
+      return res.status(502).json({ error: "Couldn't read your CV just now. Try again later.", code: "AI_FAILED" });
+    }
+  })
+);
+
+/**
+ * POST /api/me/profile/cv/import
+ * { headline?, bio?, experience?: [...], education?: [...] }
+ *
+ * Saves what the worker kept from the draft, through the same checks as adding
+ * each entry by hand. An entry that fails them (say, a job with no start date)
+ * is skipped and reported, so one bad line doesn't lose the rest.
+ */
+router.post(
+  "/profile/cv/import",
+  requireAuth,
+  handle(async (req, res) => {
+    const userId = req.user!.id;
+    const b = req.body ?? {};
+    const data: Record<string, unknown> = {};
+    const headline = text(b.headline, "headline", 120);
+    if (headline) data.headline = headline;
+    const bio = text(b.bio, "bio", 2000);
+    if (bio) data.bio = bio;
+    if (Object.keys(data).length) await prisma.user.update({ where: { id: userId }, data });
+
+    const added: Record<string, number> = { experience: 0, education: 0 };
+    const skipped: { section: string; index: number; error: string }[] = [];
+    for (const path of ["experience", "education"] as const) {
+      const rows = Array.isArray(b[path]) ? b[path] : [];
+      const section = SECTIONS.find((s) => s.path === path)!;
+      let room = MAX_ITEMS - (await section.count(userId));
+      for (let i = 0; i < rows.length; i++) {
+        if (room <= 0) {
+          skipped.push({ section: path, index: i, error: `You can add up to ${MAX_ITEMS} entries here` });
+          continue;
+        }
+        try {
+          const parsed = strip(await section.parse(rows[i] ?? {}, userId, true));
+          await section.create({ ...parsed, userId });
+          added[path] += 1;
+          room -= 1;
+        } catch (e) {
+          if (!(e instanceof BadInput)) throw e;
+          skipped.push({ section: path, index: i, error: e.message });
+        }
+      }
+    }
+    await writeAudit(userActor(userId), "cv.import", "User", userId, { ...added, skipped: skipped.length });
+    res.json({ added, skipped, profile: await buildProfile(userId, "self") });
+  })
+);
 
 export default router;
