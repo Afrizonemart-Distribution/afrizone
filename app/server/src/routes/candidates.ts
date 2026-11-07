@@ -7,6 +7,15 @@ import { notifyWorker } from "../services/push";
 
 const router = Router();
 
+function parseNotes(raw: string | null): { summary: string; strengths: string[]; gaps: string[] } {
+  try {
+    const n = JSON.parse(raw ?? "{}");
+    return { summary: String(n.summary ?? ""), strengths: n.strengths ?? [], gaps: n.gaps ?? [] };
+  } catch {
+    return { summary: "", strengths: [], gaps: [] };
+  }
+}
+
 /** Identity confirmed, by Smile ID (VERIFIED) or by a person (TIER_APPROVED). */
 const IDENTITY_OK = new Set(["VERIFIED", "TIER_APPROVED"]);
 const MIN_COVER = 30;
@@ -58,6 +67,8 @@ router.get("/", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), async (req:
       // partner, and whether HR has sent it.
       shareConsentAt: c.shareConsentAt,
       sharedAt: c.sharedAt,
+      // AI shortlisting: a suggestion with reasons, never a decision.
+      ai: c.aiScoredAt ? { score: c.aiScore, ...parseNotes(c.aiNotes), scoredAt: c.aiScoredAt } : null,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
       // Set when they applied from the app: HR opens their full Hiring

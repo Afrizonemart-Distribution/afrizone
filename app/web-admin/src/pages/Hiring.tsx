@@ -116,6 +116,21 @@ function CandidateCard({
           <Icon name="briefcase" /> {c.job.title}
         </div>
       )}
+      {c.ai && (
+        // A suggestion with its reasons, so HR can see why and disagree.
+        <div className="kc-ai" style={{ margin: '6px 0', fontSize: 11.5, lineHeight: 1.45 }}>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <Badge variant="outline" title="AI suggestion. A person decides.">
+              AI fit {c.ai.score}/100
+            </Badge>
+            <span style={{ color: 'var(--muted)' }}>{c.ai.summary}</span>
+          </div>
+          {c.ai.strengths.length > 0 && (
+            <div style={{ color: 'var(--money)', marginTop: 4 }}>+ {c.ai.strengths.join(' · ')}</div>
+          )}
+          {c.ai.gaps.length > 0 && <div style={{ color: 'var(--clay)', marginTop: 2 }}>– {c.ai.gaps.join(' · ')}</div>}
+        </div>
+      )}
       {partner && (
         // Partner jobs: the profile goes to the partner only with the
         // applicant's consent (NDPR), and every share is recorded.
@@ -576,6 +591,8 @@ export default function Hiring() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [profileId, setProfileId] = useState<string | null>(null)
   const [alertJob, setAlertJob] = useState<Job | null>(null)
+  const [ranking, setRanking] = useState(false)
+  const [rankNote, setRankNote] = useState<string | null>(null)
 
   const jobs = useMemo(() => jobsApi.data ?? [], [jobsApi.data])
   const candidates = useMemo(() => candApi.data ?? [], [candApi.data])
@@ -589,6 +606,8 @@ export default function Hiring() {
       REJECTED: [],
     }
     for (const c of candidates) map[c.stage]?.push(c)
+    // Highest suggested fit first; unscored after, newest first as before.
+    for (const s of STAGES) map[s].sort((a, b) => (b.ai?.score ?? -1) - (a.ai?.score ?? -1))
     return map
   }, [candidates])
 
@@ -606,6 +625,26 @@ export default function Hiring() {
       setActionError(err instanceof ApiError ? err.message : 'Could not move candidate')
     } finally {
       setBusy(null)
+    }
+  }
+
+  async function rank(rescore: boolean) {
+    if (!selectedJob) return
+    setRanking(true)
+    setRankNote(null)
+    setActionError(null)
+    try {
+      const r = await api.shortlistJob(selectedJob.id, rescore)
+      setRankNote(
+        `${r.scored} applicant${r.scored === 1 ? '' : 's'} scored` +
+          (r.remaining ? `, ${r.remaining} still to do: press again.` : '.') +
+          (r.error ? ` ${r.error}` : ''),
+      )
+      candApi.reload()
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not rank applicants')
+    } finally {
+      setRanking(false)
     }
   }
 
@@ -679,12 +718,27 @@ export default function Hiring() {
           <span>
             <Icon name="calendar" /> Closes {formatDate(selectedJob.closingDate)}
           </span>
+          <Button variant="glass" size="sm" icon="star" loading={ranking} onClick={() => rank(false)}>
+            Rank with AI
+          </Button>
+          {candidates.some((c) => c.ai) && (
+            <Button variant="glass" size="sm" disabled={ranking} onClick={() => rank(true)}>
+              Re-rank all
+            </Button>
+          )}
           {selectedJob.status === 'OPEN' && (
             <Button variant="glass" size="sm" icon="send" onClick={() => setAlertJob(selectedJob)}>
               {selectedJob.alertedAt ? 'Job alert sent · send more' : 'Send job alert'}
             </Button>
           )}
         </div>
+      )}
+
+      {rankNote && (
+        <p style={{ fontSize: 12.5, color: 'var(--muted)', margin: '0 0 12px' }}>
+          {rankNote} AI scores suggest an order from each applicant's Hiring profile and cover letter, without their name
+          or contact details. They don't move anyone: you do.
+        </p>
       )}
 
       {actionError && (

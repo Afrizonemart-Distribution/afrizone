@@ -35,6 +35,8 @@ import type {
   PasswordForgotResponse,
   PasswordResetResponse,
   TalentProfile,
+  CvDraft,
+  CvImportResult,
   ProfileSection,
 
   NotificationPage,
@@ -274,6 +276,21 @@ export const api = {
     visibility: 'PRIVATE' | 'LINK';
   }>): Promise<TalentProfile> {
     return request<TalentProfile>('/me/profile', { method: 'PATCH', body: patch });
+  },
+
+  /** AI reads the uploaded CV and returns a draft to review. Saves nothing. */
+  readCv(): Promise<{ draft: CvDraft }> {
+    return request<{ draft: CvDraft }>('/me/profile/cv/read', { method: 'POST' });
+  },
+
+  /** Save the parts of the draft the worker kept. Bad entries are skipped and listed. */
+  importCv(body: {
+    headline?: string;
+    bio?: string;
+    experience?: CvDraft['experience'];
+    education?: CvDraft['education'];
+  }): Promise<CvImportResult> {
+    return request<CvImportResult>('/me/profile/cv/import', { method: 'POST', body });
   },
 
   addProfileEntry(section: ProfileSection, body: Record<string, unknown>): Promise<TalentProfile> {
