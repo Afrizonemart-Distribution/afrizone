@@ -82,6 +82,11 @@ model User {
   bio               String?
   /// Comma-separated OpenTo[] (TASKS | HOURLY | CONTRACT | FULL_TIME). "" = not said.
   openTo            String   @default("")
+  /// Job alerts (services/jobAlerts.ts). Email on by default; SMS and
+  /// WhatsApp cost money per message, so they are opt-in.
+  jobAlertEmail     Boolean  @default(true)
+  jobAlertSms       Boolean  @default(false)
+  jobAlertWhatsapp  Boolean  @default(false)
   /// The current CV: a KycDocument with docType CV owned by this user.
   cvDocumentId      String?
   /// PRIVATE (worker + staff only) | LINK (anyone with /p/<profileSlug>).
@@ -93,6 +98,7 @@ model User {
   tasksCreated        Task[]               @relation("TaskCreatedBy")
   taskTemplates       TaskTemplate[]       @relation("TaskTemplateCreatedBy")
   identitySignals     IdentitySignal[]
+  jobApplications     JobApplication[]
   applications        Application[]
   crewInvites         CrewInvite[]
   referralsMade       Referral[]           @relation("ReferralReferrer")
@@ -114,6 +120,7 @@ model User {
   ratingsReceived     Rating[]             @relation("WorkerRatings")
   ratingsGiven        Rating[]             @relation("RatingsGiven")
   notifications       Notification[]
+  jobAlerts           JobAlert[]
   skills              WorkerSkill[]
   courierProfile      CourierProfile?
   courierPresence     CourierPresence?
@@ -366,8 +373,37 @@ model Job {
   status         String   @default("OPEN") // JobStatus enum (OPEN | CLOSED)
   createdById    String
   createdAt      DateTime @default(now())
+  /// The partner company AfriZone is hiring for. Null = AfriZone itself.
+  /// Partners never log in: AfriZone HR posts and screens for them.
+  partnerName    String?
+  /// A line or two about the partner, shown to applicants.
+  partnerAbout   String?
+  /// When job alerts were queued, so a second press doesn't send twice.
+  alertedAt      DateTime?
 
   candidates JobApplication[]
+  alerts     JobAlert[]
+}
+
+/// One job alert to one person on one channel (EMAIL | SMS | WHATSAPP | PUSH).
+/// Queued by POST /api/jobs/:id/alerts, sent a batch at a time by the
+/// per-minute cron, so a big send never runs inside one request.
+model JobAlert {
+  id        String    @id @default(cuid())
+  jobId     String
+  userId    String
+  channel   String
+  /// PENDING | SENT | FAILED | SKIPPED
+  status    String    @default("PENDING")
+  error     String?
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  job  Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, userId, channel])
+  @@index([status, createdAt])
 }
 
 model JobApplication {
@@ -379,10 +415,25 @@ model JobApplication {
   stage     String   @default("SCREENING") // Stage enum
   cvNote    String?
   rating    Float?
+  /// The worker's own account, when they applied from the app with their
+  /// Hiring profile. Null for candidates staff entered by hand.
+  userId    String?
+  /// Their cover letter, when the job asks for one.
+  coverNote String?
+  /// When they agreed AfriZone may share their Hiring profile with the
+  /// partner company (partner jobs only; NDPR consent). Required to share.
+  shareConsentAt DateTime?
+  /// When HR sent the profile to the partner, and who did.
+  sharedAt       DateTime?
+  sharedById     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  job Job @relation(fields: [jobId], references: [id])
+  job  Job   @relation(fields: [jobId], references: [id])
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([jobId, userId])
+  @@index([userId])
 }
 
 // ── v2: Settings ──────────────────────────────────────────────────────────────

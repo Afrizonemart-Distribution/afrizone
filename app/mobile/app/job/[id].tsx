@@ -11,7 +11,7 @@ import { api, ApiError } from '../../src/api/client';
 import { useAsync } from '../../src/lib/useAsync';
 import { useAuth } from '../../src/auth/AuthContext';
 import { formatDate } from '../../src/lib/format';
-import type { Job, EmploymentType } from '../../src/api/types';
+import type { Job, EmploymentType, Stage, TalentProfile } from '../../src/api/types';
 
 /**
  * Restyled onto the navy/gold palette. The salary rendering, the submit
@@ -25,6 +25,15 @@ const TYPE_LABEL: Record<EmploymentType, string> = {
   FULL_TIME: 'Full-time',
   PART_TIME: 'Part-time',
   CONTRACT: 'Contract',
+};
+
+/** Where an application stands, in words a candidate understands. */
+const STAGE_LABEL: Record<Stage, string> = {
+  SCREENING: 'being reviewed',
+  INTERVIEW: 'shortlisted for interview',
+  OFFER: 'offer coming',
+  HIRED: 'hired',
+  REJECTED: 'not this time',
 };
 
 const TYPE_COLOR: Record<EmploymentType, string> = {
@@ -46,6 +55,9 @@ export default function JobDetailScreen() {
   const { user } = useAuth();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [applied, setApplied] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawNote, setWithdrawNote] = useState<string | null>(null);
 
   const job = useAsync<Job | null>(
     (signal) => (id ? api.jobById(id, signal) : Promise.resolve(null)),
@@ -55,6 +67,36 @@ export default function JobDetailScreen() {
 
   const j = job.data;
   const closed = j?.status !== 'OPEN';
+  // Identity confirmed by Smile ID (VERIFIED) or by a person (TIER_APPROVED).
+  const identityOk = user?.kycStatus === 'TIER_APPROVED' || user?.kycStatus === 'VERIFIED';
+  const mine = useAsync(
+    (signal) => api.myJobApplications(signal),
+    [applied],
+    { cacheKey: 'my-jobs' }
+  );
+  const myApp = mine.data?.find((a) => a.jobId === id) ?? null;
+  const stage: Stage | null = myApp?.stage ?? null;
+
+  /** Two taps, so a stray one never throws an application away. */
+  async function withdraw() {
+    if (!myApp) return;
+    if (!confirmWithdraw) {
+      setConfirmWithdraw(true);
+      return;
+    }
+    setWithdrawing(true);
+    try {
+      const r = await api.withdrawJobApplication(myApp.id);
+      setWithdrawNote(r.message);
+      setApplied(false);
+      mine.reload();
+    } catch (e) {
+      setWithdrawNote(e instanceof Error ? e.message : 'Could not withdraw.');
+    } finally {
+      setWithdrawing(false);
+      setConfirmWithdraw(false);
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -85,6 +127,18 @@ export default function JobDetailScreen() {
             </View>
             <Text style={styles.title}>{j.title}</Text>
             <Text style={styles.dept}>{j.department}</Text>
+
+            {/* Who the job is really with. */}
+            <View style={styles.partnerCard}>
+              <Text style={styles.partnerLabel}>Hiring for</Text>
+              <Text style={styles.partnerName}>{j.partnerName || 'AfriZone'}</Text>
+              {j.partnerName ? (
+                <Text style={styles.partnerAbout}>
+                  {j.partnerAbout ? `${j.partnerAbout}\n\n` : ''}
+                  AfriZone runs the hiring for this company. Your profile is only sent to them if you agree when you apply.
+                </Text>
+              ) : null}
+            </View>
 
             {/* Salary card */}
             {j.salaryMin || j.salaryMax ? (
@@ -139,21 +193,26 @@ export default function JobDetailScreen() {
             <Text style={styles.desc}>{j.description}</Text>
 
             {/* KYC gate */}
-            {user?.kycStatus !== 'TIER_APPROVED' ? (
+            {!identityOk && !stage ? (
               <View style={{ marginTop: 18 }}>
                 <Banner
                   tone="amber"
                   icon="shield"
                   title="Finish verification first"
-                  message="Job applications unlock once your KYC is Tier-Approved."
+                  message="Job applications unlock once your identity is confirmed."
                 />
               </View>
             ) : null}
 
             {/* Apply CTA */}
             <View style={{ marginTop: 22 }}>
-              {applied ? (
-                <AppPrimaryButton label="Application submitted" variant="outline" icon="check" disabled />
+              {stage || applied ? (
+                <AppPrimaryButton
+                  label={`Applied · ${STAGE_LABEL[stage ?? 'SCREENING']}`}
+                  variant="outline"
+                  icon="check"
+                  disabled
+                />
               ) : closed ? (
                 <AppPrimaryButton label="Applications closed" variant="outline" disabled />
               ) : (
@@ -161,9 +220,22 @@ export default function JobDetailScreen() {
                   label="Apply for this role"
                   icon="chevron-right"
                   onPress={() => setSheetOpen(true)}
-                  disabled={user?.kycStatus !== 'TIER_APPROVED'}
+                  disabled={!identityOk}
                 />
               )}
+              {myApp?.sharedAt && j.partnerName ? (
+                <Text style={styles.shareNote}>
+                  Your profile was shared with {j.partnerName} on {formatDate(myApp.sharedAt)}.
+                </Text>
+              ) : null}
+              {myApp && myApp.stage !== 'HIRED' && myApp.stage !== 'REJECTED' ? (
+                <Pressable onPress={withdraw} disabled={withdrawing} hitSlop={8} style={{ marginTop: 14, alignSelf: 'center' }}>
+                  <Text style={styles.withdraw}>
+                    {withdrawing ? 'Withdrawing…' : confirmWithdraw ? 'Tap again to withdraw your application' : 'Withdraw application'}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {withdrawNote ? <Text style={styles.shareNote}>{withdrawNote}</Text> : null}
             </View>
           </>
         )}
@@ -193,6 +265,12 @@ function Req({ label }: { label: string }) {
   );
 }
 
+/**
+ * Applying is applying AS YOURSELF: HR gets the Hiring profile (CV, work
+ * history, education, portfolio, verified work), not a form typed in a sheet.
+ * The server checks the same things again (routes/candidates.ts); this just
+ * shows what is missing and where to fix it.
+ */
 function ApplySheet({
   visible,
   job,
@@ -205,16 +283,24 @@ function ApplySheet({
   onApplied: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
-
-  const [name, setName] = useState(user?.name ?? '');
-  const [email, setEmail] = useState(user?.email ?? '');
-  const [phone, setPhone] = useState(user?.phone ?? '');
-  const [cvNote, setCvNote] = useState('');
+  const router = useRouter();
+  const profile = useAsync<TalentProfile | null>(
+    (signal) => (visible ? api.myProfile(signal) : Promise.resolve(null)),
+    [visible]
+  );
+  const p = profile.data;
+  const [coverNote, setCoverNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = name.trim().length >= 2 && /^\S+@\S+\.\S+$/.test(email.trim());
+  const missingCv = !!job.needsCv && !!p && !p.cv;
+  const missingPortfolio = !!job.needsPortfolio && !!p && p.portfolio.length === 0;
+  const coverShort = !!job.needsCover && coverNote.trim().length < 30;
+  // A partner job sends the profile to another company: the worker says yes
+  // here, in so many words, or doesn't apply (NDPR consent).
+  const [consent, setConsent] = useState(false);
+  const needsConsent = !!job.partnerName && !consent;
+  const canSubmit = !!p && !missingCv && !missingPortfolio && !coverShort && !needsConsent;
 
   async function submit() {
     setBusy(true);
@@ -222,18 +308,20 @@ function ApplySheet({
     try {
       await api.applyJob({
         jobId: job.id,
-        name: name.trim(),
-        email: email.trim(),
-        phone: phone.trim() || null,
-        cvNote: cvNote.trim() || undefined,
+        coverNote: coverNote.trim() || undefined,
+        consentToShare: job.partnerName ? consent : undefined,
       });
       onApplied();
     } catch (e) {
-      const msg = e instanceof ApiError || e instanceof Error ? e.message : 'Could not submit application.';
-      setError(msg);
+      setError(e instanceof ApiError || e instanceof Error ? e.message : 'Could not submit application.');
     } finally {
       setBusy(false);
     }
+  }
+
+  function fixProfile() {
+    onClose();
+    router.push('/profile/talent');
   }
 
   return (
@@ -244,64 +332,79 @@ function ApplySheet({
         <Text style={styles.sheetTitle} numberOfLines={2}>Apply: {job.title}</Text>
         <Text style={styles.sheetSub}>{TYPE_LABEL[job.employmentType]} · {job.department}</Text>
 
-        <ScrollView style={{ maxHeight: 360 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ maxHeight: 400 }} keyboardShouldPersistTaps="handled">
           <View style={styles.sheetFields}>
-            <SheetField label="Full name">
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Your full name"
-                placeholderTextColor={obColors.textMut}
-                style={styles.input}
-                autoCapitalize="words"
-              />
-            </SheetField>
-            <SheetField label="Email">
-              <TextInput
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="you@email.com"
-                placeholderTextColor={obColors.textMut}
-                style={styles.input}
-              />
-            </SheetField>
-            <SheetField label="Phone (optional)">
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholder="+234 800 000 0000"
-                placeholderTextColor={obColors.textMut}
-                style={styles.input}
-              />
-            </SheetField>
-            {(job.needsCv || job.needsCover) ? (
-              <SheetField label={job.needsCover ? 'Cover letter / pitch' : 'Notes / pitch'}>
-                <TextInput
-                  value={cvNote}
-                  onChangeText={setCvNote}
-                  multiline
-                  placeholder="Tell us why you're a great fit…"
-                  placeholderTextColor={obColors.textMut}
-                  style={styles.pitch}
-                  textAlignVertical="top"
+            {profile.loading && !p ? (
+              <AppLoadingCards count={1} />
+            ) : p ? (
+              <View style={{ gap: 6 }}>
+                <Text style={styles.fieldLabel}>You're applying with your Hiring profile</Text>
+                <Text style={{ color: obColors.navy, fontWeight: '700' }}>{p.name}</Text>
+                {p.headline ? <Text style={{ color: obColors.textMut }}>{p.headline}</Text> : null}
+                <ProfileLine ok={!!p.cv} label={p.cv ? 'CV attached' : job.needsCv ? 'CV needed for this job' : 'No CV yet'} />
+                <ProfileLine ok={p.experience.length > 0} label={`${p.experience.length} work history ${p.experience.length === 1 ? 'entry' : 'entries'}`} />
+                <ProfileLine
+                  ok={p.portfolio.length > 0}
+                  label={p.portfolio.length ? `${p.portfolio.length} portfolio item${p.portfolio.length === 1 ? '' : 's'}` : job.needsPortfolio ? 'Portfolio needed for this job' : 'No portfolio yet'}
                 />
-              </SheetField>
+                <ProfileLine ok label={`${p.workRecord.paidTasks} paid AfriZone task${p.workRecord.paidTasks === 1 ? '' : 's'}`} />
+                {(missingCv || missingPortfolio) ? (
+                  <View style={{ marginTop: 6 }}>
+                    <AppPrimaryButton label="Complete my Hiring profile" variant="outline" onPress={fixProfile} />
+                  </View>
+                ) : (
+                  <Pressable onPress={fixProfile} hitSlop={8}>
+                    <Text style={{ color: obColors.goldDeep, fontWeight: '700', marginTop: 4 }}>Review my profile first</Text>
+                  </Pressable>
+                )}
+              </View>
+            ) : profile.error ? (
+              <Banner tone="danger" title="Couldn't load your profile" message={profile.error} />
+            ) : null}
+
+            <SheetField label={job.needsCover ? 'Cover letter (required)' : 'Anything else HR should know? (optional)'}>
+              <TextInput
+                value={coverNote}
+                onChangeText={setCoverNote}
+                multiline
+                maxLength={4000}
+                placeholder={job.needsCover ? 'Why this role, and why you: a few sentences.' : 'Availability, notice period…'}
+                placeholderTextColor={obColors.textMut}
+                style={styles.pitch}
+                textAlignVertical="top"
+              />
+            </SheetField>
+
+            {job.partnerName ? (
+              <Pressable
+                onPress={() => setConsent((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: consent }}
+                style={styles.consentRow}
+              >
+                <Icon name={consent ? 'check-circle' : 'shield'} size={18} color={consent ? obColors.forest : obColors.textMut} />
+                <Text style={styles.consentText}>
+                  I agree that AfriZone may share my Hiring profile (CV, work history, education, portfolio and AfriZone
+                  work record) with {job.partnerName} for this job. I can withdraw my application at any time.
+                </Text>
+              </Pressable>
             ) : null}
           </View>
         </ScrollView>
 
         {error ? <Banner tone="danger" title="Couldn't apply" message={error} /> : null}
-        <AppPrimaryButton
-          label="Submit application"
-          onPress={submit}
-          loading={busy}
-          disabled={!canSubmit || busy}
-        />
+        <AppPrimaryButton label="Submit application" onPress={submit} loading={busy} disabled={!canSubmit || busy} />
       </View>
     </Modal>
+  );
+}
+
+function ProfileLine({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Icon name={ok ? 'check-circle' : 'alert'} size={14} color={ok ? obColors.forest : obColors.dangerInk} />
+      <Text style={{ color: obColors.text, fontSize: 13 }}>{label}</Text>
+    </View>
   );
 }
 
@@ -349,6 +452,19 @@ const styles = StyleSheet.create({
   },
   reqText: { color: obColors.forest, fontSize: 12.5, fontWeight: '700' },
   desc: { color: obColors.text, fontSize: 14, lineHeight: 22 },
+  partnerCard: {
+    marginTop: 14,
+    padding: 12,
+    borderRadius: obRadii.card,
+    backgroundColor: obColors.sand,
+  },
+  partnerLabel: { fontSize: 11, fontWeight: '700', color: obColors.textMut, textTransform: 'uppercase' },
+  partnerName: { fontSize: 15, fontWeight: '800', color: obColors.navy, marginTop: 2 },
+  partnerAbout: { fontSize: 12.5, color: obColors.text, marginTop: 6, lineHeight: 18 },
+  consentRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 4 },
+  consentText: { flex: 1, fontSize: 12.5, color: obColors.text, lineHeight: 18 },
+  shareNote: { fontSize: 12.5, color: obColors.textMut, marginTop: 10, textAlign: 'center' },
+  withdraw: { fontSize: 13, fontWeight: '700', color: obColors.dangerInk },
   // sheet
   backdrop: { flex: 1, backgroundColor: obColors.scrim },
   sheet: {
