@@ -69,10 +69,16 @@ beforeEach(async () => {
   await setEnforce(true);
 });
 
+// Every photo a different file, so the repeated-photo check (proofCheck.ts)
+// only fires in the tests that mean it to: bytes after IEND change the hash,
+// not the type.
+let photoNo = 0;
+const freshPng = () => Uint8Array.from([...PNG, ...new TextEncoder().encode(`#${++photoNo}`)]);
+
 async function sendPhoto(
   token: string,
   fields: { taskId: string; stage: string; at?: { lat: number; lng: number } | null; accuracy?: number; capturedAt?: Date | null },
-  bytes: Uint8Array = PNG
+  bytes: Uint8Array = freshPng()
 ) {
   const form = new FormData();
   form.set("taskId", fields.taskId);
@@ -306,7 +312,7 @@ describe("sending a photo", () => {
 describe("who may see a photo", () => {
   it("shows it to the worker who took it and to staff, and to nobody else", async () => {
     const { worker, task, admin } = await assignedTask({ kind: "STORE_AUDIT" });
-    const sent = await sendPhoto(worker.token, { taskId: task.id, stage: "AUDIT", at: SHOP });
+    const sent = await sendPhoto(worker.token, { taskId: task.id, stage: "AUDIT", at: SHOP }, PNG);
     const get = (token: string) =>
       SELF.fetch(`http://local.test${sent.body.url}`, { headers: { Authorization: `Bearer ${token}` } });
 

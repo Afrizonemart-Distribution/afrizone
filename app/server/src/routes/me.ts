@@ -73,6 +73,9 @@ function formatUser(user: any) {
     notifTasks: user.notifTasks,
     notifPay: user.notifPay,
     notifEmail: user.notifEmail,
+    jobAlertEmail: user.jobAlertEmail,
+    jobAlertSms: user.jobAlertSms,
+    jobAlertWhatsapp: user.jobAlertWhatsapp,
   };
 }
 
@@ -89,7 +92,20 @@ router.get("/", requireAuth, async (req: AuthedRequest, res: Response) => {
 // PATCH /api/me → update profile fields: name, email, tin, bank details.
 // Used after phone-OTP/Google signup and for profile edits in the mobile app.
 router.patch("/", requireAuth, async (req: AuthedRequest, res: Response) => {
-  const { name, email, tin, bankCode, bankAccountNumber, bankName, notifTasks, notifPay, notifEmail } = req.body || {};
+  const {
+    name,
+    email,
+    tin,
+    bankCode,
+    bankAccountNumber,
+    bankName,
+    notifTasks,
+    notifPay,
+    notifEmail,
+    jobAlertEmail,
+    jobAlertSms,
+    jobAlertWhatsapp,
+  } = req.body || {};
   const data: Record<string, unknown> = {};
 
   if (name !== undefined) {
@@ -133,6 +149,9 @@ router.patch("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   if (notifTasks !== undefined) data.notifTasks = Boolean(notifTasks);
   if (notifPay !== undefined) data.notifPay = Boolean(notifPay);
   if (notifEmail !== undefined) data.notifEmail = Boolean(notifEmail);
+  if (jobAlertEmail !== undefined) data.jobAlertEmail = Boolean(jobAlertEmail);
+  if (jobAlertSms !== undefined) data.jobAlertSms = Boolean(jobAlertSms);
+  if (jobAlertWhatsapp !== undefined) data.jobAlertWhatsapp = Boolean(jobAlertWhatsapp);
 
   if (Object.keys(data).length === 0) {
     return res.status(400).json({ error: "Nothing to update" });

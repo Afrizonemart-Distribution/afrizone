@@ -35,6 +35,8 @@ import type {
   PasswordForgotResponse,
   PasswordResetResponse,
   TalentProfile,
+  CvDraft,
+  CvImportResult,
   ProfileSection,
 
   NotificationPage,
@@ -51,6 +53,10 @@ import type {
   EvidenceStage,
   Signature,
   Presence,
+  Opportunity,
+  OpportunityFeed,
+  OpportunityType,
+  MyJobApplication,
 } from './types';
 
 export class ApiError extends Error {
@@ -201,6 +207,9 @@ export const api = {
     notifTasks?: boolean;
     notifPay?: boolean;
     notifEmail?: boolean;
+    jobAlertEmail?: boolean;
+    jobAlertSms?: boolean;
+    jobAlertWhatsapp?: boolean;
   }): Promise<User> {
     return request<User>('/me', { method: 'PATCH', body: input });
   },
@@ -267,6 +276,21 @@ export const api = {
     visibility: 'PRIVATE' | 'LINK';
   }>): Promise<TalentProfile> {
     return request<TalentProfile>('/me/profile', { method: 'PATCH', body: patch });
+  },
+
+  /** AI reads the uploaded CV and returns a draft to review. Saves nothing. */
+  readCv(): Promise<{ draft: CvDraft }> {
+    return request<{ draft: CvDraft }>('/me/profile/cv/read', { method: 'POST' });
+  },
+
+  /** Save the parts of the draft the worker kept. Bad entries are skipped and listed. */
+  importCv(body: {
+    headline?: string;
+    bio?: string;
+    experience?: CvDraft['experience'];
+    education?: CvDraft['education'];
+  }): Promise<CvImportResult> {
+    return request<CvImportResult>('/me/profile/cv/import', { method: 'POST', body });
   },
 
   addProfileEntry(section: ProfileSection, body: Record<string, unknown>): Promise<TalentProfile> {
@@ -398,14 +422,25 @@ export const api = {
   },
 
   /** POST /api/candidates: submit a job application. Returns the created candidate. */
-  applyJob(input: {
-    jobId: string;
-    name: string;
-    email: string;
-    phone?: string | null;
-    cvNote?: string;
-  }): Promise<JobCandidate> {
+  applyJob(input: { jobId: string; coverNote?: string; consentToShare?: boolean }): Promise<JobCandidate> {
+    // Who is applying comes from the session on the server, with their
+    // Hiring profile; nothing about identity is sent from here.
     return request<JobCandidate>('/candidates', { method: 'POST', body: input });
+  },
+
+  /** GET /api/opportunities: tasks, hourly work and jobs in one list. */
+  opportunities(type: OpportunityType = 'ALL', signal?: AbortSignal): Promise<OpportunityFeed> {
+    return request<OpportunityFeed>(`/opportunities?type=${type}`, { signal });
+  },
+
+  /** GET /api/opportunities/my-jobs: where each of my job applications stands. */
+  myJobApplications(signal?: AbortSignal): Promise<MyJobApplication[]> {
+    return request<MyJobApplication[]>('/opportunities/my-jobs', { signal });
+  },
+
+  /** Take back a job application (and consent to share) before being hired. */
+  withdrawJobApplication(id: string): Promise<{ ok: true; alreadyShared: boolean; message: string }> {
+    return request(`/opportunities/my-jobs/${id}/withdraw`, { method: 'POST' });
   },
 
   /* ---------------------------------------------------------------- *

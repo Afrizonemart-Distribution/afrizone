@@ -87,7 +87,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
       <Tabs.Screen name="tasks" options={{ title: 'My Tasks', tabBarIcon: tabIcon('list') }} />
       <Tabs.Screen name="wallet" options={{ title: 'Wallet', tabBarIcon: tabIcon('wallet') }} />
-      <Tabs.Screen name="jobs" options={{ title: 'Jobs', tabBarIcon: tabIcon('briefcase'), href: isStore ? null : undefined }} />
+      <Tabs.Screen name="jobs" options={{ title: 'Find work', tabBarIcon: tabIcon('briefcase'), href: isStore ? null : undefined }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: tabIcon('user') }} />
     </Tabs>
   );

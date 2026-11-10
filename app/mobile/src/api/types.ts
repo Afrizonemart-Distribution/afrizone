@@ -60,6 +60,10 @@ export interface User {
   notifTasks?: boolean;
   notifPay?: boolean;
   notifEmail?: boolean;
+  /** Job alerts by channel (app notifications always come). */
+  jobAlertEmail?: boolean;
+  jobAlertSms?: boolean;
+  jobAlertWhatsapp?: boolean;
   createdAt?: string;
 }
 
@@ -285,9 +289,80 @@ export interface Job {
   closingDate?: string | null;
   status: JobStatus;
   candidateCount?: number;
+  /** The partner company AfriZone is hiring for; null = AfriZone itself. */
+  partnerName?: string | null;
+  partnerAbout?: string | null;
 }
 
 export type Stage = 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED';
+
+/** POST /api/me/profile/cv/read: what the AI read from the CV. Nothing is saved yet. */
+export interface CvDraft {
+  headline: string;
+  bio: string;
+  experience: { title: string; company: string; location: string; startDate: string; endDate: string; description: string }[];
+  education: { institution: string; qualification: string; field: string; startYear: number | null; endYear: number | null }[];
+  skills: string[];
+}
+
+export interface CvImportResult {
+  added: { experience: number; education: number };
+  skipped: { section: string; index: number; error: string }[];
+  profile: TalentProfile;
+}
+
+export type OpportunityType = 'ALL' | 'TASKS' | 'HOURLY' | 'JOBS';
+
+/** One row of GET /api/opportunities: a task or a job, in one shape. */
+export interface Opportunity {
+  kind: 'TASK' | 'JOB';
+  type: 'TASKS' | 'HOURLY' | 'JOBS';
+  id: string;
+  title: string;
+  subtitle: string;
+  payModel?: PayModel;
+  rate?: number | null;
+  budget?: number | null;
+  unitLabel?: string | null;
+  employmentType?: EmploymentType;
+  salaryMin?: number | null;
+  salaryMax?: number | null;
+  remote: boolean;
+  location?: string | null;
+  closesAt?: string | null;
+  createdAt: string;
+  applied: boolean;
+  /** Jobs only: where my application stands. */
+  stage: Stage | null;
+  /** Matches what I said I'm open to on my Hiring profile. */
+  forYou: boolean;
+  /** Jobs AfriZone is hiring for on behalf of a partner company. */
+  partnerName?: string | null;
+}
+
+export interface OpportunityFeed {
+  openTo: string[];
+  items: Opportunity[];
+}
+
+export interface MyJobApplication {
+  id: string;
+  jobId: string;
+  stage: Stage;
+  createdAt: string;
+  updatedAt: string;
+  /** Partner jobs: when I agreed to share my profile, and when HR sent it. */
+  shareConsentAt?: string | null;
+  sharedAt?: string | null;
+  job: {
+    id: string;
+    title: string;
+    department: string;
+    employmentType: EmploymentType;
+    status: JobStatus;
+    partnerName?: string | null;
+  };
+}
 
 export interface JobCandidate {
   id: string;

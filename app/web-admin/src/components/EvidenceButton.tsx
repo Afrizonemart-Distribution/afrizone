@@ -237,10 +237,15 @@ function Photo({ e }: { e: EvidenceItem }) {
           {e.distance ? ` · ${e.distance} from site` : ''}
         </div>
         {e.flags.map((f) => (
-          <div key={f} style={{ color: 'var(--gold-ink, #8a5a00)', fontWeight: 700 }}>
+          <div key={f} style={{ color: 'var(--gold-ink, #8a5a00)', fontWeight: f.startsWith('AI:') ? 600 : 700 }}>
             {f}
           </div>
         ))}
+        {e.ai === 'OK' && (
+          <div style={{ color: 'var(--muted)' }} title="An AI suggestion. You decide.">
+            AI: nothing to point out
+          </div>
+        )}
         {e.lat != null && e.lng != null && (
           <a
             href={`https://www.google.com/maps?q=${e.lat},${e.lng}`}
