@@ -610,6 +610,15 @@ Off until the `ANTHROPIC_API_KEY` secret is set; until then these answer `503 AI
 
 `POST /api/jobs/:id/shortlist { rescore?: boolean }` (SUPER_ADMIN, HR_ADMIN): scores up to 45 unscored app applicants per call against the job, from their Hiring profile and cover letter, sent **without name, email or phone** under an opaque reference. Stores `aiScore` (0-100), `aiNotes` and `aiScoredAt` on each application; returns `{ scored, remaining, error }` (press again while `remaining > 0`). `rescore` clears earlier scores first. Hand-entered candidates are not scored. A suggestion only: nobody is moved, hidden or rejected by it. `GET /api/candidates` adds `ai: { score, summary, strengths[], gaps[], scoredAt } | null`.
 
+## Checks on proof photos
+
+Two more checks on proof-of-work photos, beside the location and time checks. Same rule: they add sentences to a photo's `flags` for the reviewer and never refuse a hand-in. Code: `services/proofCheck.ts`.
+
+- **Repeated photo**, on upload: the SHA-256 of the bytes is kept, and a file sent before adds `"Same photo as one another worker sent"`, `"... already sent for another job"` or `"... already sent for this job"`.
+- **AI look**, from the per-minute cron, five photos a run: finished-work (`WORK`) and store-audit (`AUDIT`) photos from the last 48 hours are checked against the task's title, description and acceptance checks. Concerns are added to `flags`, each starting `"AI: "`. Door, pickup and clock photos are never sent. Each photo is looked at once, even if the call fails. Off without `ANTHROPIC_API_KEY`; switch off with the setting `ai.proofCheck` = `off`.
+
+Photo objects (`POST /api/me/evidence`, `GET /api/me/evidence`, `GET /api/admin/evidence`) gain `ai: "OK" | "DOUBT" | null`: null until the AI has looked, or when it was skipped or failed.
+
 ## Partner hiring and job alerts
 
 AfriZone posts jobs on behalf of partner companies; partners never log in. `Job.partnerName` (null = AfriZone itself) and `Job.partnerAbout` are set on `POST /api/jobs` and `PATCH /api/jobs/:id` by HR. The feed (`GET /api/opportunities`) carries `partnerName` on job items, and their `subtitle` reads "Partner · Department".

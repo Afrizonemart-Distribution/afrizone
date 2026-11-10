@@ -1217,8 +1217,15 @@ model Evidence {
   /// end has no position.
   distanceMetres Float?
   /// JSON array of sentences, one per check that failed. Null or "[]" means
-  /// every check passed.
+  /// every check passed. AI flags (services/proofCheck.ts) start "AI:".
   flags          String?
+
+  /// SHA-256 of the bytes: the same file sent again is flagged.
+  sha256      String?
+  /// The AI look at WORK and AUDIT photos: OK | DOUBT | FAILED | SKIPPED,
+  /// CHECKING while a call is out. Null: not looked at (yet).
+  aiVerdict   String?
+  aiCheckedAt DateTime?
 
   /// The clock event this photo was taken for, once used. Unique, so one photo
   /// cannot clock somebody in twice.
@@ -1234,6 +1241,9 @@ model Evidence {
   @@index([taskId, workerId, stage])
   /// The upload quota counts on this.
   @@index([workerId, createdAt])
+  @@index([sha256])
+  /// The cron's "not looked at yet" sweep.
+  @@index([aiCheckedAt, createdAt])
 }
 
 /// A signature taken on the Tasker's phone at a handover (services/evidence.ts):
