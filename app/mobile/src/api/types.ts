@@ -296,6 +296,21 @@ export interface Job {
 
 export type Stage = 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED';
 
+/** POST /api/me/profile/cv/read: what the AI read from the CV. Nothing is saved yet. */
+export interface CvDraft {
+  headline: string;
+  bio: string;
+  experience: { title: string; company: string; location: string; startDate: string; endDate: string; description: string }[];
+  education: { institution: string; qualification: string; field: string; startYear: number | null; endYear: number | null }[];
+  skills: string[];
+}
+
+export interface CvImportResult {
+  added: { experience: number; education: number };
+  skipped: { section: string; index: number; error: string }[];
+  profile: TalentProfile;
+}
+
 export type OpportunityType = 'ALL' | 'TASKS' | 'HOURLY' | 'JOBS';
 
 /** One row of GET /api/opportunities: a task or a job, in one shape. */

@@ -600,6 +600,16 @@ Some facts should belong to one person only: the payout bank account, a governme
 - `GET /api/candidates` now includes `userId`, `coverNote` and `profile {headline, hasCv, kycStatus}`. HR opens the full Hiring profile from `userId`.
 - Moving a linked candidate to INTERVIEW, OFFER, HIRED or REJECTED sends the worker a notification (`screen: "job"`).
 
+## AI hiring helpers (Claude)
+
+Off until the `ANTHROPIC_API_KEY` secret is set; until then these answer `503 AI_OFF`. Model `claude-opus-5-5` (override with the `AI_MODEL` var), structured outputs, server-side refusal fallbacks (`fallbacks: "default"`). Code: `services/ai.ts`.
+
+`POST /api/me/profile/cv/read` (worker): reads the CV on their Hiring profile (PDF, JPEG, PNG or WebP; `400 NO_CV`, `415 CV_TYPE`, `413 CV_TOO_LARGE` over 10 MB) and returns `{ draft: { headline, bio, experience[], education[], skills[] } }`. **Saves nothing.** Five reads per worker per 24 h (`429 CV_READ_LIMIT`); each is audited as `cv.read`. `502 AI_FAILED` when the AI declines or can't be reached.
+
+`POST /api/me/profile/cv/import { headline?, bio?, experience?: [...], education?: [...] }` (worker): saves what they kept, each entry through the same checks as adding it by hand. Returns `{ added: { experience, education }, skipped: [{ section, index, error }], profile }`. Audited as `cv.import`.
+
+`POST /api/jobs/:id/shortlist { rescore?: boolean }` (SUPER_ADMIN, HR_ADMIN): scores up to 45 unscored app applicants per call against the job, from their Hiring profile and cover letter, sent **without name, email or phone** under an opaque reference. Stores `aiScore` (0-100), `aiNotes` and `aiScoredAt` on each application; returns `{ scored, remaining, error }` (press again while `remaining > 0`). `rescore` clears earlier scores first. Hand-entered candidates are not scored. A suggestion only: nobody is moved, hidden or rejected by it. `GET /api/candidates` adds `ai: { score, summary, strengths[], gaps[], scoredAt } | null`.
+
 ## Partner hiring and job alerts
 
 AfriZone posts jobs on behalf of partner companies; partners never log in. `Job.partnerName` (null = AfriZone itself) and `Job.partnerAbout` are set on `POST /api/jobs` and `PATCH /api/jobs/:id` by HR. The feed (`GET /api/opportunities`) carries `partnerName` on job items, and their `subtitle` reads "Partner · Department".

@@ -607,6 +607,8 @@ export interface Candidate {
   /** Partner jobs: when they agreed to share their profile, and when HR did. */
   shareConsentAt?: string | null
   sharedAt?: string | null
+  /** AI shortlisting: a suggested fit with reasons. HR still decides. */
+  ai?: { score: number; summary: string; strengths: string[]; gaps: string[]; scoredAt: string } | null
   job?: JobSummary & { partnerName?: string | null }
 }
 

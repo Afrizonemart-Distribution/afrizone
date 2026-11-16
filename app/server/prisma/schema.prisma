@@ -426,6 +426,11 @@ model JobApplication {
   /// When HR sent the profile to the partner, and who did.
   sharedAt       DateTime?
   sharedById     String?
+  /// AI shortlisting (services/ai.ts): a suggested 0-100 fit and the reasons
+  /// (JSON {summary, strengths, gaps}). Orders the board; decides nothing.
+  aiScore        Int?
+  aiNotes        String?
+  aiScoredAt     DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

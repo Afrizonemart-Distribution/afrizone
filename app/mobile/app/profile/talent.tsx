@@ -12,7 +12,7 @@
  * Every write returns the whole updated profile, so the screen just replaces
  * what it holds - no partial merges to get wrong.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import {
@@ -103,6 +103,10 @@ export default function TalentProfileScreen() {
   useEffect(() => {
     if (loaded.data) setProfile(loaded.data);
   }, [loaded.data]);
+
+  // Coming back from the CV review screen: show what was added.
+  const reload = loaded.reload;
+  useFocusEffect(useCallback(() => reload(), [reload]));
 
   async function run(fn: () => Promise<TalentProfile>) {
     setError(null);
@@ -231,6 +235,15 @@ export default function TalentProfileScreen() {
                   loading={cvBusy}
                   disabled={cvBusy}
                 />
+                {profile.cv ? (
+                  <AppPrimaryButton
+                    label="Fill in my profile from this CV"
+                    icon="edit"
+                    variant="outline"
+                    onPress={() => router.push('/profile/cv-review')}
+                    disabled={cvBusy}
+                  />
+                ) : null}
               </View>
             </View>
 

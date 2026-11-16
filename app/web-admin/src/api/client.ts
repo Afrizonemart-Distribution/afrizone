@@ -391,6 +391,12 @@ export const api = {
   moveCandidate: (id: string, stage: Stage) =>
     request<Candidate>(`/candidates/${id}/move`, { method: 'POST', body: { stage } }),
   /** Record that a consenting applicant's profile went to the partner company. */
+  /** AI reads this job's app applicants and suggests a score with reasons. */
+  shortlistJob: (id: string, rescore = false) =>
+    request<{ scored: number; remaining: number; error?: string | null }>(`/jobs/${id}/shortlist`, {
+      method: 'POST',
+      body: { rescore },
+    }),
   shareCandidate: (id: string) =>
     request<Candidate>(`/candidates/${id}/share`, { method: 'POST' }),
   jobAlerts: (id: string, audience: AlertAudience, signal?: AbortSignal) =>

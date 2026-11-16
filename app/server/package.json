@@ -22,6 +22,7 @@
     "iconv-lite": "^0.7.3"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@prisma/adapter-d1": "^5.22.0",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
@@ -34,7 +35,8 @@
     "jsonwebtoken": "^9.0.2",
     "otplib": "^12.0.1",
     "qrcode": "^1.5.4",
-    "smile-identity-core": "^3.2.1"
+    "smile-identity-core": "^3.2.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.21.2",
