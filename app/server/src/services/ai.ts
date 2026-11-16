@@ -279,3 +279,86 @@ export function checkScores(
   }
   return out;
 }
+
+/* ── Proof-of-work photos ─────────────────────────────────────────────── */
+
+/**
+ * A look at one photo of finished work (or a store audit) against what the
+ * task asked for. Like the location and time checks in services/evidence.ts,
+ * the answer only ever FLAGS a photo for the reviewer: it never refuses a
+ * hand-in, holds a payment or marks a worker down.
+ */
+const ProofSchema = z.object({
+  shows_the_work: z
+    .enum(["yes", "unclear", "no"])
+    .describe("Does this photo plausibly show the work the task describes, done?"),
+  concerns: z
+    .array(z.string())
+    .describe("Up to 3 short sentences a reviewer should check. Empty when there is nothing to point out."),
+});
+export type ProofAnswer = z.infer<typeof ProofSchema>;
+
+const PROOF_SYSTEM = `You help a reviewer at AfriZone, a Nigerian work platform, check photos workers send as proof that a task was done.
+You see one photo and the task it was sent for. Say whether it plausibly shows that work, and list anything the reviewer should look at closely, for example:
+- it is a photo of a screen, a printout or another photo, or looks like a downloaded or stock image;
+- it is too dark, blurred or cropped to show the work;
+- it shows something unrelated to the task, or only part of what was asked;
+- visible edits, watermarks or dates that don't fit.
+Describe only the photo and the work. Never comment on a person's appearance, and don't guess who anyone is.
+Be fair: ordinary phone photos of real work in Nigerian shops, markets, streets and offices are normal. Only raise a concern you can point to in the photo.
+Write each concern as one plain sentence a reviewer can check, without hedging words like "possibly".`;
+
+export interface ProofTaskFacts {
+  title: string;
+  description: string;
+  criteria: string[];
+  stageLabel: string;
+}
+
+/** The task as the model reads it; no names, places or people. */
+export function proofBrief(t: ProofTaskFacts): string {
+  const lines = [
+    `Task: ${t.title.slice(0, 200)}`,
+    `What it involves: ${t.description.slice(0, 1500)}`,
+    `This photo is for: ${t.stageLabel}`,
+  ];
+  if (t.criteria.length) lines.push(`Done means:\n${t.criteria.map((c) => `- ${c}`).join("\n")}`);
+  return lines.join("\n");
+}
+
+export const PROOF_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+export async function lookAtProofPhoto(
+  task: ProofTaskFacts,
+  bytes: Uint8Array,
+  mimeType: (typeof PROOF_IMAGE_TYPES)[number]
+): Promise<ProofAnswer> {
+  const data = Buffer.from(bytes).toString("base64");
+  return structured(
+    ProofSchema,
+    PROOF_SYSTEM,
+    [
+      { type: "image", source: { type: "base64", media_type: mimeType, data } },
+      { type: "text", text: `${proofBrief(task)}\n\nCheck this photo.` },
+    ],
+    "low"
+  );
+}
+
+/**
+ * The flag sentences for a reviewer, and the verdict stored with the photo.
+ * Each starts "AI:" so nobody mistakes a suggestion for a measured check.
+ */
+export function proofFlags(a: ProofAnswer): { verdict: "OK" | "DOUBT"; flags: string[] } {
+  const concerns = (a.concerns ?? [])
+    .map((s) => String(s).trim().replace(/\s+/g, " ").slice(0, 200))
+    .filter(Boolean)
+    .slice(0, 3);
+  if (a.shows_the_work === "no" && concerns.length === 0) {
+    concerns.push("The photo doesn't seem to show this work");
+  } else if (a.shows_the_work === "unclear" && concerns.length === 0) {
+    concerns.push("Hard to tell from the photo whether the work was done");
+  }
+  const flags = concerns.map((c) => `AI: ${c}`);
+  return { verdict: flags.length ? "DOUBT" : "OK", flags };
+}

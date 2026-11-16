@@ -433,6 +433,7 @@ export function evidenceView(e: {
   distanceMetres: number | null;
   flags: string | null;
   createdAt: Date;
+  aiVerdict?: string | null;
 }) {
   const flags = parseFlags(e.flags);
   return {
@@ -451,5 +452,7 @@ export function evidenceView(e: {
     distance: e.distanceMetres != null ? formatDistance(e.distanceMetres) : null,
     flags,
     flagged: flags.length > 0,
+    /** The AI look (services/proofCheck.ts): OK or DOUBT once done, else null. */
+    ai: e.aiVerdict === "OK" || e.aiVerdict === "DOUBT" ? e.aiVerdict : null,
   };
 }

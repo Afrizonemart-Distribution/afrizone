@@ -860,9 +860,11 @@ export interface EvidenceItem {
   receivedAt: string
   distanceMetres: number | null
   distance: string | null
-  /** The server's sentences, one per failed check. */
+  /** The server's sentences, one per failed check. AI suggestions start "AI:". */
   flags: string[]
   flagged: boolean
+  /** The AI look at work and audit photos, once it has run: a suggestion, not a check. */
+  ai?: 'OK' | 'DOUBT' | null
 }
 
 /** A signature taken at a handover, drawn from its SVG path data. */

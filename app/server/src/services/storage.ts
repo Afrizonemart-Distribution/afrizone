@@ -63,6 +63,13 @@ export async function getEvidenceStream(
   return { body: obj.body, contentType: obj.httpMetadata?.contentType };
 }
 
+/** The whole photo, for the AI check (services/proofCheck.ts). */
+export async function getEvidenceBytes(key: string): Promise<{ bytes: Uint8Array; contentType: string | undefined } | null> {
+  const obj = await env.BUCKET.get(`${EVIDENCE_PREFIX}${key}`);
+  if (!obj) return null;
+  return { bytes: new Uint8Array(await obj.arrayBuffer()), contentType: obj.httpMetadata?.contentType };
+}
+
 export async function deleteEvidence(keys: string[]): Promise<void> {
   if (keys.length === 0) return;
   await env.BUCKET.delete(keys.map((k) => `${EVIDENCE_PREFIX}${k}`));

@@ -31,6 +31,7 @@ import {
   validSignaturePath,
   type EvidenceStage,
 } from "../services/evidence";
+import { findRepeat, sha256Hex } from "../services/proofCheck";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 // A busy courier on a long shift takes two photos an order; an auditor three a
@@ -136,6 +137,11 @@ export async function handleEvidenceUpload(request: Request): Promise<Response> 
   const site = await siteFor(task, stage as EvidenceStage);
   const { flags, distanceMetres } = checkEvidence(input, site, receivedAt);
 
+  // The same file sent before is flagged, never refused (services/proofCheck.ts).
+  const sha256 = await sha256Hex(bytes);
+  const repeat = await findRepeat(prisma as any, sha256, { taskId: task.id, workerId });
+  if (repeat) flags.push(repeat);
+
   // Server-chosen key; nothing the client sent reaches the storage path.
   const objectKey = `${task.id}/${workerId}/${crypto.randomUUID()}${sniffed.ext}`;
   await putEvidence(objectKey, bytes.buffer as ArrayBuffer, sniffed.mime);
@@ -154,6 +160,7 @@ export async function handleEvidenceUpload(request: Request): Promise<Response> 
       capturedAt,
       distanceMetres,
       flags: JSON.stringify(flags),
+      sha256,
     },
   });
 

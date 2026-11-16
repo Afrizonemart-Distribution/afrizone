@@ -40,6 +40,7 @@ import fundingRouter from "./routes/funding";
 import { purgeCustomerData } from "./services/deliveryPurge";
 import { advanceRankedOffers } from "./services/ranking";
 import { sendDueJobAlerts } from "./services/jobAlerts";
+import { checkDueProofPhotos } from "./services/proofCheck";
 import { prisma as cronPrisma } from "./prisma";
 import presenceRouter from "./routes/presence";
 import evidenceRouter, {
@@ -377,6 +378,16 @@ export default {
             }
           })
           .catch((e) => console.error(`[job-alerts] FAILED: ${e instanceof Error ? e.message : String(e)}`))
+      );
+      // The AI looks at new proof photos, a few a minute (services/proofCheck.ts).
+      ctx.waitUntil(
+        checkDueProofPhotos(cronPrisma as any)
+          .then((t) => {
+            if (t.ok || t.doubt || t.failed || t.skipped) {
+              console.log(`[proof-check] ok ${t.ok}, doubt ${t.doubt}, failed ${t.failed}, skipped ${t.skipped}`);
+            }
+          })
+          .catch((e) => console.error(`[proof-check] FAILED: ${e instanceof Error ? e.message : String(e)}`))
       );
       return;
     }
