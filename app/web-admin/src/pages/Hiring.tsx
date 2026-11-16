@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
+import TalentProfileModal from '../components/TalentProfileModal'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import { avatarGradient, formatDate, formatNairaCompact, initials } from '../lib/format'
@@ -68,11 +69,13 @@ function CandidateCard({
   c,
   busy,
   onMove,
+  onProfile,
   delay,
 }: {
   c: Candidate
   busy: boolean
   onMove: (c: Candidate, stage: Stage) => void
+  onProfile: (userId: string) => void
   delay: string
 }) {
   const others = STAGES.filter((s) => s !== c.stage)
@@ -89,14 +92,25 @@ function CandidateCard({
         </Avatar>
         <div className="kc-id">
           <b>{c.name}</b>
-          <span>{c.email}</span>
+          <span>{c.profile?.headline || c.email}</span>
         </div>
       </div>
+      {c.userId && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '6px 0' }}>
+          <Button variant="glass" size="sm" icon="users" onClick={() => onProfile(c.userId!)}>
+            Hiring profile
+          </Button>
+          <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+            {c.profile?.hasCv ? 'CV attached' : 'No CV'} · applied in the app
+          </span>
+        </div>
+      )}
       {c.job?.title && (
         <div className="kc-job">
           <Icon name="briefcase" /> {c.job.title}
         </div>
       )}
+      {c.coverNote && <p className="kc-note">{c.coverNote}</p>}
       {c.cvNote && <p className="kc-note">{c.cvNote}</p>}
       <div className="kc-foot">
         {next ? (
@@ -378,6 +392,7 @@ export default function Hiring() {
   const [modalOpen, setModalOpen] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [profileId, setProfileId] = useState<string | null>(null)
 
   const jobs = useMemo(() => jobsApi.data ?? [], [jobsApi.data])
   const candidates = useMemo(() => candApi.data ?? [], [candApi.data])
@@ -509,6 +524,7 @@ export default function Hiring() {
                       c={c}
                       busy={busy === c.id}
                       onMove={move}
+                      onProfile={setProfileId}
                       delay={`d${(ci % 5) + 1}`}
                     />
                   ))
@@ -518,6 +534,8 @@ export default function Hiring() {
           ))}
         </div>
       )}
+
+      {profileId && <TalentProfileModal workerId={profileId} onClose={() => setProfileId(null)} />}
 
       <NewJobModal
         open={modalOpen}

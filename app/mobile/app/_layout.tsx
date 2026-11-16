@@ -71,6 +71,9 @@ function NotificationHandler() {
           case 'task':
             if (id) router.push(`/task/${id}`);
             break;
+          case 'job':
+            if (id) router.push(`/job/${id}`);
+            break;
           case 'kyc':
             router.push('/(auth)/kyc');
             break;
