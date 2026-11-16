@@ -67,6 +67,9 @@ export default function ProfileScreen() {
   const [notifTasks, setNotifTasks] = useState<boolean | null>(null);
   const [notifPay, setNotifPay] = useState<boolean | null>(null);
   const [notifEmail, setNotifEmail] = useState<boolean | null>(null);
+  const [alertEmail, setAlertEmail] = useState<boolean | null>(null);
+  const [alertSms, setAlertSms] = useState<boolean | null>(null);
+  const [alertWhatsapp, setAlertWhatsapp] = useState<boolean | null>(null);
   const [notifSaveError, setNotifSaveError] = useState<string | null>(null);
 
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -85,9 +88,19 @@ export default function ProfileScreen() {
     if (notifTasks === null) setNotifTasks(user.notifTasks ?? true);
     if (notifPay === null) setNotifPay(user.notifPay ?? true);
     if (notifEmail === null) setNotifEmail(user.notifEmail ?? false);
+    if (alertEmail === null) setAlertEmail(user.jobAlertEmail ?? true);
+    if (alertSms === null) setAlertSms(user.jobAlertSms ?? false);
+    if (alertWhatsapp === null) setAlertWhatsapp(user.jobAlertWhatsapp ?? false);
   }, [user]);
 
-  async function saveNotif(patch: { notifTasks?: boolean; notifPay?: boolean; notifEmail?: boolean }) {
+  async function saveNotif(patch: {
+    notifTasks?: boolean;
+    notifPay?: boolean;
+    notifEmail?: boolean;
+    jobAlertEmail?: boolean;
+    jobAlertSms?: boolean;
+    jobAlertWhatsapp?: boolean;
+  }) {
     setNotifSaveError(null);
     try {
       await api.patchMe(patch);
@@ -254,6 +267,15 @@ export default function ProfileScreen() {
           <NotifRow icon="mail" label="Email summaries" value={notifEmail ?? false} onChange={(v) => { setNotifEmail(v); void saveNotif({ notifEmail: v }); }} last />
         </AppListCard>
         {notifSaveError ? <Text style={styles.notifError}>{notifSaveError}</Text> : null}
+
+        {/* New jobs come to the app either way; these add other channels. */}
+        <View style={{ height: 20 }} />
+        <AppSectionTitle title="Job alerts" />
+        <AppListCard>
+          <NotifRow icon="mail" label="By email" value={alertEmail ?? true} onChange={(v) => { setAlertEmail(v); void saveNotif({ jobAlertEmail: v }); }} />
+          <NotifRow icon="phone" label="By SMS" value={alertSms ?? false} onChange={(v) => { setAlertSms(v); void saveNotif({ jobAlertSms: v }); }} />
+          <NotifRow icon="phone" label="By WhatsApp" value={alertWhatsapp ?? false} onChange={(v) => { setAlertWhatsapp(v); void saveNotif({ jobAlertWhatsapp: v }); }} last />
+        </AppListCard>
 
         <View style={{ height: 20 }} />
         <AppSectionTitle title="Support" />

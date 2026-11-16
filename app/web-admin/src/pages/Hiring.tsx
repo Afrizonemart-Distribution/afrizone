@@ -1,12 +1,15 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import TalentProfileModal from '../components/TalentProfileModal'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import { avatarGradient, formatDate, formatNairaCompact, initials } from '../lib/format'
 import type {
+  AlertAudience,
+  AlertChannel,
   Candidate,
   EmploymentType,
   Job,
+  JobAlertInfo,
   Stage,
 } from '../api/types'
 import PageHeader from '../components/PageHeader'
@@ -70,14 +73,17 @@ function CandidateCard({
   busy,
   onMove,
   onProfile,
+  onShare,
   delay,
 }: {
   c: Candidate
   busy: boolean
   onMove: (c: Candidate, stage: Stage) => void
   onProfile: (userId: string) => void
+  onShare: (c: Candidate) => void
   delay: string
 }) {
+  const partner = c.job?.partnerName
   const others = STAGES.filter((s) => s !== c.stage)
   const idx = STAGES.indexOf(c.stage)
   const next = idx >= 0 && idx < 3 ? STAGES[idx + 1] : null // SCREENING→INTERVIEW→OFFER→HIRED
@@ -108,6 +114,23 @@ function CandidateCard({
       {c.job?.title && (
         <div className="kc-job">
           <Icon name="briefcase" /> {c.job.title}
+        </div>
+      )}
+      {partner && (
+        // Partner jobs: the profile goes to the partner only with the
+        // applicant's consent (NDPR), and every share is recorded.
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '6px 0', fontSize: 11 }}>
+          {c.sharedAt ? (
+            <span style={{ color: 'var(--money)' }}>
+              <Icon name="check" size={12} /> Shared with {partner} {formatDate(c.sharedAt)}
+            </span>
+          ) : c.shareConsentAt ? (
+            <Button variant="glass" size="sm" icon="send" loading={busy} onClick={() => onShare(c)}>
+              Mark shared with {partner}
+            </Button>
+          ) : (
+            <span style={{ color: 'var(--muted)' }}>No consent to share with {partner}</span>
+          )}
         </div>
       )}
       {c.coverNote && <p className="kc-note">{c.coverNote}</p>}
@@ -171,6 +194,8 @@ interface JobFormState {
   needsCover: boolean
   needsPortfolio: boolean
   closingDate: string
+  partnerName: string
+  partnerAbout: string
 }
 
 const EMPTY_JOB: JobFormState = {
@@ -185,6 +210,8 @@ const EMPTY_JOB: JobFormState = {
   needsCover: false,
   needsPortfolio: false,
   closingDate: '',
+  partnerName: '',
+  partnerAbout: '',
 }
 
 function NewJobModal({
@@ -220,6 +247,8 @@ function NewJobModal({
       needsCover: form.needsCover,
       needsPortfolio: form.needsPortfolio,
       closingDate: form.closingDate || new Date().toISOString(),
+      partnerName: form.partnerName.trim() || null,
+      partnerAbout: form.partnerAbout.trim() || null,
     }
     try {
       const created = await api.createJob(body)
@@ -248,6 +277,31 @@ function NewJobModal({
               required
             />
           </div>
+          <div className="field">
+            <Label htmlFor="j-partner">Hiring for</Label>
+            <Input
+              id="j-partner"
+              value={form.partnerName}
+              onChange={(e) => set('partnerName', e.target.value)}
+              placeholder="Leave blank for AfriZone"
+            />
+          </div>
+          <div className="field">
+            <Label htmlFor="j-partner-about">About the company</Label>
+            <Input
+              id="j-partner-about"
+              value={form.partnerAbout}
+              onChange={(e) => set('partnerAbout', e.target.value)}
+              placeholder="Shown to applicants (optional)"
+              disabled={!form.partnerName.trim()}
+            />
+          </div>
+          {form.partnerName.trim() && (
+            <p className="span2" style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+              Applicants must agree to their Hiring profile being shared with {form.partnerName.trim()} before they can
+              apply. You then mark each profile as shared when you send it.
+            </p>
+          )}
           <div className="field">
             <Label htmlFor="j-dept">Department</Label>
             <Input
@@ -381,6 +435,134 @@ function NewJobModal({
   )
 }
 
+const CHANNEL_LABELS: Record<AlertChannel, string> = {
+  PUSH: 'App notification',
+  EMAIL: 'Email',
+  SMS: 'SMS',
+  WHATSAPP: 'WhatsApp',
+}
+
+/**
+ * Send a job out to workers. Shows who it would reach before anything is sent;
+ * the server queues it and the per-minute cron sends a batch at a time, so the
+ * "sent so far" figures fill in over the next few minutes. Pressing it again
+ * only reaches people who haven't had it.
+ */
+function JobAlertModal({
+  job,
+  onClose,
+  onSent,
+}: {
+  job: Job
+  onClose: () => void
+  onSent: (alertedAt: string) => void
+}) {
+  const [audience, setAudience] = useState<AlertAudience>(job.employmentType === 'FULL_TIME' ? 'EVERYONE' : 'MATCHING')
+  const [info, setInfo] = useState<JobAlertInfo | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  useEffect(() => {
+    const ctl = new AbortController()
+    setInfo(null)
+    api
+      .jobAlerts(job.id, audience, ctl.signal)
+      .then(setInfo)
+      .catch((e) => {
+        if (!ctl.signal.aborted) setError(e instanceof ApiError ? e.message : 'Could not load')
+      })
+    return () => ctl.abort()
+  }, [job.id, audience, result])
+
+  async function send() {
+    setSending(true)
+    setError(null)
+    try {
+      const r = await api.sendJobAlerts(job.id, audience)
+      setResult(
+        r.queued === 0
+          ? 'Everyone in this group has already had this alert.'
+          : `Queued ${r.queued} message${r.queued === 1 ? '' : 's'} to ${r.people} people. They go out over the next few minutes.`,
+      )
+      onSent(new Date().toISOString())
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not send')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const channels = Object.keys(CHANNEL_LABELS) as AlertChannel[]
+  return (
+    <Modal open title="Send job alert" subtitle={job.title} onClose={onClose}>
+      <div className="field">
+        <Label htmlFor="alert-aud">Who hears about it</Label>
+        <Select
+          id="alert-aud"
+          value={audience}
+          onChange={(v) => setAudience(v as AlertAudience)}
+          options={[
+            { value: 'MATCHING', label: "Workers open to this kind of work (and those who haven't said)" },
+            { value: 'EVERYONE', label: 'Every worker' },
+          ]}
+        />
+      </div>
+      {!info ? (
+        <LoadingState label="Counting…" />
+      ) : (
+        <div style={{ margin: '16px 0', fontSize: 13 }}>
+          <p style={{ margin: '0 0 8px' }}>
+            <b className="tnum">{info.preview.people}</b> people who haven't applied yet. Each gets it on the channels
+            they turned on:
+          </p>
+          <table style={{ width: '100%', fontSize: 12 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: 'var(--muted)' }}>
+                <th>Channel</th>
+                <th>This send</th>
+                <th>Sent so far</th>
+              </tr>
+            </thead>
+            <tbody>
+              {channels.map((ch) => {
+                const s = info.sent[ch] ?? {}
+                const parts = Object.entries(s).map(([k, v]) => `${v} ${k.toLowerCase()}`)
+                return (
+                  <tr key={ch}>
+                    <td>{CHANNEL_LABELS[ch]}</td>
+                    <td className="tnum">{info.preview.channels[ch]}</td>
+                    <td>{parts.length ? parts.join(', ') : '—'}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 8 }}>
+            "Skipped" means that channel isn't set up yet (email needs RESEND_API_KEY; WhatsApp needs an approved
+            Termii WhatsApp sender).
+          </p>
+        </div>
+      )}
+      {result && <p style={{ color: 'var(--money)', fontSize: 13 }}>{result}</p>}
+      {error && (
+        <div className="login-error" role="alert">
+          <Icon name="alert" size={15} />
+          {error}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+        <Button variant="glass" onClick={onClose}>
+          Close
+        </Button>
+        <Button variant="primary" icon="send" loading={sending} disabled={!info || info.preview.people === 0} onClick={send}>
+          Send to {info?.preview.people ?? '…'} people
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
 export default function Hiring() {
   const jobsApi = useApi((signal) => api.jobs(signal))
   const [jobFilter, setJobFilter] = useState<string>('')
@@ -393,6 +575,7 @@ export default function Hiring() {
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [profileId, setProfileId] = useState<string | null>(null)
+  const [alertJob, setAlertJob] = useState<Job | null>(null)
 
   const jobs = useMemo(() => jobsApi.data ?? [], [jobsApi.data])
   const candidates = useMemo(() => candApi.data ?? [], [candApi.data])
@@ -421,6 +604,21 @@ export default function Hiring() {
       )
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not move candidate')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function share(c: Candidate) {
+    setBusy(c.id)
+    setActionError(null)
+    try {
+      const updated = await api.shareCandidate(c.id)
+      candApi.setData((prev) =>
+        (prev ?? []).map((x) => (x.id === c.id ? { ...x, sharedAt: updated.sharedAt } : x)),
+      )
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not record the share')
     } finally {
       setBusy(null)
     }
@@ -468,6 +666,9 @@ export default function Hiring() {
             <Icon name="briefcase" /> {EMPLOYMENT_LABELS[selectedJob.employmentType]}
           </Badge>
           <span>
+            <Icon name="users" /> Hiring for {selectedJob.partnerName || 'AfriZone'}
+          </span>
+          <span>
             <Icon name="pin" /> {selectedJob.location || 'Remote'}
           </span>
           {salaryRange(selectedJob) && (
@@ -478,6 +679,11 @@ export default function Hiring() {
           <span>
             <Icon name="calendar" /> Closes {formatDate(selectedJob.closingDate)}
           </span>
+          {selectedJob.status === 'OPEN' && (
+            <Button variant="glass" size="sm" icon="send" onClick={() => setAlertJob(selectedJob)}>
+              {selectedJob.alertedAt ? 'Job alert sent · send more' : 'Send job alert'}
+            </Button>
+          )}
         </div>
       )}
 
@@ -525,6 +731,7 @@ export default function Hiring() {
                       busy={busy === c.id}
                       onMove={move}
                       onProfile={setProfileId}
+                      onShare={share}
                       delay={`d${(ci % 5) + 1}`}
                     />
                   ))
@@ -536,6 +743,16 @@ export default function Hiring() {
       )}
 
       {profileId && <TalentProfileModal workerId={profileId} onClose={() => setProfileId(null)} />}
+
+      {alertJob && (
+        <JobAlertModal
+          job={alertJob}
+          onClose={() => setAlertJob(null)}
+          onSent={(alertedAt) =>
+            jobsApi.setData((prev) => (prev ?? []).map((j) => (j.id === alertJob.id ? { ...j, alertedAt } : j)))
+          }
+        />
+      )}
 
       <NewJobModal
         open={modalOpen}

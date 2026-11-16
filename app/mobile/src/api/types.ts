@@ -60,6 +60,10 @@ export interface User {
   notifTasks?: boolean;
   notifPay?: boolean;
   notifEmail?: boolean;
+  /** Job alerts by channel (app notifications always come). */
+  jobAlertEmail?: boolean;
+  jobAlertSms?: boolean;
+  jobAlertWhatsapp?: boolean;
   createdAt?: string;
 }
 
@@ -285,6 +289,9 @@ export interface Job {
   closingDate?: string | null;
   status: JobStatus;
   candidateCount?: number;
+  /** The partner company AfriZone is hiring for; null = AfriZone itself. */
+  partnerName?: string | null;
+  partnerAbout?: string | null;
 }
 
 export type Stage = 'SCREENING' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED';
@@ -314,6 +321,8 @@ export interface Opportunity {
   stage: Stage | null;
   /** Matches what I said I'm open to on my Hiring profile. */
   forYou: boolean;
+  /** Jobs AfriZone is hiring for on behalf of a partner company. */
+  partnerName?: string | null;
 }
 
 export interface OpportunityFeed {
@@ -327,7 +336,17 @@ export interface MyJobApplication {
   stage: Stage;
   createdAt: string;
   updatedAt: string;
-  job: { id: string; title: string; department: string; employmentType: EmploymentType; status: JobStatus };
+  /** Partner jobs: when I agreed to share my profile, and when HR sent it. */
+  shareConsentAt?: string | null;
+  sharedAt?: string | null;
+  job: {
+    id: string;
+    title: string;
+    department: string;
+    employmentType: EmploymentType;
+    status: JobStatus;
+    partnerName?: string | null;
+  };
 }
 
 export interface JobCandidate {
