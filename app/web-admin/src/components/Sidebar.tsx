@@ -38,6 +38,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/audits', label: 'Audits', icon: 'check' },
       { to: '/network', label: 'Network', icon: 'pin' },
       { to: '/hiring', label: 'Hiring', icon: 'briefcase' },
+      { to: '/talent-pools', label: 'Talent pools', icon: 'star' },
     ],
   },
   {

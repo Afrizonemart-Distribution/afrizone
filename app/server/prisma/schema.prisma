@@ -121,6 +121,7 @@ model User {
   ratingsGiven        Rating[]             @relation("RatingsGiven")
   notifications       Notification[]
   jobAlerts           JobAlert[]
+  talentPools         TalentPoolMember[]
   skills              WorkerSkill[]
   courierProfile      CourierProfile?
   courierPresence     CourierPresence?
@@ -1560,4 +1561,31 @@ model IdentityFlag {
 
   @@unique([kind, valueHash])
   @@index([status])
+}
+
+/// A named group of workers HR keeps, e.g. "Verified Lagos drivers"
+/// (routes/talentPools.ts). A job alert can go to one pool.
+model TalentPool {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  note        String?
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members TalentPoolMember[]
+}
+
+model TalentPoolMember {
+  id        String   @id @default(cuid())
+  poolId    String
+  userId    String
+  addedById String
+  createdAt DateTime @default(now())
+
+  pool TalentPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  user User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, userId])
+  @@index([userId])
 }

@@ -12,6 +12,11 @@
  *   MATCHING  workers whose Hiring profile says they are open to this kind of
  *             work, plus everyone who has not said (we don't know, so we ask).
  *   EVERYONE  every worker, e.g. a full-time role worth telling everybody.
+ *   POOL      the members of one talent pool HR keeps (routes/talentPools.ts).
+ *   TOP       the career ladder's first invite: workers at Silver or Gold
+ *             standing (services/standing.ts), before anyone else hears.
+ * POOL and TOP are worked out by the route, which passes the ids in `only`:
+ * standing reads the request-scoped client, and this module stays free of it.
  * People who already applied are left out either way.
  *
  * Channels follow the person's choices (User.jobAlertEmail/Sms/Whatsapp).
@@ -32,7 +37,7 @@ function openToList(raw: string | null | undefined): string[] {
   return (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-export const ALERT_AUDIENCES = ["MATCHING", "EVERYONE"] as const;
+export const ALERT_AUDIENCES = ["MATCHING", "EVERYONE", "POOL", "TOP"] as const;
 export type AlertAudience = (typeof ALERT_AUDIENCES)[number];
 export type AlertChannel = "PUSH" | "EMAIL" | "SMS" | "WHATSAPP";
 
@@ -88,7 +93,7 @@ export function alertText(job: AlertJob) {
 }
 
 /** The workers an alert would reach. Shared by the preview count and the queue. */
-async function audienceFor(prisma: PrismaClient, job: AlertJob, audience: AlertAudience) {
+async function audienceFor(prisma: PrismaClient, job: AlertJob, audience: AlertAudience, only?: Set<string>) {
   const [workers, applied] = await Promise.all([
     prisma.user.findMany({
       where: { role: "WORKER", accountType: "INDIVIDUAL" },
@@ -108,6 +113,7 @@ async function audienceFor(prisma: PrismaClient, job: AlertJob, audience: AlertA
   const kinds = opportunityAnswers("JOBS", job.employmentType);
   return workers.filter((w) => {
     if (already.has(w.id)) return false;
+    if (audience === "POOL" || audience === "TOP") return only?.has(w.id) ?? false;
     if (audience === "EVERYONE") return true;
     const openTo = openToList(w.openTo);
     return openTo.length === 0 || kinds.some((k) => openTo.includes(k));
@@ -115,8 +121,8 @@ async function audienceFor(prisma: PrismaClient, job: AlertJob, audience: AlertA
 }
 
 /** How many people, and messages per channel, an alert would send. */
-export async function previewJobAlerts(prisma: PrismaClient, job: AlertJob, audience: AlertAudience) {
-  const people = await audienceFor(prisma, job, audience);
+export async function previewJobAlerts(prisma: PrismaClient, job: AlertJob, audience: AlertAudience, only?: Set<string>) {
+  const people = await audienceFor(prisma, job, audience, only);
   return {
     people: people.length,
     channels: {
@@ -131,8 +137,8 @@ export async function previewJobAlerts(prisma: PrismaClient, job: AlertJob, audi
 /** D1 binds at most 100 values per statement; a JobAlert row binds about 6. */
 const INSERT_CHUNK = 15;
 
-export async function queueJobAlerts(prisma: PrismaClient, job: AlertJob, audience: AlertAudience) {
-  const people = await audienceFor(prisma, job, audience);
+export async function queueJobAlerts(prisma: PrismaClient, job: AlertJob, audience: AlertAudience, only?: Set<string>) {
+  const people = await audienceFor(prisma, job, audience, only);
   const rows: { jobId: string; userId: string; channel: AlertChannel }[] = [];
   for (const p of people) {
     rows.push({ jobId: job.id, userId: p.id, channel: "PUSH" });

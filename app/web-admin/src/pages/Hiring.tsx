@@ -477,24 +477,32 @@ function JobAlertModal({
   const [error, setError] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<string | null>(null)
+  const { data: pools } = useApi((signal) => api.talentPools(signal), [])
+  const [poolId, setPoolId] = useState('')
+  const needsPool = audience === 'POOL' && !poolId
 
   useEffect(() => {
+    if (needsPool) {
+      setInfo(null)
+      return
+    }
     const ctl = new AbortController()
     setInfo(null)
+    setError(null)
     api
-      .jobAlerts(job.id, audience, ctl.signal)
+      .jobAlerts(job.id, audience, audience === 'POOL' ? poolId : undefined, ctl.signal)
       .then(setInfo)
       .catch((e) => {
         if (!ctl.signal.aborted) setError(e instanceof ApiError ? e.message : 'Could not load')
       })
     return () => ctl.abort()
-  }, [job.id, audience, result])
+  }, [job.id, audience, poolId, needsPool, result])
 
   async function send() {
     setSending(true)
     setError(null)
     try {
-      const r = await api.sendJobAlerts(job.id, audience)
+      const r = await api.sendJobAlerts(job.id, audience, audience === 'POOL' ? poolId : undefined)
       setResult(
         r.queued === 0
           ? 'Everyone in this group has already had this alert.'
@@ -520,10 +528,30 @@ function JobAlertModal({
           options={[
             { value: 'MATCHING', label: "Workers open to this kind of work (and those who haven't said)" },
             { value: 'EVERYONE', label: 'Every worker' },
+            { value: 'TOP', label: 'First invite: top performers only (Silver and Gold standing)' },
+            { value: 'POOL', label: 'One talent pool' },
           ]}
         />
       </div>
-      {!info ? (
+      {audience === 'POOL' && (
+        <div className="field" style={{ marginTop: 12 }}>
+          <Label htmlFor="alert-pool">Talent pool</Label>
+          {pools && pools.length === 0 ? (
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+              No pools yet. Make one under People → Talent pools.
+            </p>
+          ) : (
+            <Select
+              id="alert-pool"
+              value={poolId}
+              onChange={setPoolId}
+              placeholder="Pick a pool…"
+              options={(pools ?? []).map((p) => ({ value: p.id, label: `${p.name} (${p.memberCount})` }))}
+            />
+          )}
+        </div>
+      )}
+      {needsPool ? null : !info ? (
         <LoadingState label="Counting…" />
       ) : (
         <div style={{ margin: '16px 0', fontSize: 13 }}>
@@ -570,7 +598,7 @@ function JobAlertModal({
         <Button variant="glass" onClick={onClose}>
           Close
         </Button>
-        <Button variant="primary" icon="send" loading={sending} disabled={!info || info.preview.people === 0} onClick={send}>
+        <Button variant="primary" icon="send" loading={sending} disabled={needsPool || !info || info.preview.people === 0} onClick={send}>
           Send to {info?.preview.people ?? '…'} people
         </Button>
       </div>

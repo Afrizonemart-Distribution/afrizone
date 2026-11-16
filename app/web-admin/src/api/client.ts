@@ -12,6 +12,8 @@ import type {
   Candidate,
   AlertAudience,
   JobAlertInfo,
+  TalentPool,
+  TalentPoolDetail,
   Category,
   TaskTemplate,
   ApproveBody,
@@ -399,13 +401,29 @@ export const api = {
     }),
   shareCandidate: (id: string) =>
     request<Candidate>(`/candidates/${id}/share`, { method: 'POST' }),
-  jobAlerts: (id: string, audience: AlertAudience, signal?: AbortSignal) =>
-    request<JobAlertInfo>(`/jobs/${id}/alerts?audience=${audience}`, { signal }),
-  sendJobAlerts: (id: string, audience: AlertAudience) =>
+  jobAlerts: (id: string, audience: AlertAudience, poolId?: string, signal?: AbortSignal) =>
+    request<JobAlertInfo>(
+      `/jobs/${id}/alerts?audience=${audience}${poolId ? `&poolId=${encodeURIComponent(poolId)}` : ''}`,
+      { signal },
+    ),
+  sendJobAlerts: (id: string, audience: AlertAudience, poolId?: string) =>
     request<{ audience: AlertAudience; people: number; queued: number }>(`/jobs/${id}/alerts`, {
       method: 'POST',
-      body: { audience },
+      body: { audience, poolId },
     }),
+
+  // Talent pools (HR)
+  talentPools: (signal?: AbortSignal) => request<TalentPool[]>('/talent-pools', { signal }),
+  talentPool: (id: string, signal?: AbortSignal) => request<TalentPoolDetail>(`/talent-pools/${id}`, { signal }),
+  createTalentPool: (name: string, note?: string) =>
+    request<TalentPool>('/talent-pools', { method: 'POST', body: { name, note } }),
+  updateTalentPool: (id: string, body: { name?: string; note?: string }) =>
+    request<TalentPool>(`/talent-pools/${id}`, { method: 'PATCH', body }),
+  deleteTalentPool: (id: string) => request<void>(`/talent-pools/${id}`, { method: 'DELETE' }),
+  addTalentPoolMembers: (id: string, userIds: string[]) =>
+    request<{ added: number; skipped: number }>(`/talent-pools/${id}/members`, { method: 'POST', body: { userIds } }),
+  removeTalentPoolMember: (id: string, userId: string) =>
+    request<void>(`/talent-pools/${id}/members/${userId}`, { method: 'DELETE' }),
 
   // Store audit findings (admin)
   audits: (outcome?: AuditOutcome | 'ALL', signal?: AbortSignal) =>

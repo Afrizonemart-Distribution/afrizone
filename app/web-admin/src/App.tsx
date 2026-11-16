@@ -12,6 +12,7 @@ import Organizations from './pages/Organizations'
 import Applications from './pages/Applications'
 import Timesheets from './pages/Timesheets'
 import Hiring from './pages/Hiring'
+import TalentPools from './pages/TalentPools'
 import Reports from './pages/Reports'
 import Settings from './pages/Settings'
 import Disputes from './pages/Disputes'
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/mart" element={<Mart />} />
         <Route path="/deliveries" element={<Deliveries />} />
         <Route path="/hiring" element={<Hiring />} />
+        <Route path="/talent-pools" element={<TalentPools />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

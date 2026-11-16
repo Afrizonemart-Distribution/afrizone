@@ -571,7 +571,7 @@ export interface Job {
   alertedAt?: string | null
 }
 
-export type AlertAudience = 'MATCHING' | 'EVERYONE'
+export type AlertAudience = 'MATCHING' | 'EVERYONE' | 'POOL' | 'TOP'
 export type AlertChannel = 'PUSH' | 'EMAIL' | 'SMS' | 'WHATSAPP'
 
 /** GET /api/jobs/:id/alerts */
@@ -1099,4 +1099,28 @@ export interface AdminReferrals {
   rewards: { taskerReward: number; storeReward: number }
   paidOut: number
   referrals: AdminReferral[]
+}
+
+export interface TalentPool {
+  id: string
+  name: string
+  note: string | null
+  createdAt: string
+  updatedAt: string
+  memberCount: number
+}
+
+export interface TalentPoolMember {
+  userId: string
+  addedAt: string
+  name: string
+  email: string
+  phone: string | null
+  kycStatus: KycStatus
+  rating: number | null
+  standing: Standing | null
+}
+
+export interface TalentPoolDetail extends Omit<TalentPool, 'memberCount'> {
+  members: TalentPoolMember[]
 }

@@ -627,7 +627,7 @@ AfriZone posts jobs on behalf of partner companies; partners never log in. `Job.
 
 `POST /api/opportunities/my-jobs/:id/withdraw` (the applicant only; `404` for anyone else): deletes the application before hiring (`400 ALREADY_HIRED` after). Returns `{ ok, alreadyShared, message }`; AuditLog `candidate.withdraw`.
 
-**Job alerts.** `GET /api/jobs/:id/alerts?audience=MATCHING|EVERYONE` (HR) returns `{ audience, alertedAt, preview: { people, channels: { PUSH, EMAIL, SMS, WHATSAPP } }, sent: { CHANNEL: { STATUS: count } } }`. `POST /api/jobs/:id/alerts { audience }` queues one `JobAlert` row per person per channel and returns `202 { audience, people, queued }`; people already alerted on a channel, or who already applied, are skipped, so a second press sends no one twice. `MATCHING` = workers whose Hiring profile "open to" fits the job, plus those who haven't said. The per-minute cron sends a batch each run (push 100, email 100 via Resend's batch API, SMS and WhatsApp 20 each); rows end `SENT`, `FAILED` (with `error`) or `SKIPPED` when the channel isn't configured.
+**Job alerts.** `GET /api/jobs/:id/alerts?audience=MATCHING|EVERYONE|POOL|TOP[&poolId=]` (HR) returns `{ audience, alertedAt, preview: { people, channels: { PUSH, EMAIL, SMS, WHATSAPP } }, sent: { CHANNEL: { STATUS: count } } }`. `POST /api/jobs/:id/alerts { audience, poolId? }` queues one `JobAlert` row per person per channel and returns `202 { audience, people, queued }`; people already alerted on a channel, or who already applied, are skipped, so a second press sends no one twice. `MATCHING` = workers whose Hiring profile "open to" fits the job, plus those who haven't said. The per-minute cron sends a batch each run (push 100, email 100 via Resend's batch API, SMS and WhatsApp 20 each); rows end `SENT`, `FAILED` (with `error`) or `SKIPPED` when the channel isn't configured.
 
 Channels follow `User.jobAlertEmail` (default on), `jobAlertSms`, `jobAlertWhatsapp` (default off), read and set through `GET`/`PATCH /api/me`. Push always goes as an inbox record; the push itself follows `notifTasks`. Placeholder emails (`*.local`) are never mailed.
 
@@ -672,3 +672,9 @@ Files (CV, portfolio) upload through `POST /api/me/kyc/documents` with `docType`
 - **Send back** (`POST /api/timesheets/:id/rework {reason}`): `reason` is required. The timesheet becomes REWORK, the contract goes to REWORK, and the worker gets a notification with the reason. They hand in again as a new timesheet.
 - **Second person for large payments.** At or above Setting `payments.secondApprovalOver` (₦ gross, default 50,000), the admin who approved the work cannot release the payment: 409 `SECOND_APPROVER_REQUIRED`. `release-all` skips those payments, reports them as `heldBack`, and now also moves each contract to PAID and marks its commitment paid, as a single release does.
 - `GET /api/me/timesheets` now includes `units`, `acceptedUnits`, `note` and `reviewNote`, so the app can show why work was sent back.
+
+## Talent pools
+
+HR (SUPER_ADMIN, HR_ADMIN) keeps named groups of workers. `GET /api/talent-pools` returns pools with `memberCount`; `POST { name, note? }` (409 `NAME_TAKEN`); `PATCH /:id { name?, note? }`; `DELETE /:id`; `GET /:id` returns the pool with `members[]` (`userId, addedAt, name, email, phone, kycStatus, rating, standing`); `POST /:id/members { userIds }` adds up to 90 workers a call and returns `{ added, skipped }` (non-workers and existing members are skipped); `DELETE /:id/members/:userId`.
+
+A job alert can go to one pool (`audience: "POOL", poolId`, 400 `POOL_REQUIRED` without one) or to `TOP`, the career ladder's first invite: workers at Silver or Gold standing only.
