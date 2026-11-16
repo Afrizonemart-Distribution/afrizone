@@ -6,6 +6,7 @@ import { writeAudit, userActor } from "../util/audit";
 import { ALERT_AUDIENCES, AlertAudience, alertSummary, previewJobAlerts, queueJobAlerts } from "../services/jobAlerts";
 import { aiEnabled, AiUnavailable, ApplicantFacts, RANK_BATCH, rankApplicants } from "../services/ai";
 import { buildProfile } from "../services/talentProfile";
+import { loadStandings } from "../services/standing";
 
 /** Partner name/about: trimmed, capped, empty means "AfriZone itself". */
 function partnerField(v: unknown, max: number): string | null {
@@ -115,18 +116,49 @@ router.patch("/:id", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), async 
  * POST queues it (the per-minute cron sends it). A second POST only reaches
  * people not already alerted, so pressing twice never sends anyone two.
  *
- *   GET  /api/jobs/:id/alerts?audience=MATCHING|EVERYONE
- *   POST /api/jobs/:id/alerts   { audience }
+ *   GET  /api/jobs/:id/alerts?audience=MATCHING|EVERYONE|POOL|TOP[&poolId=]
+ *   POST /api/jobs/:id/alerts   { audience, poolId? }
  */
 function audienceOf(v: unknown): AlertAudience {
   return (ALERT_AUDIENCES as readonly string[]).includes(String(v)) ? (String(v) as AlertAudience) : "MATCHING";
+}
+
+/** D1 binds at most 100 values a statement; standing looks workers up by id. */
+const STANDING_CHUNK = 90;
+
+/**
+ * The people a POOL or TOP alert may reach, or undefined for the other
+ * audiences. TOP is the career ladder's first invite: Silver and Gold only.
+ */
+async function audienceIds(audience: AlertAudience, poolId: unknown): Promise<Set<string> | undefined | "NO_POOL"> {
+  if (audience === "POOL") {
+    const id = typeof poolId === "string" ? poolId : "";
+    const pool = id ? await prisma.talentPool.findUnique({ where: { id }, select: { members: { select: { userId: true } } } }) : null;
+    if (!pool) return "NO_POOL";
+    return new Set(pool.members.map((m) => m.userId));
+  }
+  if (audience === "TOP") {
+    const workers = await prisma.user.findMany({
+      where: { role: "WORKER", accountType: "INDIVIDUAL", completedCount: { gt: 0 } },
+      select: { id: true, rating: true, completedCount: true },
+    });
+    const top = new Set<string>();
+    for (let i = 0; i < workers.length; i += STANDING_CHUNK) {
+      const standings = await loadStandings(workers.slice(i, i + STANDING_CHUNK));
+      for (const [id, st] of standings) if (st.level === "SILVER" || st.level === "GOLD") top.add(id);
+    }
+    return top;
+  }
+  return undefined;
 }
 
 router.get("/:id/alerts", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), async (req: AuthedRequest, res: Response) => {
   const job = await prisma.job.findUnique({ where: { id: req.params.id } });
   if (!job) return res.status(404).json({ error: "Job not found" });
   const audience = audienceOf(req.query.audience);
-  const [preview, sent] = await Promise.all([previewJobAlerts(prisma, job, audience), alertSummary(prisma, job.id)]);
+  const only = await audienceIds(audience, req.query.poolId);
+  if (only === "NO_POOL") return res.status(400).json({ error: "Pick a talent pool", code: "POOL_REQUIRED" });
+  const [preview, sent] = await Promise.all([previewJobAlerts(prisma, job, audience, only), alertSummary(prisma, job.id)]);
   res.json({ audience, alertedAt: job.alertedAt, preview, sent });
 });
 
@@ -135,8 +167,11 @@ router.post("/:id/alerts", requireAuth, requireRole("SUPER_ADMIN", "HR_ADMIN"), 
   if (!job) return res.status(404).json({ error: "Job not found" });
   if (job.status !== "OPEN") return res.status(400).json({ error: "Only open jobs can be sent out", code: "JOB_CLOSED" });
   const audience = audienceOf(req.body?.audience);
-  const result = await queueJobAlerts(prisma, job, audience);
-  await writeAudit(userActor(req.user!.id), "job.alert", "Job", job.id, { audience, ...result });
+  const only = await audienceIds(audience, req.body?.poolId);
+  if (only === "NO_POOL") return res.status(400).json({ error: "Pick a talent pool", code: "POOL_REQUIRED" });
+  const result = await queueJobAlerts(prisma, job, audience, only);
+  const poolId = audience === "POOL" ? req.body.poolId : undefined;
+  await writeAudit(userActor(req.user!.id), "job.alert", "Job", job.id, { audience, poolId, ...result });
   res.status(202).json({ audience, ...result });
 });
 

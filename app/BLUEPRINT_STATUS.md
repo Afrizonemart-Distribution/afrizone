@@ -525,6 +525,25 @@ one of those refusals is the intended behaviour rather than a fault to debug.
 
 ---
 
+### Hiring platform, Phase 7c: talent pools and first invites (16 November 2026)
+
+HR keeps **talent pools** (People → Talent pools), and a job alert can go to one
+pool or to **top performers only** (Silver and Gold standing): the career
+ladder's first invite before everyone else hears. Migration 0039.
+
+### Launch to-dos (owner: Magnus)
+
+- [ ] **`ANTHROPIC_API_KEY` Worker secret**, once credits are bought. Until then
+  AI CV reading, AI shortlisting and the AI look at proof photos stay off, and
+  HR reviews CVs by hand on the Hiring board (works today).
+- [ ] **`RESEND_API_KEY` Worker secret**: reuse the storefront's key (Railway
+  `api` service). Part Time sends from `jobs@afrizonemart.com`, a domain
+  already verified on that Resend account. Until set, job-alert emails are
+  SKIPPED; push and SMS still go.
+- [ ] `TERMII_WHATSAPP_FROM` var, only if WhatsApp alerts are wanted.
+- [ ] EAS build of the mobile app (Find work tab, CV review, apply questions).
+- [ ] Not built: honeypot questions in labelling work, paid trials.
+
 ## 10. What is actually running in production
 
 A separate axis from everything above. The rest of this file reconciles the
