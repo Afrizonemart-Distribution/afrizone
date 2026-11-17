@@ -2,9 +2,11 @@
  * Staff access: who can work in which Afrizonemart product (storefront admin,
  * supplier portal, Ink, HUD, Part-Time), managed in one place.
  *
- * Changes are made in the Afrizonemart API as the signed-in Owner (see
+ * Changes are made in the Afrizonemart API as the signed-in person (see
  * lib/martStaff.ts) and take effect everywhere; Part-Time picks up its own
- * roles through the staff-roles sync. PLANNING/STAFF_ACCESS_HARDENING.md.
+ * roles through the staff-roles sync. Owners manage every product; Product
+ * Admins manage only their own (enforced by Afrizonemart, mirrored here).
+ * PLANNING/STAFF_ACCESS_HARDENING.md.
  */
 import { useEffect, useMemo, useState } from 'react'
 import PageHeader from '../components/PageHeader'
@@ -26,6 +28,7 @@ import {
   disconnectMart,
   martStaff,
   MartError,
+  type MartManagerScope,
   type MartMembership,
   type MartProduct,
   type MartProductCatalogue,
@@ -43,12 +46,7 @@ const PRODUCT_SHORT: Record<MartProduct, string> = {
 const DAY = 86_400_000
 
 function errText(e: unknown, fallback: string): string {
-  if (e instanceof MartError) {
-    if (/password is required/i.test(e.message)) {
-      return 'No Afrizonemart account uses that email. Ask them to sign up at afrizonemart.com first, then add them here.'
-    }
-    return e.message
-  }
+  if (e instanceof MartError) return e.message
   return e instanceof Error ? e.message : fallback
 }
 
@@ -67,11 +65,15 @@ function dateInput(iso: string | null | undefined): string {
   return iso ? iso.slice(0, 10) : ''
 }
 
+const startIso = (d: string) => (d ? new Date(`${d}T00:00:00`).toISOString() : undefined)
+const endIso = (d: string) => (d ? new Date(`${d}T23:59:59`).toISOString() : null)
+
 export default function StaffAccess() {
   const [connected, setConnected] = useState<boolean | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [connectErr, setConnectErr] = useState<string | null>(null)
 
+  const [scope, setScope] = useState<MartManagerScope | null>(null)
   const [staff, setStaff] = useState<MartStaff[] | null>(null)
   const [catalogue, setCatalogue] = useState<MartProductCatalogue[]>([])
   const [loadErr, setLoadErr] = useState<string | null>(null)
@@ -86,7 +88,8 @@ export default function StaffAccess() {
     setLoading(true)
     setLoadErr(null)
     try {
-      const [items, products] = await Promise.all([martStaff.list(), martStaff.catalogue()])
+      const [me, items, products] = await Promise.all([martStaff.me(), martStaff.list(), martStaff.catalogue()])
+      setScope(me)
       setStaff(items)
       setCatalogue(products)
     } catch (e) {
@@ -128,8 +131,8 @@ export default function StaffAccess() {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
     return (staff ?? []).filter((s) => {
-      if (s.role === 'SELLER') return false
       if (productFilter !== 'ALL' && s.role !== 'ADMIN' && !s.staffMemberships.some((m) => m.product === productFilter)) return false
+      if (productFilter !== 'ALL' && s.role === 'ADMIN') return false
       if (!q) return true
       return [s.name, s.email, s.jobTitle].some((v) => v?.toLowerCase().includes(q))
     })
@@ -139,20 +142,28 @@ export default function StaffAccess() {
     () =>
       (staff ?? []).flatMap((s) =>
         s.staffMemberships
-          .filter((m) => contractState(m)?.variant === 'review' || contractState(m)?.variant === 'danger')
+          .filter((m) => {
+            const v = contractState(m)?.variant
+            return v === 'review' || v === 'danger'
+          })
           .map((m) => ({ s, m })),
       ),
     [staff],
   )
+
+  const sub =
+    scope && !scope.isOwner
+      ? `You are a Product Admin of ${scope.products.map((p) => PRODUCT_SHORT[p]).join(', ')}: you manage staff there only.`
+      : 'Who can work in which Afrizonemart product. Changes here apply everywhere: storefront admin, supplier portal, Ink, HUD and Part-Time.'
 
   return (
     <>
       <PageHeader
         crumb="People / Staff access"
         title="Staff access"
-        sub="Who can work in which Afrizonemart product. Changes here apply everywhere: storefront admin, supplier portal, Ink, HUD and Part-Time."
+        sub={sub}
         actions={
-          connected ? (
+          connected && scope ? (
             <Button variant="primary" icon="plus" onClick={() => setAdding(true)} disabled={!staff}>
               Add staff
             </Button>
@@ -167,11 +178,11 @@ export default function StaffAccess() {
           <div style={{ display: 'grid', gap: 12, maxWidth: 560 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <Icon name="key" />
-              <b style={{ fontSize: 15 }}>Connect your AfriZone Owner account</b>
+              <b style={{ fontSize: 15 }}>Connect your AfriZone account</b>
             </div>
             <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
-              Staff access lives in Afrizonemart, so changes are made with your AfriZone account (with its
-              two-factor sign-in) and recorded in its audit log. Only Owners can make changes.
+              Staff access lives in Afrizonemart, so changes are made with your AfriZone account (with its two-factor
+              sign-in) and recorded in its audit log. Owners manage every product; Product Admins manage their own.
             </p>
             {connectErr && (
               <div className="login-error" role="alert">
@@ -209,21 +220,11 @@ export default function StaffAccess() {
 
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
             <div style={{ flex: 1, minWidth: 220 }}>
-              <Input
-                aria-label="Search staff"
-                placeholder="Search name, email or job title"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+              <Input aria-label="Search staff" placeholder="Search name, email or job title" value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              {(['ALL', 'STOREFRONT', 'SUPPLIER_OPS', 'INK', 'HUD', 'PARTTIME'] as const).map((p) => (
-                <Button
-                  key={p}
-                  size="sm"
-                  variant={productFilter === p ? 'primary' : 'glass'}
-                  onClick={() => setProductFilter(p)}
-                >
+              {(['ALL', ...catalogue.map((c) => c.product)] as (MartProduct | 'ALL')[]).map((p) => (
+                <Button key={p} size="sm" variant={productFilter === p ? 'primary' : 'glass'} onClick={() => setProductFilter(p)}>
                   {p === 'ALL' ? 'All' : PRODUCT_SHORT[p]}
                 </Button>
               ))}
@@ -287,7 +288,7 @@ export default function StaffAccess() {
                       <TableCell style={{ whiteSpace: 'nowrap' }}>{formatDate(s.lastLoginAt)}</TableCell>
                       <TableCell style={{ textAlign: 'right' }}>
                         <Button size="sm" variant="glass" onClick={() => setManaging(s)}>
-                          {s.role === 'ADMIN' ? 'View' : 'Manage'}
+                          Manage
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -299,14 +300,13 @@ export default function StaffAccess() {
         </>
       )}
 
-      {managing && (
+      {managing && scope && (
         <ManageStaff
           person={managing}
           catalogue={catalogue}
+          isOwner={scope.isOwner}
           onClose={() => setManaging(null)}
-          onChanged={async () => {
-            await load()
-          }}
+          onChanged={load}
         />
       )}
       {adding && (
@@ -335,7 +335,7 @@ function CapabilityPicker({
   value: string[]
   onChange: (next: string[]) => void
 }) {
-  const caps = catalogue.find((c) => c.product === product)?.capabilities ?? []
+  const caps = useMemo(() => catalogue.find((c) => c.product === product)?.capabilities ?? [], [catalogue, product])
   const groups = useMemo(() => {
     const by = new Map<string, typeof caps>()
     for (const c of caps) by.set(c.domain, [...(by.get(c.domain) ?? []), c])
@@ -347,14 +347,9 @@ function CapabilityPicker({
     <div style={{ display: 'grid', gap: 10 }}>
       {groups.map(([domain, list]) => (
         <div key={domain}>
-          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--muted)', marginBottom: 4 }}>
-            {domain}
-          </div>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.04em', color: 'var(--muted)', marginBottom: 4 }}>{domain}</div>
           {list.map((c) => (
-            <label
-              key={c.key}
-              style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '5px 0', fontSize: 13, cursor: 'pointer' }}
-            >
+            <label key={c.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '5px 0', fontSize: 13, cursor: 'pointer' }}>
               <Checkbox checked={value.includes(c.key)} onCheckedChange={() => toggle(c.key)} />
               <span>{c.label}</span>
             </label>
@@ -365,47 +360,132 @@ function CapabilityPicker({
   )
 }
 
+/** Product Admin switch + (for members) the permission checklist. */
+function AccessFields({
+  product,
+  label,
+  catalogue,
+  productAdmin,
+  setProductAdmin,
+  isFinance,
+  setIsFinance,
+  permissions,
+  setPermissions,
+}: {
+  product: MartProduct
+  label: string
+  catalogue: MartProductCatalogue[]
+  productAdmin: boolean
+  setProductAdmin: (v: boolean) => void
+  isFinance: boolean
+  setIsFinance: (v: boolean) => void
+  permissions: string[]
+  setPermissions: (v: string[]) => void
+}) {
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Switch checked={productAdmin} onChange={setProductAdmin} label={`${label}: Product Admin`} />
+          <span style={{ fontSize: 13 }}>Product Admin (everything in {PRODUCT_SHORT[product]}, and manages its staff)</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <Switch checked={isFinance} onChange={setIsFinance} label={`${label}: Finance`} />
+          <span style={{ fontSize: 13 }}>Finance (approves this product's money actions)</span>
+        </div>
+      </div>
+      {productAdmin ? (
+        <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+          A Product Admin has every permission in {PRODUCT_SHORT[product]} and none anywhere else.
+        </p>
+      ) : (
+        <CapabilityPicker product={product} catalogue={catalogue} value={permissions} onChange={setPermissions} />
+      )}
+    </>
+  )
+}
+
+function ErrorLine({ err }: { err: string | null }) {
+  if (!err) return null
+  return (
+    <div className="login-error" role="alert">
+      <Icon name="alert" size={15} />
+      {err}
+    </div>
+  )
+}
+
 function ManageStaff({
   person,
   catalogue,
+  isOwner,
   onClose,
   onChanged,
 }: {
   person: MartStaff
   catalogue: MartProductCatalogue[]
+  isOwner: boolean
   onClose: () => void
   onChanged: () => Promise<void>
 }) {
   const [memberships, setMemberships] = useState<MartMembership[]>(person.staffMemberships)
   const [open, setOpen] = useState<MartProduct | null>(person.staffMemberships[0]?.product ?? null)
   const [confirmRemoveAll, setConfirmRemoveAll] = useState(false)
+  const [demoteTo, setDemoteTo] = useState<MartProduct | ''>('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  async function run(fn: () => Promise<void>, fallback: string) {
+    setBusy(true)
+    setErr(null)
+    try {
+      await fn()
+      await onChanged()
+      onClose()
+    } catch (e) {
+      setErr(errText(e, fallback))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (person.role === 'ADMIN') {
     return (
       <Modal open title={person.name ?? person.email} subtitle={person.email} onClose={onClose}>
         <p style={{ fontSize: 13 }}>
           This account is an <b>Owner</b>: full access in every product, including the Owner-only areas (settings,
-          payment gateways, webhooks, integrations, feature flags, staff management). Owners are changed by the
-          Afrizonemart team directly, not from this screen.
+          payment gateways, webhooks, integrations, feature flags, staff management).
         </p>
+        {isOwner && (
+          <div style={{ display: 'grid', gap: 10, marginTop: 12 }}>
+            <b style={{ fontSize: 13 }}>Change to a Product Admin</b>
+            <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+              They become an admin of one product only, with no access anywhere else until that product's admin or an
+              Owner adds it. They're signed out everywhere.
+            </p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {catalogue.map((c) => (
+                <Button key={c.product} size="sm" variant={demoteTo === c.product ? 'primary' : 'glass'} onClick={() => setDemoteTo(c.product)}>
+                  {PRODUCT_SHORT[c.product]}
+                </Button>
+              ))}
+            </div>
+            <ErrorLine err={err} />
+            <div>
+              <Button
+                variant="danger"
+                size="sm"
+                loading={busy}
+                disabled={!demoteTo}
+                onClick={() => demoteTo && run(() => martStaff.makeProductAdmin(person.id, demoteTo), 'Could not change')}
+              >
+                {demoteTo ? `Make ${PRODUCT_SHORT[demoteTo]} Product Admin` : 'Pick a product'}
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     )
-  }
-
-  async function removeAll() {
-    setBusy(true)
-    setErr(null)
-    try {
-      await martStaff.removeStaff(person.id)
-      await onChanged()
-      onClose()
-    } catch (e) {
-      setErr(errText(e, 'Could not remove'))
-    } finally {
-      setBusy(false)
-    }
   }
 
   return (
@@ -434,17 +514,16 @@ function ManageStaff({
           />
         ))}
       </div>
-      {err && (
-        <div className="login-error" role="alert" style={{ marginTop: 12 }}>
-          <Icon name="alert" size={15} />
-          {err}
-        </div>
-      )}
+      <div style={{ marginTop: 12 }}>
+        <ErrorLine err={err} />
+      </div>
       <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginTop: 16, flexWrap: 'wrap' }}>
-        {confirmRemoveAll ? (
+        {!isOwner ? (
+          <span />
+        ) : confirmRemoveAll ? (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <span style={{ fontSize: 13 }}>Remove all staff access? Their account stays, as a shopper.</span>
-            <Button variant="danger" size="sm" loading={busy} onClick={removeAll}>
+            <Button variant="danger" size="sm" loading={busy} onClick={() => run(() => martStaff.removeStaff(person.id), 'Could not remove')}>
               Yes, remove
             </Button>
             <Button variant="glass" size="sm" onClick={() => setConfirmRemoveAll(false)}>
@@ -499,11 +578,11 @@ function ProductAccess({
     setSaved(false)
     try {
       const m = await martStaff.setMembership(userId, product, {
-        permissions,
+        permissions: productAdmin ? [] : permissions,
         role: productAdmin ? 'PRODUCT_ADMIN' : 'MEMBER',
         isFinance,
-        startsAt: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : undefined,
-        endsAt: endsAt ? new Date(`${endsAt}T23:59:59`).toISOString() : null,
+        startsAt: startIso(startsAt),
+        endsAt: endIso(endsAt),
       })
       await onSaved(m)
       setSaved(true)
@@ -546,9 +625,11 @@ function ProductAccess({
             {membership.role === 'PRODUCT_ADMIN' && <StatusPill variant="ready" label="Product Admin" />}
             {membership.isFinance && <StatusPill variant="paid" label="Finance" />}
             {contract && <StatusPill variant={contract.variant} label={contract.label} />}
-            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              {membership.permissions.length} permission{membership.permissions.length === 1 ? '' : 's'}
-            </span>
+            {membership.role !== 'PRODUCT_ADMIN' && (
+              <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                {membership.permissions.length} permission{membership.permissions.length === 1 ? '' : 's'}
+              </span>
+            )}
           </>
         ) : (
           <span style={{ fontSize: 12, color: 'var(--muted)' }}>No access</span>
@@ -568,23 +649,18 @@ function ProductAccess({
               <Input id={`${product}-end`} type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Switch checked={productAdmin} onChange={setProductAdmin} label={`${label}: Product Admin`} />
-              <span style={{ fontSize: 13 }}>Product Admin (runs this product's staff)</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Switch checked={isFinance} onChange={setIsFinance} label={`${label}: Finance`} />
-              <span style={{ fontSize: 13 }}>Finance (approves this product's money actions)</span>
-            </div>
-          </div>
-          <CapabilityPicker product={product} catalogue={catalogue} value={permissions} onChange={setPermissions} />
-          {err && (
-            <div className="login-error" role="alert">
-              <Icon name="alert" size={15} />
-              {err}
-            </div>
-          )}
+          <AccessFields
+            product={product}
+            label={label}
+            catalogue={catalogue}
+            productAdmin={productAdmin}
+            setProductAdmin={setProductAdmin}
+            isFinance={isFinance}
+            setIsFinance={setIsFinance}
+            permissions={permissions}
+            setPermissions={setPermissions}
+          />
+          <ErrorLine err={err} />
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
             {saved && !busy && <span style={{ fontSize: 12, color: 'var(--muted)' }}>Saved. Applies on their next request.</span>}
             {membership && (
@@ -592,7 +668,7 @@ function ProductAccess({
                 Remove {PRODUCT_SHORT[product]} access
               </Button>
             )}
-            <Button variant="primary" size="sm" loading={busy} disabled={permissions.length === 0} onClick={save}>
+            <Button variant="primary" size="sm" loading={busy} disabled={!productAdmin && permissions.length === 0} onClick={save}>
               {membership ? 'Save' : 'Give access'}
             </Button>
           </div>
@@ -614,32 +690,28 @@ function AddStaff({
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [jobTitle, setJobTitle] = useState('')
-  const [product, setProduct] = useState<MartProduct>('STOREFRONT')
+  const [product, setProduct] = useState<MartProduct | null>(catalogue[0]?.product ?? null)
   const [permissions, setPermissions] = useState<string[]>([])
-  const [endsAt, setEndsAt] = useState('')
+  const [productAdmin, setProductAdmin] = useState(false)
   const [isFinance, setIsFinance] = useState(false)
+  const [endsAt, setEndsAt] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   async function add() {
+    if (!product) return
     setBusy(true)
     setErr(null)
     try {
-      const person = await martStaff.promote({
+      await martStaff.add(product, {
         email: email.trim().toLowerCase(),
         name: name.trim() || undefined,
         jobTitle: jobTitle.trim() || undefined,
-        permissions,
-      })
-      // Set the chosen product exactly, then drop anything else the
-      // one-list rule may have opened from a shared permission.
-      await martStaff.setMembership(person.id, product, {
-        permissions,
+        permissions: productAdmin ? [] : permissions,
+        role: productAdmin ? 'PRODUCT_ADMIN' : 'MEMBER',
         isFinance,
-        endsAt: endsAt ? new Date(`${endsAt}T23:59:59`).toISOString() : null,
+        endsAt: endIso(endsAt),
       })
-      const others = (await martStaff.list()).find((s) => s.id === person.id)?.staffMemberships ?? []
-      for (const m of others) if (m.product !== product) await martStaff.removeMembership(person.id, m.product)
       await onAdded()
     } catch (e) {
       setErr(errText(e, 'Could not add'))
@@ -648,8 +720,10 @@ function AddStaff({
     }
   }
 
+  const label = catalogue.find((c) => c.product === product)?.label ?? ''
+
   return (
-    <Modal open size="wide" title="Add staff" subtitle="Give an existing Afrizonemart account staff access. They keep their own login." onClose={onClose}>
+    <Modal open size="wide" title="Add staff" subtitle="Give an existing Afrizonemart account access to a product. They keep their own login." onClose={onClose}>
       <div style={{ display: 'grid', gap: 12 }}>
         <div className="field">
           <Label htmlFor="add-email">Their Afrizonemart account email</Label>
@@ -683,32 +757,38 @@ function AddStaff({
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div className="field">
-            <Label htmlFor="add-end">Contract ends (optional)</Label>
-            <Input id="add-end" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Switch checked={isFinance} onChange={setIsFinance} label="Finance for this product" />
-            <span style={{ fontSize: 13 }}>Finance for this product</span>
-          </div>
+        <div className="field">
+          <Label htmlFor="add-end">Contract ends (optional; access stops that day)</Label>
+          <Input id="add-end" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
         </div>
-        <CapabilityPicker product={product} catalogue={catalogue} value={permissions} onChange={setPermissions} />
-        <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
-          They'll need two-factor turned on before they can do any staff work, and they sign in from the {PRODUCT_SHORT[product]} admin.
-          Add more products after, from Manage.
-        </p>
-        {err && (
-          <div className="login-error" role="alert">
-            <Icon name="alert" size={15} />
-            {err}
-          </div>
+        {product && (
+          <AccessFields
+            product={product}
+            label={label}
+            catalogue={catalogue}
+            productAdmin={productAdmin}
+            setProductAdmin={setProductAdmin}
+            isFinance={isFinance}
+            setIsFinance={setIsFinance}
+            permissions={permissions}
+            setPermissions={setPermissions}
+          />
         )}
+        <p style={{ fontSize: 12, color: 'var(--muted)', margin: 0 }}>
+          They'll need two-factor turned on before they can do any staff work. Already staff in another product? This
+          adds {product ? PRODUCT_SHORT[product] : 'this product'} to their access.
+        </p>
+        <ErrorLine err={err} />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <Button variant="glass" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" loading={busy} disabled={!email.includes('@') || permissions.length === 0} onClick={add}>
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={!product || !email.includes('@') || (!productAdmin && permissions.length === 0)}
+            onClick={add}
+          >
             Add staff
           </Button>
         </div>
