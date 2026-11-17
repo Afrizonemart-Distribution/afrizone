@@ -25,6 +25,8 @@ export default defineConfig(async () => {
             NODE_ENV: "test",
             MART_INBOUND_SECRET: "local-dev-mart-inbound-secret",
             AFRIZONE_LOGIN_ENABLED: "true",
+            MART_STAFF_TOKEN: "azm_sk_test-staff-token",
+            AFRIZONE_API_URL: "http://mart.test",
             AFRIZONE_IDENTITY_PUBLIC_KEY: afrizoneKeys.publicKey.export({ type: "spki", format: "pem" }) as string,
             TEST_AFRIZONE_PRIVATE_KEY: afrizoneKeys.privateKey.export({ type: "pkcs8", format: "pem" }) as string,
           },

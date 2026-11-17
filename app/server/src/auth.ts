@@ -86,6 +86,30 @@ export function verifyToken(token: string): JwtPayload {
   return p;
 }
 
+/**
+ * Staff workspace sessions (routes/staffWorkspace.ts). An AfriZone staff
+ * member viewing their afrizonemart tasks and KPI: no Part Time user row, no
+ * role, so verifyToken never accepts one. Signed with a key derived from
+ * JWT_SECRET so the two kinds can't be swapped even in principle.
+ */
+export interface StaffSession {
+  sub: string; // AfriZone user id
+  name: string | null;
+  typ: "staff";
+}
+const STAFF_TTL = "8h";
+function staffKey(): string {
+  return `${jwtSecret()}:pt-staff`;
+}
+export function signStaffSession(sub: string, name: string | null): string {
+  return jwt.sign({ sub, name, typ: "staff" } satisfies StaffSession, staffKey(), { expiresIn: STAFF_TTL });
+}
+export function verifyStaffSession(token: string): StaffSession {
+  const p = jwt.verify(token, staffKey()) as StaffSession;
+  if (!p || p.typ !== "staff" || typeof p.sub !== "string" || !p.sub) throw new Error("Not a staff session");
+  return p;
+}
+
 export function signChallenge(userId: string): string {
   return jwt.sign({ sub: userId, twofa: true } as ChallengePayload, jwtSecret(), {
     expiresIn: CHALLENGE_TTL,
