@@ -41,9 +41,10 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/network', label: 'Network', icon: 'pin' },
       { to: '/hiring', label: 'Hiring', icon: 'briefcase' },
       { to: '/talent-pools', label: 'Talent pools', icon: 'star' },
-      // Afrizonemart-wide staff access; changes are checked by Afrizonemart
-      // (Owner + 2FA), so this only hides the link from other roles.
-      { to: '/staff-access', label: 'Staff access', icon: 'key', roles: ['SUPER_ADMIN'] },
+      // Afrizonemart-wide staff access. Who may change what (Owners: all
+      // products; Product Admins: their own) is decided by Afrizonemart, so
+      // the link shows for every console admin role.
+      { to: '/staff-access', label: 'Staff access', icon: 'key', roles: ['SUPER_ADMIN', 'HR_ADMIN', 'TASK_MANAGER'] },
     ],
   },
   {

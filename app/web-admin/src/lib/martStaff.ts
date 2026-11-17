@@ -83,7 +83,8 @@ export function disconnectMart(): void {
 function explain(status: number, code: string, message: string): string {
   if (code === 'MFA_ENROLLMENT_REQUIRED') return 'Turn on two-factor authentication on your afrizonemart.com account first, then connect again.'
   if (code === 'MFA_SIGNIN_REQUIRED') return 'Sign in to AfriZone again with your two-factor code, then connect again.'
-  if (status === 403 && /requires role/i.test(message)) return 'Only Owners can manage staff access.'
+  if (code === 'NOT_A_STAFF_MANAGER') return 'Only Owners and Product Admins can manage staff access.'
+  if (code === 'NO_ACCOUNT') return message
   if (status === 401) return 'Your AfriZone sign-in has ended. Connect again.'
   return message
 }
@@ -110,26 +111,41 @@ async function call<T>(path: string, init: RequestInit = {}, retried = false): P
   return body as T
 }
 
+const BASE = '/api/admin/staff-access'
+const enc = encodeURIComponent
+
+export interface MartManagerScope {
+  isOwner: boolean
+  /** Products the signed-in person may manage. */
+  products: MartProduct[]
+}
+
+export interface MembershipInput {
+  permissions: string[]
+  role?: 'MEMBER' | 'PRODUCT_ADMIN'
+  isFinance?: boolean
+  startsAt?: string | null
+  endsAt?: string | null
+}
+
 export const martStaff = {
-  catalogue: () => call<{ products: MartProductCatalogue[] }>('/api/admin/staff/products').then((r) => r.products),
-  list: () => call<{ items: MartStaff[] }>('/api/admin/staff').then((r) => r.items),
-  /** Make an existing Afrizonemart account staff (they keep their login). */
-  promote: (input: { email: string; name?: string; jobTitle?: string; permissions: string[] }) =>
-    call<MartStaff>('/api/admin/staff', {
+  /** Owner (everything) or Product Admin (their products only). */
+  me: () => call<MartManagerScope>(`${BASE}/me`),
+  catalogue: () => call<{ products: MartProductCatalogue[] }>(`${BASE}/products`).then((r) => r.products),
+  list: () => call<{ items: MartStaff[] }>(`${BASE}/people`).then((r) => r.items),
+  /** Give an existing Afrizonemart account access to one product (a shopper becomes staff). */
+  add: (product: MartProduct, input: MembershipInput & { email: string; name?: string; jobTitle?: string }) =>
+    call<{ userId: string; promoted: boolean; membership: MartMembership }>(`${BASE}/products/${product}/members`, {
       method: 'POST',
-      body: JSON.stringify({ ...input, role: 'STAFF', promoteExisting: true }),
-    }),
-  setMembership: (
-    userId: string,
-    product: MartProduct,
-    input: { permissions: string[]; role?: 'MEMBER' | 'PRODUCT_ADMIN'; isFinance?: boolean; startsAt?: string | null; endsAt?: string | null },
-  ) =>
-    call<MartMembership>(`/api/admin/staff/${encodeURIComponent(userId)}/memberships/${product}`, {
-      method: 'PUT',
       body: JSON.stringify(input),
     }),
+  setMembership: (userId: string, product: MartProduct, input: MembershipInput) =>
+    call<MartMembership>(`${BASE}/people/${enc(userId)}/products/${product}`, { method: 'PUT', body: JSON.stringify(input) }),
   removeMembership: (userId: string, product: MartProduct) =>
-    call<void>(`/api/admin/staff/${encodeURIComponent(userId)}/memberships/${product}`, { method: 'DELETE' }),
-  /** Take away all staff access (account stays, as a shopper). */
-  removeStaff: (userId: string) => call<void>(`/api/admin/staff/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+    call<void>(`${BASE}/people/${enc(userId)}/products/${product}`, { method: 'DELETE' }),
+  /** Owner only: take away all staff access (account stays, as a shopper). */
+  removeStaff: (userId: string) => call<void>(`${BASE}/people/${enc(userId)}`, { method: 'DELETE' }),
+  /** Owner only: turn an Owner account into a Product Admin of one product. */
+  makeProductAdmin: (userId: string, product: MartProduct) =>
+    call<void>(`${BASE}/people/${enc(userId)}/make-product-admin`, { method: 'POST', body: JSON.stringify({ product }) }),
 }
