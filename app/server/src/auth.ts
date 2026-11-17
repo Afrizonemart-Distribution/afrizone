@@ -150,9 +150,25 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
   }
 }
 
+/**
+ * READS THE CURRENT ROLE FROM THE DATABASE, not the token (2026-11-17), for
+ * the same reason as requireAccountType below: sessions last seven days, and
+ * staff roles are now decided by Afrizonemart and synced in every few minutes
+ * (services/martStaffSync.ts). Trusting the token would let someone whose
+ * access was removed keep it for up to a week. One primary-key lookup per
+ * staff request. req.user.role is refreshed for the handlers that follow.
+ */
 export function requireRole(...roles: Role[]) {
-  return (req: AuthedRequest, res: Response, next: NextFunction) => {
+  return async (req: AuthedRequest, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+    let row: { role: string } | null
+    try {
+      row = await prisma.user.findUnique({ where: { id: req.user.id }, select: { role: true } });
+    } catch (e) {
+      return next(e);
+    }
+    if (!row) return res.status(401).json({ error: "Not authenticated" });
+    req.user.role = row.role as Role;
     if (!roles.includes(req.user.role)) {
       return res.status(403).json({ error: "Insufficient permissions" });
     }

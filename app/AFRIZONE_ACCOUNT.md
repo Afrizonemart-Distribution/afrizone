@@ -113,6 +113,39 @@ AfriZone sign-in already asks for the code when it's on. For Part-Time:
 4. Then make Continue with AfriZone the only sign-up path and keep phone OTP only
    for linked accounts, so there's no separate Part-Time registration form (§13).
 
+## 6a. Staff roles come from Afrizonemart (2026-11-17)
+
+Staff access across every Afrizonemart product (storefront admin, supplier
+portal, Ink, HUD and this console) is granted in ONE place: Afrizonemart.
+It's managed from this console's **People → Staff access** screen, which
+calls the Afrizonemart API directly as the signed-in Owner (AfriZone session
+from the shared cookie, held in memory only). Every check (Owner role, 2FA,
+audit log) happens on the Afrizonemart side.
+
+Part-Time follows in two ways:
+
+1. **Sign-in.** The identity token carries `parttime_role`
+   (`SUPER_ADMIN` / `HR_ADMIN` / `TASK_MANAGER` / null) and `amr`. A role is
+   applied ONLY when `amr` includes `mfa` (the AfriZone session passed 2FA).
+   A linked staff account whose token has no 2FA session is still refused
+   (`STAFF_USE_CONSOLE`). An existing Part-Time staff account is still never
+   auto-linked by email (§4).
+2. **Sync, every 5 minutes** (`services/martStaffSync.ts`): pulls
+   `GET {AFRIZONE_API_URL}/api/integrations/parttime/staff-roles` with the
+   read-only service token in secret `MART_STAFF_SYNC_TOKEN`, and makes every
+   LINKED account match: listed = that role, missing = `WORKER`. Unlinked
+   accounts are left alone. Fails safe: a fetch or shape problem changes
+   nothing; an empty list, more than 5 demotions in one run, or a result with
+   no `SUPER_ADMIN` is refused and logged.
+
+`requireRole` now reads the role from the database on every staff request,
+so a removal takes effect at once, not when the 7-day session ends.
+
+Setup: Afrizonemart mints the token
+(`scripts/create-service-token.ts --name=parttime-staff-sync --scopes=parttime.staff.read`),
+then `wrangler secret put MART_STAFF_SYNC_TOKEN`. Until it's set the sync is
+skipped quietly.
+
 ## 7. Not in scope here
 
 - Moving Part-Time KYC onto AfriZone account levels (Level 2 NIN/BVN). That comes

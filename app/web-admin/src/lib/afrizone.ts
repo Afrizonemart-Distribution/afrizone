@@ -69,24 +69,42 @@ function waitForAfrizoneSignIn(popup: Window | null): Promise<string> {
   })
 }
 
+/** AfriZone API origin, for screens that call it directly (Staff access). */
+export const AFRIZONE_API_URL = AFRIZONE_API
+
+/**
+ * Step 1 on its own: an AfriZone access token, opening AfriZone sign-in in a
+ * popup only if the shared cookie holds no session. `forceSignIn` always
+ * opens it (e.g. AfriZone asked for a fresh 2FA sign-in). Call straight from a
+ * click handler: the popup has to open in the same tick as the click or
+ * browsers block it.
+ */
+export async function getAfrizoneAccessToken(opts: { forceSignIn?: boolean } = {}): Promise<string> {
+  // Open first, synchronously. If they turn out to be signed in already we
+  // close it again a moment later, which beats a popup blocker eating it.
+  const popup = window.open(AFRIZONE_LOGIN, 'afrizone-signin', 'width=480,height=720')
+
+  let accessToken = opts.forceSignIn ? null : await refreshAccessToken()
+  if (accessToken) {
+    popup?.close()
+  } else {
+    if (!popup) {
+      throw new Error('Allow pop-ups for this site, then try again.')
+    }
+    accessToken = await waitForAfrizoneSignIn(popup)
+  }
+  return accessToken
+}
+
+/** Silent version: a token only if the shared cookie already holds a session. */
+export const refreshAfrizoneAccessToken = refreshAccessToken
+
 /**
  * Steps 1-2. Call straight from a click handler: the popup has to open in the
  * same tick as the click or browsers block it.
  */
 export async function getAfrizoneIdentityToken(): Promise<string> {
-  // Open first, synchronously. If they turn out to be signed in already we
-  // close it again a moment later, which beats a popup blocker eating it.
-  const popup = window.open(AFRIZONE_LOGIN, 'afrizone-signin', 'width=480,height=720')
-
-  let accessToken = await refreshAccessToken()
-  if (accessToken) {
-    popup?.close()
-  } else {
-    if (!popup) {
-      throw new Error('Allow pop-ups for this site, then try Link AfriZone account again.')
-    }
-    accessToken = await waitForAfrizoneSignIn(popup)
-  }
+  const accessToken = await getAfrizoneAccessToken()
 
   const res = await fetch(`${AFRIZONE_API}/api/auth/identity-token`, {
     method: 'POST',

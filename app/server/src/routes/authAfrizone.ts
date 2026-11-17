@@ -21,7 +21,7 @@ import type { User } from "@prisma/client";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth, signToken, signChallenge, publicUser } from "../auth";
 import { Role } from "../types";
-import { userActor, writeAudit } from "../util/audit";
+import { SYSTEM_ACTORS, userActor, writeAudit } from "../util/audit";
 import {
   afrizoneLoginEnabled,
   verifyAfrizoneToken,
@@ -66,6 +66,28 @@ function signIn(res: any, user: User, isNewUser: boolean) {
   return res.json({ token, user: publicUser(user), isNewUser });
 }
 
+/**
+ * Afrizonemart decides staff roles (2026-11-17): a role it vouches for in the
+ * identity token is applied here, but ONLY when that AfriZone session passed
+ * its 2FA challenge (mfa_session). A role from a password-only AfriZone
+ * session is ignored, so a stolen AfriZone password still can't open the
+ * console. Removals come through the staff-roles sync (services/martStaffSync.ts).
+ */
+function martRole(claims: AfrizoneClaims): Role | null {
+  return claims.mfa_session && claims.parttime_role ? (claims.parttime_role as Role) : null;
+}
+
+async function applyMartRole(user: User, role: Role | null): Promise<User> {
+  if (!role || user.role === role) return user;
+  const updated = await prisma.user.update({ where: { id: user.id }, data: { role } });
+  await writeAudit(SYSTEM_ACTORS.afrizonemart, "STAFF_ROLE_FROM_AFRIZONEMART", "User", user.id, {
+    from: user.role,
+    to: role,
+    via: "afrizone_sign_in",
+  });
+  return updated;
+}
+
 /** Placeholder for accounts with no verified email (email is NOT NULL + unique). */
 function placeholderEmail(sub: string): string {
   return `${sub.toLowerCase().replace(/[^a-z0-9]/g, "")}@afrizone-account.local`;
@@ -78,10 +100,14 @@ router.post("/afrizone", async (req, res) => {
   // 1. Already linked.
   const linked = await prisma.user.findUnique({ where: { afrizoneUserId: claims.sub } });
   if (linked) {
-    // A linked STAFF account still signs in on the console only. Linking is
-    // identity, not a second front door: otherwise anyone holding the
-    // AfriZone password (a weaker account, no Part-Time 2FA) would get a full
-    // staff session from the portal or the app. Fail closed on any non-WORKER.
+    // Afrizonemart vouches for a staff role AND the AfriZone session passed
+    // 2FA: that is the staff front door now (role applied, then signed in).
+    const role = martRole(claims);
+    if (role) return signIn(res, await applyMartRole(linked, role), false);
+    // Otherwise a linked STAFF account still signs in on the console only.
+    // Linking is identity, not a second front door: otherwise anyone holding
+    // the AfriZone password (no 2FA) would get a full staff session from the
+    // portal or the app. Fail closed on any non-WORKER.
     if (linked.role !== "WORKER") {
       return res.status(403).json({
         error: "Staff accounts sign in on the Afrizone staff console, not with AfriZone.",
@@ -117,7 +143,7 @@ router.post("/afrizone", async (req, res) => {
         via: "verified_email",
         afrizoneUserId: claims.sub,
       });
-      return signIn(res, user, false);
+      return signIn(res, await applyMartRole(user, martRole(claims)), false);
     }
   }
 
@@ -140,7 +166,7 @@ router.post("/afrizone", async (req, res) => {
     emailVerified: claims.email_verified,
     country: claims.country,
   });
-  return signIn(res, user, true);
+  return signIn(res, await applyMartRole(user, martRole(claims)), true);
 });
 
 // Link from Settings: the caller is signed in to Part-Time AND just signed in
