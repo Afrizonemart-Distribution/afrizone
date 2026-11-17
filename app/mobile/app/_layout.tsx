@@ -166,10 +166,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // manifest can statically prove; widen it here since we're just doing a
     // runtime string comparison on whatever segment happens to be present.
     const onKyc = inAuthGroup && (segments as string[])[1] === 'kyc';
+    // The staff workspace is for AfriZone staff, signed in to Part Time or not.
+    const onStaff = inAuthGroup && (segments as string[])[1] === 'staff';
     if (!user && !inAuthGroup) {
       // Front door for signed-out users → welcome carousel (→ Sign in).
       router.replace('/(auth)/welcome');
-    } else if (user && inAuthGroup && !onKyc) {
+    } else if (user && inAuthGroup && !onKyc && !onStaff) {
       // Decided by the account type the SERVER returned, never by whatever was
       // tapped on the front-door picker. Someone who chose the wrong card there
       // lands where their account actually belongs rather than being stranded

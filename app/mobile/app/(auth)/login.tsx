@@ -142,6 +142,7 @@ export default function LoginScreen() {
       <ObPasswordField label="Password" value={password} onChangeText={setPassword} placeholder="Your password" autoComplete="password" onSubmitEditing={onSignIn} returnKeyType="go" />
 
       <Text style={styles.forgotText} onPress={() => router.push('/(auth)/forgot')}>Forgot password?</Text>
+      <Text style={styles.forgotText} onPress={() => router.push('/(auth)/staff')}>AfriZone staff? Open your workspace</Text>
     </ObScreen>
   );
 }
