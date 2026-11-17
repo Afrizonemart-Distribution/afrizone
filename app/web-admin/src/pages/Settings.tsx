@@ -41,7 +41,7 @@ import {
 } from '@/components/shadcn/table'
 
 const TIERS: Tier[] = ['STUDENT', 'DISPATCH', 'REMOTE', 'PROMO', 'TRADE']
-type Tab = 'tax' | 'categories' | 'skills' | 'credentialTypes' | 'requirements' | 'referrals' | 'templates' | 'billing' | 'security'
+type Tab = 'tax' | 'categories' | 'skills' | 'credentialTypes' | 'requirements' | 'checks' | 'referrals' | 'templates' | 'billing' | 'security'
 
 
 /* ===================== Tax Rates ===================== */
@@ -522,6 +522,193 @@ function TemplateCard({
         </div>
       )}
     </Glass>
+  )
+}
+
+/* ===================== Money & proof checks ===================== */
+
+/**
+ * The settings behind proof-to-pay, payout selfies and proof-photo checks.
+ * Each reads the same Setting row the server does, with the same default when
+ * the row is absent (services/proof.ts, services/payout.ts, services/evidence.ts,
+ * services/proofCheck.ts), so the screen never shows a value the server isn't using.
+ */
+const SECOND_APPROVAL_KEY = 'payments.secondApprovalOver'
+const SECOND_APPROVAL_DEFAULT = 50_000
+const SELFIE_KEY = 'payouts.selfieOver'
+const SELFIE_DEFAULT = 100_000
+const EVIDENCE_KEY = 'evidence.enforce'
+const PROOF_AI_KEY = 'ai.proofCheck'
+
+function ChecksTab({ canEdit }: { canEdit: boolean }) {
+  const { data, loading, error, reload, setData } = useApi((signal) => api.templates(signal))
+  const [second, setSecond] = useState<string | null>(null)
+  const [selfie, setSelfie] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  if (loading) return <LoadingState label="Loading…" />
+  if (error) return <ErrorState message={error} onRetry={reload} />
+
+  const raw = (key: string) => (data ?? []).find((t) => t.key === key)?.value
+  const amount = (key: string, fallback: number) => {
+    const n = Number(raw(key))
+    return raw(key) !== undefined && Number.isFinite(n) && n >= 0 ? n : fallback
+  }
+  const isOn = (key: string) => {
+    const v = raw(key)
+    return v === undefined || String(v).toLowerCase() !== 'off'
+  }
+  const secondLine = amount(SECOND_APPROVAL_KEY, SECOND_APPROVAL_DEFAULT)
+  const selfieLine = amount(SELFIE_KEY, SELFIE_DEFAULT)
+  const secondValue = second ?? String(secondLine)
+  const selfieValue = selfie ?? String(selfieLine)
+  const valid = (v: string) => v.trim() !== '' && Number.isFinite(Number(v)) && Number(v) >= 0
+  const dirty =
+    (second !== null && Number(second) !== secondLine) || (selfie !== null && Number(selfie) !== selfieLine)
+
+  function store(row: { key: string; value: string }) {
+    setData((prev) => {
+      const list = prev ?? []
+      return list.some((t) => t.key === row.key) ? list.map((t) => (t.key === row.key ? row : t)) : [...list, row]
+    })
+  }
+
+  async function saveAmounts() {
+    setBusy(true)
+    setErr(null)
+    setSaved(false)
+    try {
+      if (second !== null) store(await api.putTemplate(SECOND_APPROVAL_KEY, String(Math.round(Number(second)))))
+      if (selfie !== null) store(await api.putTemplate(SELFIE_KEY, String(Math.round(Number(selfie)))))
+      setSecond(null)
+      setSelfie(null)
+      setSaved(true)
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not save')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function setSwitch(key: string, next: boolean) {
+    setBusy(true)
+    setErr(null)
+    try {
+      store(await api.putTemplate(key, next ? 'on' : 'off'))
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Could not change the setting')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const evidenceOn = isOn(EVIDENCE_KEY)
+  const proofAiOn = isOn(PROOF_AI_KEY)
+
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div className="tabhead">
+        <p className="tabhint">How much checking money and proof get before anyone is paid.</p>
+      </div>
+      <Glass>
+        <h3 style={{ fontSize: 15, margin: '0 0 6px' }}>Amounts</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+          <div className="field">
+            <Label htmlFor="chk-second">Second approver needed from (₦)</Label>
+            <Input
+              id="chk-second"
+              inputMode="numeric"
+              value={secondValue}
+              disabled={!canEdit}
+              onChange={(e) => setSecond(e.target.value.replace(/[^0-9]/g, ''))}
+            />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              A payment this large or larger needs a second admin to release it. Default ₦
+              {SECOND_APPROVAL_DEFAULT.toLocaleString()}.
+            </span>
+          </div>
+          <div className="field">
+            <Label htmlFor="chk-selfie">Selfie before withdrawals from (₦)</Label>
+            <Input
+              id="chk-selfie"
+              inputMode="numeric"
+              value={selfieValue}
+              disabled={!canEdit}
+              onChange={(e) => setSelfie(e.target.value.replace(/[^0-9]/g, ''))}
+            />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              A worker withdrawing this much or more takes a fresh selfie first, and the withdrawal waits in
+              Withdrawal checks. Default ₦{SELFIE_DEFAULT.toLocaleString()}.
+            </span>
+          </div>
+        </div>
+        {canEdit && (
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', marginTop: 12 }}>
+            {saved && !dirty && <span style={{ fontSize: 13, color: 'var(--money)' }}>Saved</span>}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={busy}
+              disabled={!dirty || !valid(secondValue) || !valid(selfieValue)}
+              onClick={saveAmounts}
+            >
+              Save amounts
+            </Button>
+          </div>
+        )}
+      </Glass>
+
+      <Glass>
+        <div className="gate-row">
+          <div>
+            <b>Require proof before a step can finish</b>
+            <span>
+              On: a pickup, drop-off or task step that needs photos or a signature can't be completed without
+              them. Off is the emergency switch for a day when phone cameras are failing.
+            </span>
+          </div>
+          <Switch
+            checked={evidenceOn}
+            onChange={(next) => setSwitch(EVIDENCE_KEY, next)}
+            disabled={!canEdit || busy}
+            label="Require proof before a step can finish"
+          />
+        </div>
+        {!evidenceOn && (
+          <div className="login-error" role="status" style={{ marginTop: 14 }}>
+            <Icon name="alert" size={15} />
+            Proof is not required. Steps can be completed with no photos or signature.
+          </div>
+        )}
+      </Glass>
+
+      <Glass>
+        <div className="gate-row">
+          <div>
+            <b>AI look at proof photos</b>
+            <span>
+              On: work and audit photos get a quick AI look and anything doubtful is flagged for the reviewer.
+              It only runs once the Anthropic API key is set on the server; repeated-photo checks run either way.
+            </span>
+          </div>
+          <Switch
+            checked={proofAiOn}
+            onChange={(next) => setSwitch(PROOF_AI_KEY, next)}
+            disabled={!canEdit || busy}
+            label="AI look at proof photos"
+          />
+        </div>
+      </Glass>
+
+      {err && (
+        <div className="login-error" role="alert">
+          <Icon name="alert" size={15} />
+          {err}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1803,6 +1990,7 @@ const TABS: { id: Tab; label: string; icon: 'percent' | 'tag' | 'mail' | 'naira'
   { id: 'skills', label: 'Skills', icon: 'tag' },
   { id: 'credentialTypes', label: 'Credential types', icon: 'shield' },
   { id: 'requirements', label: 'Requirements', icon: 'lock' },
+  { id: 'checks', label: 'Money & proof checks', icon: 'shield' },
   { id: 'referrals', label: 'Referrals', icon: 'naira' },
   { id: 'templates', label: 'Templates', icon: 'mail' },
   { id: 'billing', label: 'Billing', icon: 'naira' },
@@ -1866,6 +2054,9 @@ export default function Settings() {
         </TabsContent>
         <TabsContent value="requirements">
           <RequirementsTab canEdit={canEdit} />
+        </TabsContent>
+        <TabsContent value="checks">
+          <ChecksTab canEdit={canEdit} />
         </TabsContent>
         <TabsContent value="referrals">
           <ReferralsTab canEdit={canEdit} />
