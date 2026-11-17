@@ -64,7 +64,11 @@
     "TERMII_FROM": "Afrizone",
     // Continue with AfriZone (routes/authAfrizone.ts). Not a secret: verification uses
     // AfriZone's PUBLIC key from its JWKS. Set to "false" to switch the routes off (503).
-    "AFRIZONE_LOGIN_ENABLED": "true"
+    "AFRIZONE_LOGIN_ENABLED": "true",
+    // Where Part Time reports delivery progress and checks the customer's
+    // delivery code (services/martOutbound.ts). Signed with the
+    // MART_OUTBOUND_SECRET secret; unset secret = reports are skipped.
+    "MART_BASE_URL": "https://api.afrizonemart.com/api/integrations"
   },
   "d1_databases": [
     {
