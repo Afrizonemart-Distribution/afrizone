@@ -23,6 +23,7 @@ import Deliveries from './pages/Deliveries'
 import Network from './pages/Network'
 import IdentityChecks from './pages/IdentityChecks'
 import WithdrawalChecks from './pages/WithdrawalChecks'
+import StaffAccess from './pages/StaffAccess'
 
 export default function App() {
   return (
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/deliveries" element={<Deliveries />} />
         <Route path="/hiring" element={<Hiring />} />
         <Route path="/talent-pools" element={<TalentPools />} />
+        <Route path="/staff-access" element={<StaffAccess />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
       </Route>

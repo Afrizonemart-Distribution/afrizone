@@ -33,7 +33,17 @@ export interface AfrizoneClaims {
   phone_number_verified: boolean;
   country: string | null;
   mfa_enabled: boolean;
+  /** The AfriZone session behind this token passed its 2FA challenge (amr). */
+  mfa_session: boolean;
+  /**
+   * Part-Time staff role decided by Afrizonemart (null = none). Afrizonemart
+   * is the source of truth for staff roles (2026-11-17); only honoured
+   * together with mfa_session.
+   */
+  parttime_role: "SUPER_ADMIN" | "HR_ADMIN" | "TASK_MANAGER" | null;
 }
+
+const MART_STAFF_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGER"] as const;
 
 export class AfrizoneTokenError extends Error {}
 
@@ -108,6 +118,10 @@ export async function verifyAfrizoneToken(identityToken: string): Promise<Afrizo
     phone_number_verified: claims.phone_number_verified === true,
     country: typeof claims.country === "string" ? claims.country : null,
     mfa_enabled: claims.mfa_enabled === true,
+    mfa_session: Array.isArray(claims.amr) && claims.amr.includes("mfa"),
+    parttime_role: (MART_STAFF_ROLES as readonly string[]).includes(claims.parttime_role)
+      ? (claims.parttime_role as AfrizoneClaims["parttime_role"])
+      : null,
   };
 }
 

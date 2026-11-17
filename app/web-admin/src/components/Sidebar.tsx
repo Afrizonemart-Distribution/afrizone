@@ -11,6 +11,8 @@ interface NavItem {
   label: string
   icon: IconName
   badge?: number
+  /** Only these Part-Time roles see the item. */
+  roles?: string[]
 }
 
 const GROUPS: { label: string; items: NavItem[] }[] = [
@@ -39,6 +41,9 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/network', label: 'Network', icon: 'pin' },
       { to: '/hiring', label: 'Hiring', icon: 'briefcase' },
       { to: '/talent-pools', label: 'Talent pools', icon: 'star' },
+      // Afrizonemart-wide staff access; changes are checked by Afrizonemart
+      // (Owner + 2FA), so this only hides the link from other roles.
+      { to: '/staff-access', label: 'Staff access', icon: 'key', roles: ['SUPER_ADMIN'] },
     ],
   },
   {
@@ -70,7 +75,7 @@ export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigat
         {GROUPS.map((g) => (
           <div key={g.label}>
             <div className="navlabel">{g.label}</div>
-            {g.items.map((item) => (
+            {g.items.filter((item) => !item.roles || (user && item.roles.includes(user.role))).map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

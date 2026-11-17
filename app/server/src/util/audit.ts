@@ -35,6 +35,12 @@ export const SYSTEM_ACTORS = {
   /// approval (services/referrals.ts). The human who pressed the button is on
   /// that action's own audit row.
   referrals: { type: "SYSTEM", ref: "referrals" },
+  /// A staff role applied because Afrizonemart vouched for it in an AfriZone
+  /// identity token (routes/authAfrizone.ts).
+  afrizonemart: { type: "INTEGRATION", ref: "afrizonemart" },
+  /// The every-5-minutes pull that makes linked staff roles match
+  /// Afrizonemart (services/martStaffSync.ts).
+  martStaffSync: { type: "JOB", ref: "mart-staff-sync" },
 } as const satisfies Record<string, AuditActor>;
 
 export function userActor(userId: string): AuditActor {

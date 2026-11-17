@@ -40,6 +40,7 @@ import searchRouter from "./routes/search";
 import healthRouter from "./routes/health";
 import fundingRouter from "./routes/funding";
 import { purgeCustomerData } from "./services/deliveryPurge";
+import { syncMartStaffRoles } from "./services/martStaffSync";
 import { advanceRankedOffers } from "./services/ranking";
 import { sendDueJobAlerts } from "./services/jobAlerts";
 import { checkDueProofPhotos } from "./services/proofCheck";
@@ -393,6 +394,17 @@ export default {
           })
           .catch((e) => console.error(`[proof-check] FAILED: ${e instanceof Error ? e.message : String(e)}`))
       );
+      // Staff roles follow Afrizonemart, every 5 minutes (services/martStaffSync.ts).
+      if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0) {
+        ctx.waitUntil(
+          syncMartStaffRoles(cronPrisma as any)
+            .then((r) => {
+              if (r.skipped && r.skipped !== "MART_STAFF_SYNC_TOKEN not set") console.error(`[mart-staff-sync] SKIPPED: ${r.skipped}`);
+              if (r.changed) console.log(`[mart-staff-sync] promoted ${r.promoted}, demoted ${r.demoted}`);
+            })
+            .catch((e) => console.error(`[mart-staff-sync] FAILED: ${e instanceof Error ? e.message : String(e)}`))
+        );
+      }
       return;
     }
 
