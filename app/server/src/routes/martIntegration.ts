@@ -65,6 +65,35 @@ router.post("/events", async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/integrations/mart/stores
+ *
+ * The partner AZM Stores Mart may send an order to: ACTIVE stores only. Mart's
+ * admin shows these when ops hand an order to Part Time, so the slug in
+ * order.confirmed is always one we know. Signed like the events endpoint, over
+ * an empty body ("{timestamp}.").
+ */
+router.get("/stores", async (req: Request, res: Response) => {
+  const verified = verifyMartSignature(
+    "",
+    req.header("x-afz-timestamp"),
+    req.header("x-afz-signature"),
+    process.env.MART_INBOUND_SECRET
+  );
+  if (!verified.ok) return res.status(401).json({ error: verified.error });
+  try {
+    const stores = await prisma.organization.findMany({
+      where: { kind: "STORE", status: "ACTIVE" },
+      orderBy: { name: "asc" },
+      select: { slug: true, name: true, address: true, lat: true, lng: true },
+    });
+    return res.json({ stores });
+  } catch (e) {
+    console.error("mart store list failed:", e instanceof Error ? e.message : e);
+    return res.status(500).json({ error: "Could not list stores" });
+  }
+});
+
 // ── Afrizone staff ───────────────────────────────────────────────────────────
 
 /**
