@@ -4,6 +4,7 @@ import { Register, SignIn } from './pages/Auth'
 import { CourierDashboard, IndividualLanding, StoreDashboard } from './pages/Dashboards'
 import { homeFor, useAuth } from './lib/auth'
 import PublicProfilePage from './pages/PublicProfile'
+import StaffWorkspace from './pages/Staff'
 
 /**
  * Routes for the PartTime portal.
@@ -27,6 +28,7 @@ export default function App() {
       <Route path="/courier" element={<CourierDashboard />} />
       <Route path="/individual" element={<IndividualLanding />} />
       <Route path="/p/:slug" element={<PublicProfilePage />} />
+      <Route path="/staff" element={<StaffWorkspace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

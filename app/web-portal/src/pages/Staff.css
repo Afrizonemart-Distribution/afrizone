@@ -1,0 +1,49 @@
+/* Staff workspace. Same cards, fields and buttons as the rest of the portal
+   (Shell.css); only the tabs, task rows and score figures are new. */
+
+.st-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 18px; }
+.st-tab {
+  height: 38px; padding: 0 16px; border: 1px solid var(--line-2); background: var(--surface);
+  border-radius: var(--r-sm); border-top-right-radius: var(--cut);
+  font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+}
+.st-tab.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+.st-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.st-check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+
+.st-task-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.st-title { font-size: 15.5px; font-weight: 700; color: var(--heading); }
+.st-meta { font-size: 12.5px; color: var(--faint); margin-top: 2px; }
+.st-desc { margin: 10px 0 0; font-size: 14px; color: var(--text); white-space: pre-wrap; }
+.st-empty { margin: 0; color: var(--muted); }
+
+.st-pill {
+  flex: none; font-size: 11.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px;
+  background: var(--gold-soft); color: var(--gold-ink);
+}
+.st-pill.late { background: var(--danger-soft); color: var(--danger-ink); }
+.st-pill.done { background: var(--money-soft); color: var(--money-ink); }
+
+.st-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.st-form { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 14px; }
+.st-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0 14px; }
+
+.st-seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
+.st-seg button { height: 36px; padding: 0 14px; border: 0; background: var(--surface); font-size: 13.5px; font-weight: 600; color: var(--muted); cursor: pointer; }
+.st-seg button.on { background: var(--navy); color: #fff; }
+
+.st-score { display: flex; align-items: center; gap: 18px; }
+.st-big { font-family: var(--display); font-weight: 800; font-size: 46px; line-height: 1; color: var(--heading); font-variant-numeric: tabular-nums; }
+.st-mid { display: block; font-family: var(--display); font-weight: 800; font-size: 28px; line-height: 1.2; color: var(--heading); font-variant-numeric: tabular-nums; }
+.good { color: var(--money-ink); }
+.mid { color: var(--gold-ink); }
+.low { color: var(--danger-ink); }
+
+.st-pillars { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0 14px; }
+.st-flag { margin: 0 0 6px; color: var(--danger-ink); font-weight: 600; font-size: 14px; }
+.st-flag:last-child { margin-bottom: 0; }
+
+.st-team { padding: 8px 22px; }
+.st-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.st-row:first-child { border-top: 0; }

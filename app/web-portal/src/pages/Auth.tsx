@@ -117,6 +117,9 @@ export function SignIn() {
           <p className="alt">
             New here? <Link to="/">Choose your account type</Link>
           </p>
+          <p className="alt">
+            AfriZone staff? <Link to="/staff">Open your staff workspace</Link>
+          </p>
         </div>
       </div>
     </Shell>
