@@ -16,7 +16,7 @@ import type { ReferralSummary } from '../src/api/types';
  * The code first and large, because it is read aloud and typed on somebody
  * else's phone. Then what it pays, said honestly: when rewards are off the
  * screen says so rather than inviting people to refer for nothing. Then who
- * they have brought in, and - for a new Tasker who has not said yet - the box
+ * they have brought in, and - for a new Partimer who has not said yet - the box
  * to enter the code of whoever brought THEM in.
  */
 export default function ReferScreen() {
@@ -107,7 +107,7 @@ export default function ReferScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.rowName}>{r.name}</Text>
                       <Text style={styles.hint}>
-                        {r.kind === 'STORE' ? 'Store' : 'Tasker'} · since {formatDate(r.createdAt)}
+                        {r.kind === 'STORE' ? 'Store' : 'Partimer'} · since {formatDate(r.createdAt)}
                       </Text>
                     </View>
                     <Text style={[styles.rowStatus, r.status === 'EARNED' && { color: obColors.mgreen }]}>

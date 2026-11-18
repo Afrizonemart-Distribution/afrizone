@@ -32,7 +32,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: 'People',
     items: [
-      { to: '/workers', label: 'Workers', icon: 'users' },
+      { to: '/workers', label: 'Partimers', icon: 'users' },
       { to: '/verification', label: 'Verification', icon: 'shield' },
       { to: '/identity', label: 'Identity checks', icon: 'lock' },
       { to: '/hiring', label: 'Hiring', icon: 'briefcase' },
@@ -47,6 +47,7 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Insights',
     items: [
       { to: '/reports', label: 'Reports', icon: 'chart' },
+      { to: '/settings?tab=categories', label: 'Categories & tiers', icon: 'tag' },
       { to: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
@@ -56,7 +57,7 @@ const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
   TASK_MANAGER: 'Task Manager',
   HR_ADMIN: 'HR Admin',
-  WORKER: 'Worker',
+  WORKER: 'Partimer',
 }
 
 export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {

@@ -35,7 +35,7 @@ export default function TalentPools() {
       <PageHeader
         crumb="People / Talent pools"
         title="Talent pools"
-        sub="Groups of workers you trust for a kind of work. Send a job alert to one pool from Hiring."
+        sub="Groups of Partimers you trust for a kind of work. Send a job alert to one pool from Hiring."
         actions={
           <Button variant="primary" icon="plus" onClick={() => setEditing('new')}>
             New pool
@@ -52,7 +52,7 @@ export default function TalentPools() {
           <EmptyState
             icon="users"
             title="No pools yet"
-            sub="Make one, e.g. “Verified Lagos drivers”, and add the workers you'd call first."
+            sub="Make one, e.g. “Verified Lagos drivers”, and add the Partimers you'd call first."
           />
         </Glass>
       ) : (
@@ -65,7 +65,7 @@ export default function TalentPools() {
                   {p.note && <div style={{ fontSize: 13, color: 'var(--muted)' }}>{p.note}</div>}
                 </div>
                 <span className="tnum" style={{ fontSize: 13 }}>
-                  {p.memberCount} worker{p.memberCount === 1 ? '' : 's'}
+                  {p.memberCount} Partimer{p.memberCount === 1 ? '' : 's'}
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--muted)' }}>updated {formatDate(p.updatedAt)}</span>
                 <Button variant="glass" size="sm" onClick={() => setEditing(p)}>
@@ -204,12 +204,12 @@ function PoolDetail({ id, onClose }: { id: string; onClose: () => void }) {
         <>
           <div style={{ display: 'flex', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
             <Button variant="primary" size="sm" icon="plus" onClick={() => setAdding(true)}>
-              Add workers
+              Add Partimers
             </Button>
             <span style={{ flex: 1 }} />
             {confirmDelete ? (
               <>
-                <span style={{ fontSize: 13 }}>Delete this pool? Workers are not affected.</span>
+                <span style={{ fontSize: 13 }}>Delete this pool? Partimers are not affected.</span>
                 <Button variant="danger" size="sm" onClick={deletePool}>
                   Delete
                 </Button>
@@ -318,15 +318,15 @@ function AddWorkers({
   }
 
   return (
-    <Modal open title="Add workers" subtitle={`Pick up to ${ADD_MAX} at a time`} onClose={onClose}>
-      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or email" aria-label="Search workers" />
+    <Modal open title="Add Partimers" subtitle={`Pick up to ${ADD_MAX} at a time`} onClose={onClose}>
+      <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or email" aria-label="Search Partimers" />
       <div style={{ maxHeight: 360, overflowY: 'auto', marginTop: 12 }}>
         {loading ? (
           <LoadingState />
         ) : error ? (
           <ErrorState message={error} onRetry={reload} />
         ) : list.length === 0 ? (
-          <EmptyState title="No workers match" />
+          <EmptyState title="No Partimers match" />
         ) : (
           list.map((w) => (
             <label

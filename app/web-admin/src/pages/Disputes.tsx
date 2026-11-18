@@ -104,7 +104,7 @@ export default function Disputes() {
           <EmptyState
             icon="alert"
             title="No disputes"
-            sub={filter === 'ALL' ? 'Workers raise disputes on payments or timesheets here.' : `No ${filter.toLowerCase()} disputes.`}
+            sub={filter === 'ALL' ? 'Partimers raise disputes on payments or timesheets here.' : `No ${filter.toLowerCase()} disputes.`}
           />
         </Glass>
       ) : (
@@ -112,7 +112,7 @@ export default function Disputes() {
           <Table className="dt">
             <TableHeader>
               <TableRow>
-                <TableHead>Worker</TableHead>
+                <TableHead>Partimer</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Entity</TableHead>
                 <TableHead>Reason</TableHead>
@@ -124,7 +124,7 @@ export default function Disputes() {
             <TableBody>
               {disputes.map((d) => {
                 const pill = disputePill(d.status)
-                const name = d.worker?.name ?? 'Worker'
+                const name = d.worker?.name ?? 'Partimer'
                 return (
                   <TableRow key={d.id}>
                     <TableCell>
@@ -197,7 +197,7 @@ export default function Disputes() {
       <Modal
         open={!!resolving}
         title="Review dispute"
-        subtitle={resolving ? `${resolving.worker?.name ?? 'Worker'} · ${resolving.entityType.toLowerCase()} · ${resolving.entity?.title ?? ''}` : undefined}
+        subtitle={resolving ? `${resolving.worker?.name ?? 'Partimer'} · ${resolving.entityType.toLowerCase()} · ${resolving.entity?.title ?? ''}` : undefined}
         onClose={() => { setResolving(null); setResolution('') }}
       >
         {resolving && (
@@ -211,7 +211,7 @@ export default function Disputes() {
               }}
             >
               <div style={{ fontSize: 12, color: 'var(--clay)', fontWeight: 600, marginBottom: 4 }}>
-                Worker&apos;s reason
+                Partimer&apos;s reason
               </div>
               <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>{resolving.reason}</div>
             </div>
@@ -235,7 +235,7 @@ export default function Disputes() {
                 id="dispute-note"
                 value={resolution}
                 onChange={(e) => setResolution(e.target.value)}
-                placeholder="Explain the decision to the worker…"
+                placeholder="Explain the decision to the Partimer…"
                 rows={3}
               />
             </div>

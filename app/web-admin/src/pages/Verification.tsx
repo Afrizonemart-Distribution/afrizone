@@ -84,7 +84,7 @@ function statePill(state: string): { variant: PillVariant; label: string } {
       return { variant: 'danger', label: 'Expired' }
     // Recorded on the worker's word. Never dressed up as something checked.
     case 'SELF_DECLARED':
-      return { variant: 'pending', label: 'Added by worker' }
+      return { variant: 'pending', label: 'Added by Partimer' }
     default:
       return { variant: 'pending', label: state }
   }
@@ -171,7 +171,7 @@ export default function Verification() {
           <Table className="dt">
             <TableHeader>
               <TableRow>
-                <TableHead>Worker</TableHead>
+                <TableHead>Partimer</TableHead>
                 <TableHead>Credential</TableHead>
                 <TableHead>Reference</TableHead>
                 <TableHead>Expires</TableHead>
@@ -182,7 +182,7 @@ export default function Verification() {
             </TableHeader>
             <TableBody>
               {rows.map((c) => {
-                const name = c.worker?.name ?? 'Worker'
+                const name = c.worker?.name ?? 'Partimer'
                 const pill = statePill(c.state)
                 return (
                   <TableRow key={c.id}>
@@ -503,7 +503,7 @@ function ReviewModal({
               rejecting ? (
                 <div className="verif-reject">
                   <Label>Why is it being turned down?</Label>
-                  <p className="verif-hint">The worker is shown this, so it has to tell them what to do next.</p>
+                  <p className="verif-hint">The Partimer is shown this, so it has to tell them what to do next.</p>
                   {REASONS.map((r) => (
                     <label key={r.code} className="verif-radio">
                       <input

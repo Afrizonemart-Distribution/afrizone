@@ -1,4 +1,4 @@
-// A Tasker's standing: New, Bronze, Silver, Gold, and badges (Blueprint §9,
+// A Partimer's standing: New, Bronze, Silver, Gold, and badges (Blueprint §9,
 // services/standing.ts).
 //
 // Four properties, and every test below is one of them:
@@ -6,12 +6,12 @@
 //   EARNED FROM THE RECORD. Finished jobs, the share of taken jobs finished,
 //   and a rating with enough ratings behind it. One five-star job is not Gold.
 //
-//   EVERY LEVEL SAYS WHAT THE NEXT NEEDS, in words a Tasker can act on.
+//   EVERY LEVEL SAYS WHAT THE NEXT NEEDS, in words a Partimer can act on.
 //
 //   BADGES ARE FOR SOMETHING SPECIFIC: a category done often, or never
 //   dropping a job.
 //
-//   SHOWN WHERE A PERSON DECIDES. The Tasker's own profile, the worker
+//   SHOWN WHERE A PERSON DECIDES. The Partimer's own profile, the worker
 //   directory and the applicant queue - and never to staff about themselves.
 import { describe, it, expect } from "vitest";
 import { apiGet } from "./http";
@@ -47,7 +47,7 @@ describe("standingFor", () => {
     expect(s.next?.needs).toEqual(["3 more ratings"]);
   });
 
-  it("holds a Tasker who drops work at their level, and says so", () => {
+  it("holds a Partimer who drops work at their level, and says so", () => {
     const s = standingFor({ ...base, completed: 12, cancelled: 4, rating: 4.6, ratingCount: 10 });
     expect(s.level).toBe("BRONZE");
     expect(s.next?.needs).toEqual(["Finish at least 85% of the jobs you take"]);
@@ -108,7 +108,7 @@ async function finishedJobs(workerId: string, createdById: string, category: str
 }
 
 describe("where standing is shown", () => {
-  it("is on the Tasker's own profile with what comes next", async () => {
+  it("is on the Partimer's own profile with what comes next", async () => {
     const admin = await createUserWithToken("SUPER_ADMIN");
     const w = await createUserWithToken("WORKER");
     await finishedJobs(w.user.id, admin.user.id, "Retail", 2);

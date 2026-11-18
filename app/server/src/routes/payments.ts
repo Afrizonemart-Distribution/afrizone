@@ -97,7 +97,7 @@ router.post("/:id/release", requireAuth, requireRole("SUPER_ADMIN"), async (req:
     workerId: payment.workerId,
   });
 
-  // A Tasker's first released payment is what makes them a real referral.
+  // A Partimer's first released payment is what makes them a real referral.
   await onPaymentReleased(payment.workerId);
 
   await notifyWorker(

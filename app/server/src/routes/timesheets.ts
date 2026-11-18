@@ -196,7 +196,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     },
   });
 
-  // Handing in a timesheet is the Tasker saying the work is done - Blueprint
+  // Handing in a timesheet is the Partimer saying the work is done - Blueprint
   // §4.2's Submitted. Clocking out does not mean this: a worker clocks out for
   // the day and back in tomorrow.
   //

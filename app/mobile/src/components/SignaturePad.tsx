@@ -1,8 +1,8 @@
 /**
- * The other side of a handover signs on the Tasker's phone
+ * The other side of a handover signs on the Partimer's phone
  * (server: services/evidence.ts, POST /me/evidence/signature).
  *
- * A FULL-SCREEN SHEET, NOT A BOX IN THE PAGE. The Tasker hands the phone over,
+ * A FULL-SCREEN SHEET, NOT A BOX IN THE PAGE. The Partimer hands the phone over,
  * and a pad inside a scrolling screen fights the scroll for every downward
  * stroke - the signer drags and the page moves instead of the pen.
  *

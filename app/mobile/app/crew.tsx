@@ -11,7 +11,7 @@ import { formatDate, formatNaira } from '../src/lib/format';
 import type { CrewInvite } from '../src/api/types';
 
 /**
- * Crews this Tasker has been asked to join (server services/crew.ts).
+ * Crews this Partimer has been asked to join (server services/crew.ts).
  *
  * Each card says who is asking, for what job, and the one figure that matters:
  * this person's own share. Nobody is put on a crew for an amount they did not
@@ -51,7 +51,7 @@ export default function CrewScreen() {
         }
       >
         <AppBackHeader title="Crew invites" onBack={() => router.back()} />
-        <Text style={styles.subtitle}>Jobs another Tasker wants you on</Text>
+        <Text style={styles.subtitle}>Jobs another Partimer wants you on</Text>
 
         {error ? <Banner tone="danger" title="Something went wrong" message={error} /> : null}
 
@@ -63,7 +63,7 @@ export default function CrewScreen() {
           <AppEmptyState
             icon="briefcase"
             title="No crew invites"
-            message="When a lead Tasker asks you to join their crew for a job, it appears here."
+            message="When a lead Partimer asks you to join their crew for a job, it appears here."
           />
         ) : (
           rows.map((i) => (

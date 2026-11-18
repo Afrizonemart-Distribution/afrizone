@@ -201,7 +201,7 @@ const FAQS = [
   },
   {
     q: 'I work at Afrizone. Do I sign up here?',
-    a: 'No. This portal is for Taskers. Staff accounts are created internally and used on a separate internal system — your team will tell you where.',
+    a: 'No. This portal is for Partimers. Staff accounts are created internally and used on a separate internal system — your team will tell you where.',
   },
 ]
 
@@ -231,7 +231,7 @@ export default function Landing() {
             <p className="lp-eyebrow">AfriZone PartTime</p>
             <h1>Work that finds you, and pay that is set aside before you start</h1>
             <p className="lp-sub">
-              AfriZone PartTime is where the Taskers behind AfriZoneMart find paid work: field
+              AfriZone PartTime is where the Partimers behind AfriZoneMart find paid work: field
               tasks, promotions, media and sourcing near you — verified once, paid on completion.
             </p>
             <div className="lp-facts">

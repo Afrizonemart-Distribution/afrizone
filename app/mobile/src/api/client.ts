@@ -210,6 +210,8 @@ export const api = {
     jobAlertEmail?: boolean;
     jobAlertSms?: boolean;
     jobAlertWhatsapp?: boolean;
+    country?: string;
+    state?: string;
   }): Promise<User> {
     return request<User>('/me', { method: 'PATCH', body: input });
   },
@@ -476,7 +478,7 @@ export const api = {
     return request<void>('/me/device', { method: 'POST', body: { deviceId } });
   },
 
-  /** GET /api/me/referral: this Tasker's code and who they have brought in. */
+  /** GET /api/me/referral: this Partimer's code and who they have brought in. */
   myReferral(signal?: AbortSignal): Promise<ReferralSummary> {
     return request<ReferralSummary>('/me/referral', { signal });
   },
@@ -486,7 +488,7 @@ export const api = {
     return request<{ referredBy: { name: string } }>('/me/referral', { method: 'POST', body: { code } });
   },
 
-  /** GET /api/me/crew-invites: crews this Tasker has been asked to join. */
+  /** GET /api/me/crew-invites: crews this Partimer has been asked to join. */
   crewInvites(signal?: AbortSignal): Promise<CrewInvite[]> {
     return request<CrewInvite[]>('/me/crew-invites', { signal });
   },

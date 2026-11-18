@@ -159,7 +159,7 @@ export default function ProfileScreen() {
               <Icon name="edit" size={12} color={obColors.navyPress} />
             </Pressable>
           </View>
-          <Text style={styles.name}>{user?.name ?? 'Tasker'}</Text>
+          <Text style={styles.name}>{user?.name ?? 'Partimer'}</Text>
           {user?.rating != null ? (
             <Pressable onPress={() => router.push('/ratings')} style={styles.stars} accessibilityLabel="View my ratings">
               <StarRating score={user.rating} size={13} gap={2} color={obColors.goldDeep} />
@@ -283,7 +283,7 @@ export default function ProfileScreen() {
           <AppListRow icon="alert" title="Disputes" onPress={() => router.push('/disputes')} />
           <AppListRow icon="clock" title="Timesheets" subtitle="Track submitted hours and approval status" onPress={() => router.push('/timesheets')} />
           <AppListRow icon="dollar" title="Refer and earn" subtitle="Your code, and who you have brought in" onPress={() => router.push('/refer')} />
-          <AppListRow icon="briefcase" title="Crew invites" subtitle="Jobs another Tasker wants you on" onPress={() => router.push('/crew')} />
+          <AppListRow icon="briefcase" title="Crew invites" subtitle="Jobs another Partimer wants you on" onPress={() => router.push('/crew')} />
           <AppListRow icon="star" title="My ratings" subtitle="See feedback from task managers" onPress={() => router.push('/ratings')} />
           <AppListRow icon="bell" title="Help & support" onPress={() => router.push('/support')} last />
         </AppListCard>

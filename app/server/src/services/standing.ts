@@ -1,5 +1,5 @@
 /**
- * A Tasker's standing: New, Bronze, Silver or Gold, and the badges that go with
+ * A Partimer's standing: New, Bronze, Silver or Gold, and the badges that go with
  * it (Blueprint §9).
  *
  * NOT A TIER. "Tier" in this codebase is the kind of work somebody is cleared
@@ -17,7 +17,7 @@
  * Feeding the level back in would count the same history twice, and nobody
  * gets work, or is refused it, because of a badge.
  *
- * EVERY LEVEL SAYS WHAT THE NEXT ONE NEEDS. A badge a Tasker cannot see a way
+ * EVERY LEVEL SAYS WHAT THE NEXT ONE NEEDS. A badge a Partimer cannot see a way
  * to improve is a label; one that says "6 more finished jobs" is a goal.
  */
 import { NO_HISTORY, loadContractHistory, type ContractHistory } from "./ranking";
@@ -61,7 +61,7 @@ interface Threshold {
  * Each level asks for more of the same three things. A rating needs enough
  * ratings behind it to mean something: one five-star job is not Gold.
  * Constants for now, like the ranking weights - there is not yet enough
- * history to know where real Taskers fall.
+ * history to know where real Partimers fall.
  */
 export const THRESHOLDS: Threshold[] = [
   { level: "BRONZE", label: "Bronze", completed: 1, finishRate: 0, rating: 0, ratingCount: 0 },

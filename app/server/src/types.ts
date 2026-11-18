@@ -1,7 +1,9 @@
 // Enum union types (SQLite stores these as String: see schema.prisma notes).
 
 export type Role = "SUPER_ADMIN" | "TASK_MANAGER" | "HR_ADMIN" | "WORKER";
-export type Tier = "STUDENT" | "DISPATCH" | "REMOTE" | "PROMO" | "TRADE";
+/** A tier key. The five built-ins plus any an admin adds (services/tiers.ts). */
+export type Tier = string;
+export type BuiltInTier = "STUDENT" | "DISPATCH" | "REMOTE" | "PROMO" | "TRADE";
 export type KycStatus = "PENDING" | "VERIFIED" | "TIER_APPROVED" | "REJECTED";
 export type PayModel = "HOURLY" | "FIXED";
 export type LocationType = "PHYSICAL" | "REMOTE";
@@ -20,7 +22,10 @@ export const JOB_STATUSES: JobStatus[] = ["OPEN", "CLOSED"];
 export const STAGES: Stage[] = ["SCREENING", "INTERVIEW", "OFFER", "HIRED", "REJECTED"];
 
 export const ROLES: Role[] = ["SUPER_ADMIN", "TASK_MANAGER", "HR_ADMIN", "WORKER"];
-export const TIERS: Tier[] = ["STUDENT", "DISPATCH", "REMOTE", "PROMO", "TRADE"];
+/** The tiers that always exist. Validate against services/tiers.ts isTierKey, not this. */
+export const BUILT_IN_TIERS: BuiltInTier[] = ["STUDENT", "DISPATCH", "REMOTE", "PROMO", "TRADE"];
+/** @deprecated The built-ins only; admins can add tiers. Use services/tiers.ts. */
+export const TIERS: Tier[] = BUILT_IN_TIERS;
 
 /**
  * What kind of outside party an account is. A DIFFERENT AXIS FROM `Role`.
@@ -43,7 +48,7 @@ export const ACCOUNT_TYPES: AccountType[] = ["INDIVIDUAL", "STORE", "COURIER"];
 export type ClockType = "IN" | "OUT";
 export type WithdrawalStatus = "PROCESSING" | "PAID" | "FAILED";
 /**
- * The work lifecycle for one Tasker on one Task (Blueprint §4.2).
+ * The work lifecycle for one Partimer on one Task (Blueprint §4.2).
  *
  * This used to hold the SIGNATURE state. It no longer does - whether somebody
  * signed is read from Contract.signedAt, because "has it been signed" and "how

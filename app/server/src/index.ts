@@ -21,6 +21,7 @@ import talentPoolsRouter from "./routes/talentPools";
 import candidatesRouter from "./routes/candidates";
 import reportsRouter from "./routes/reports";
 import settingsRouter from "./routes/settings";
+import referenceRouter from "./routes/places";
 import meRouter from "./routes/me";
 import clockRouter from "./routes/clock";
 import walletRouter from "./routes/wallet";
@@ -231,6 +232,7 @@ app.use("/api/talent-pools", talentPoolsRouter);
 app.use("/api/candidates", candidatesRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/reference", referenceRouter);
 
 // v3: worker-facing (mobile app)
 app.use("/api/credentials", credentialsRouter);

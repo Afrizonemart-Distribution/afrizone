@@ -17,7 +17,7 @@ describe("tasks", () => {
         title: "Same-day parcel run",
         description: "Deliver parcels around Yaba",
         category: "Dispatch",
-        tier: "DISPATCH_RIDER",
+        tier: "DISPATCH",
         payModel: "FIXED",
         budget: 15000,
         slots: 2,

@@ -85,7 +85,7 @@ export default function ActiveTaskScreen() {
 
   // Clock events made with no signal and not yet sent (src/lib/outbox.ts).
   // Newer than anything the server knows, so the last one decides whether the
-  // Tasker is on the clock.
+  // Partimer is on the clock.
   const outbox = useOutbox();
   const queuedClocks = outbox.filter(
     (i) => i.state === 'waiting' && i.action.kind === 'clock' && i.action.taskId === id

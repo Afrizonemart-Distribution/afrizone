@@ -105,14 +105,14 @@ export default function Reports() {
           decimals={2}
           prefix="₦"
           suffix="M"
-          delta="To worker wallets"
+          delta="To Partimer wallets"
           delay="d2"
         />
         <KpiCard
           tone="k4"
           icon="users"
           iconColor="var(--indigo)"
-          label="Workers paid"
+          label="Partimers paid"
           value={pe.workersPaid}
           delta="Payroll-equivalent"
           delay="d3"
@@ -164,7 +164,7 @@ export default function Reports() {
           </div>
           <div className="math" style={{ marginTop: 14 }}>
             <Icon name="help" size={15} style={{ color: 'var(--gold)' }} />
-            WHT is deducted at source and remitted on the worker&apos;s behalf.
+            WHT is deducted at source and remitted on the Partimer&apos;s behalf.
           </div>
         </Glass>
       </div>

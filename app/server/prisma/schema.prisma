@@ -65,6 +65,9 @@ model User {
   kycStatus         String   @default("PENDING") // KycStatus enum
   kycNote           String? // latest verification note (auto-reject reason from Smile ID, or admin note)
   location          String?
+  /// Where the Partimer lives: ISO country code and state (services/places.ts).
+  country           String   @default("NG")
+  state             String?
   rating            Float?
   completedCount    Int      @default(0)
   bankMasked        String?
@@ -146,6 +149,10 @@ model Task {
   startDate      DateTime
   endDate        DateTime
   locationType   String // LocationType enum (PHYSICAL | REMOTE)
+  /// ISO country code; must be a live Country. Default NG.
+  country        String   @default("NG")
+  /// State within the country (services/places.ts), or null for remote work.
+  state          String?
   address        String?
   lat            Float? // task site latitude : required for real geofence check
   lng            Float? // task site longitude: required for real geofence check
@@ -475,6 +482,28 @@ model Category {
   tier            String // Tier enum
   defaultPayModel String // PayModel enum (HOURLY | FIXED)
   active          Boolean @default(true)
+}
+
+/// A tier of work (Settings > Tiers). The first five are built in and some
+/// rules key off them (services/eligibility.ts); an admin can add more.
+model Tier {
+  key         String   @id
+  label       String
+  description String?
+  /// What a Partimer shows to qualify, on the app's tier screen.
+  docLabel    String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+/// Where Part Time works. Nigeria is live; the rest of Africa is listed as
+/// coming soon until an admin switches a country on (Settings > Countries).
+model Country {
+  code      String  @id
+  name      String
+  live      Boolean @default(false)
+  sortOrder Int     @default(1)
 }
 
 model Setting {

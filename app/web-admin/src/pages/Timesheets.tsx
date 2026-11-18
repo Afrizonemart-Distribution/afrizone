@@ -91,7 +91,7 @@ function ReviewModal({
   return (
     <Modal
       open
-      title={`Check work · ${sheet.worker?.name ?? 'Worker'}`}
+      title={`Check work · ${sheet.worker?.name ?? 'Partimer'}`}
       subtitle={`${sheet.task?.title ?? 'Task'} · handed in ${handedIn(sheet)}`}
       onClose={onClose}
     >
@@ -158,7 +158,7 @@ function ReviewModal({
             id="rv-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder={mode === 'approve' ? '' : 'The worker sees this. Be specific: which photos, which rows.'}
+            placeholder={mode === 'approve' ? '' : 'The Partimer sees this. Be specific: which photos, which rows.'}
           />
         </div>
 
@@ -179,7 +179,7 @@ function ReviewModal({
             </Button>
           ) : (
             <Button variant="danger" loading={busy} disabled={!note.trim()} onClick={submit}>
-              Send back to worker
+              Send back to Partimer
             </Button>
           )}
         </div>
@@ -252,7 +252,7 @@ export default function Timesheets() {
           <Table className="dt">
             <TableHeader>
               <TableRow>
-                <TableHead>Worker</TableHead>
+                <TableHead>Partimer</TableHead>
                 <TableHead>Task</TableHead>
                 <TableHead>Period</TableHead>
                 <TableHead>Handed in</TableHead>
@@ -263,7 +263,7 @@ export default function Timesheets() {
             </TableHeader>
             <TableBody>
               {sheets.map((t) => {
-                const name = t.worker?.name ?? 'Worker'
+                const name = t.worker?.name ?? 'Partimer'
                 const pill = timesheetPill(t.status)
                 const checks = t.task?.acceptanceCriteria?.length ?? 0
                 return (
@@ -360,7 +360,7 @@ export default function Timesheets() {
       <Modal
         open={disputeId !== null}
         title="Dispute timesheet"
-        subtitle="Flag the hours for the worker to clarify."
+        subtitle="Flag the hours for the Partimer to clarify."
         onClose={() => setDisputeId(null)}
       >
         <div className="field" style={{ marginBottom: 18 }}>

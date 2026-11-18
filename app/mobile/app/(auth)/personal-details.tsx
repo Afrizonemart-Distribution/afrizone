@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { StatePicker } from '../../src/components/StatePicker';
 import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Icon } from '../../src/components/Icon';
@@ -32,19 +33,20 @@ export default function PersonalDetailsScreen() {
 
   const [name, setName] = useState(state.name || user?.name || '');
   const [email, setEmail] = useState(state.email || user?.email || '');
+  const [home, setHome] = useState<string | null>((user as { state?: string | null } | null)?.state ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const nameOk = name.trim().length >= 2;
   const emailOk = emailValid(email);
-  const canContinue = nameOk && emailOk;
+  const canContinue = nameOk && emailOk && !!home;
 
   async function onContinue() {
     if (!canContinue || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await updateProfile({ name: name.trim(), email: email.trim() });
+      await updateProfile({ name: name.trim(), email: email.trim(), state: home ?? undefined });
       update({ name: name.trim(), email: email.trim() });
       router.push('/(auth)/kyc-intro');
     } catch (e) {
@@ -76,6 +78,7 @@ export default function PersonalDetailsScreen() {
       </View>
 
       <ObField label="Full name" value={name} onChangeText={setName} autoCapitalize="words" autoComplete="name" placeholder="Amaka Obi" autoFocus />
+      <StatePicker value={home} onChange={setHome} />
       <ObField label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" autoComplete="email" placeholder="you@email.com" onSubmitEditing={onContinue} returnKeyType="go" />
     </ObScreen>
   );

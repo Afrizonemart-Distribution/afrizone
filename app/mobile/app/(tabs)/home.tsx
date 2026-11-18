@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { tierName, useTiers } from '../../src/lib/tiers';
 import {
   View,
   Text,
@@ -39,14 +40,6 @@ import type { Task, Wallet, Tier } from '../../src/api/types';
  * this screen has.
  */
 
-const ALL_TIERS: Tier[] = ['STUDENT', 'DISPATCH', 'REMOTE', 'PROMO', 'TRADE'];
-const TIER_LABEL: Record<Tier, string> = {
-  STUDENT: 'Student',
-  DISPATCH: 'Dispatch',
-  REMOTE: 'Remote',
-  PROMO: 'Promo',
-  TRADE: 'Trade',
-};
 
 type PayFilter = '' | 'HOURLY' | 'FIXED';
 type LocFilter = '' | 'PHYSICAL' | 'REMOTE';
@@ -171,7 +164,7 @@ export default function HomeScreen() {
   const activeChips: { label: string; onRemove: () => void }[] = [
     ...(payFilter ? [{ label: payFilter === 'HOURLY' ? 'Hourly' : 'Fixed pay', onRemove: () => setPayFilter('') }] : []),
     ...(locFilter ? [{ label: locFilter === 'REMOTE' ? 'Remote' : 'Physical', onRemove: () => setLocFilter('') }] : []),
-    ...tierFilter.map((t) => ({ label: TIER_LABEL[t], onRemove: () => toggleTier(t) })),
+    ...tierFilter.map((t) => ({ label: tierName(t), onRemove: () => toggleTier(t) })),
   ];
 
   function renderTaskList() {
@@ -363,6 +356,7 @@ function FilterSheet({
   onClear: () => void;
   onClose: () => void;
 }) {
+  const allTiers = useTiers();
   const insets = useSafeAreaInsets();
   const hasFilters = payFilter !== '' || locFilter !== '' || tierFilter.length > 0;
 
@@ -393,8 +387,8 @@ function FilterSheet({
         </SheetGroup>
 
         <SheetGroup label="Tier">
-          {ALL_TIERS.map((t) => (
-            <AppChip key={t} label={TIER_LABEL[t]} active={tierFilter.includes(t)} onPress={() => onTierFilter(t)} />
+          {allTiers.map((t) => (
+            <AppChip key={t.key} label={t.label} active={tierFilter.includes(t.key)} onPress={() => onTierFilter(t.key)} />
           ))}
         </SheetGroup>
 

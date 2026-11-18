@@ -1,7 +1,8 @@
 /** Types mirroring app/API_CONTRACT.md. Money fields are whole-Naira integers. */
 
 export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER';
-export type Tier = 'STUDENT' | 'DISPATCH' | 'REMOTE' | 'PROMO' | 'TRADE';
+/** A tier key: the five built-ins plus any Afrizone adds (src/lib/tiers.ts). */
+export type Tier = string;
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'TIER_APPROVED' | 'REJECTED';
 export type PayModel = 'HOURLY' | 'FIXED' | 'PER_UNIT';
 export type LocationType = 'PHYSICAL' | 'REMOTE';

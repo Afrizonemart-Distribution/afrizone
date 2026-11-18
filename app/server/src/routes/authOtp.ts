@@ -148,7 +148,7 @@ function normalisePhone(raw: string): string {
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body || {};
   // Only the types that are open (util/held.ts). An old app build that still
-  // offers Store or Courier gets an ordinary Tasker account rather than an error.
+  // offers Store or Courier gets an ordinary Partimer account rather than an error.
   const accountType: AccountType = openAccountTypes().includes(req.body?.accountType)
     ? req.body.accountType
     : "INDIVIDUAL";
@@ -281,7 +281,7 @@ router.post("/otp/verify", async (req, res) => {
     isNewUser = true;
     user = await prisma.user.create({
       data: {
-        name: "New Tasker",
+        name: "New Partimer",
         email: `${phone.replace(/\D/g, "")}@phone.afrizone.local`, // placeholder, set in KYC
         phone,
         passwordHash: null,

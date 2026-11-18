@@ -1,7 +1,7 @@
 /**
  * Courier onboarding (Blueprint §3.2, §15).
  *
- * A courier is a Tasker with a vehicle. Everything that makes them employable -
+ * A courier is a Partimer with a vehicle. Everything that makes them employable -
  * a verified identity, a licence, papers, insurance - already has machinery:
  * KYC, `Credential`, and the eligibility engine. What was missing was the
  * vehicle itself and, more importantly, a way for a rider to see how far along

@@ -60,7 +60,7 @@ async function makeTask(createdById: string, overrides: Record<string, unknown> 
 async function makeTasker(opts: { tiers?: string } = {}) {
   seq += 1;
   const phone = `+23480${String(70000000 + seq).padStart(8, "0")}`;
-  const t = await createUserWithToken("WORKER", { name: `Tasker ${seq}` });
+  const t = await createUserWithToken("WORKER", { name: `Partimer ${seq}` });
   await prisma().user.update({
     where: { id: t.user.id },
     data: { tiers: opts.tiers ?? "STUDENT", kycStatus: "VERIFIED", phone },
@@ -162,7 +162,7 @@ describe("a crew job, end to end", () => {
       create: { key: "evidence.enforce", value: "off" },
       update: { value: "off" },
     });
-    // The lead has started, as any solo Tasker would have by hand-in.
+    // The lead has started, as any solo Partimer would have by hand-in.
     await prisma().contract.update({ where: { id: leadContract.id }, data: { status: "IN_PROGRESS" } });
     const sheet = await apiPost(
       "/api/timesheets",
