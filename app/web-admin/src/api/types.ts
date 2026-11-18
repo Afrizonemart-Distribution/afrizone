@@ -1,7 +1,30 @@
 // TS types mirroring API_CONTRACT.md entities & responses.
 
 export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER'
-export type Tier = 'STUDENT' | 'DISPATCH' | 'REMOTE' | 'PROMO' | 'TRADE'
+/** A tier key: the five built-ins plus any an admin adds (Settings > Tiers). */
+export type Tier = string
+
+export interface TierRow {
+  key: string
+  label: string
+  description: string | null
+  docLabel: string | null
+  active: boolean
+  sortOrder: number
+}
+
+export interface CountryRow {
+  code: string
+  name: string
+  live: boolean
+  sortOrder: number
+}
+
+export interface Places {
+  countries: CountryRow[]
+  /** States per country code, for the countries that have a list. */
+  states: Record<string, string[]>
+}
 export type KycStatus = 'PENDING' | 'VERIFIED' | 'TIER_APPROVED' | 'REJECTED'
 export type PayModel = 'HOURLY' | 'FIXED' | 'PER_UNIT'
 export type LocationType = 'PHYSICAL' | 'REMOTE'
@@ -115,6 +138,10 @@ export interface Task {
   startDate: string
   endDate: string
   locationType: LocationType
+  /** ISO country code, default NG. */
+  country?: string
+  /** State within the country; null for remote work. */
+  state?: string | null
   address?: string | null
   lat?: number | null
   lng?: number | null
@@ -459,14 +486,23 @@ export interface DashboardActivity {
 }
 
 export interface DashboardStats {
-  activeTasks: number
-  fillRate: number
-  avgTimeToFillHours: number
-  spendThisMonth: number
-  budgetThisMonth: number
+  /** Countries switched on in Settings > Countries. */
+  liveIn: string[]
+  partimers: { total: number; verified: number; newThisMonth: number; workingNow: number }
+  tasks: {
+    open: number
+    openSlots: number
+    createdThisMonth: number
+    filledThisMonth: number
+    /** null until a task has been posted this month. */
+    fillRate: number | null
+    avgTimeToFillHours: number | null
+  }
+  money: { earnedThisMonth: number; committedThisMonth: number; paidOutThisMonth: number; owedToPartimers: number }
   spendByCategory: SpendByCategory[]
-  fill: { filled: number; open: number }
-  urgent: DashboardUrgent[]
+  attention: { type: string; count: number; title: string; sub: string; to: string }[]
+  partimersByState: { state: string; count: number }[]
+  tasksByState: { state: string; count: number }[]
   activity: DashboardActivity[]
 }
 

@@ -1,5 +1,5 @@
 /**
- * The work lifecycle: one Tasker's engagement with one Task, start to finish.
+ * The work lifecycle: one Partimer's engagement with one Task, start to finish.
  *
  * Blueprint §4.2 lists eleven states and asks for them to be modelled explicitly
  * "so payment, disputes and analytics all hang off clean transitions". This is
@@ -15,7 +15,7 @@
  *   independently - three people can be In Progress while a fourth is already
  *   Paid and the posting itself is still Published.
  *
- *   Blueprint §12 already resolves this: Contract "binds Task to Tasker". So the
+ *   Blueprint §12 already resolves this: Contract "binds Task to Partimer". So the
  *   posting keeps Task.status and the work lives here, one row per person per
  *   task. Putting all eleven on Task would force slots to be 1 forever.
  *
@@ -70,7 +70,7 @@ export const TRANSITIONS: Record<ContractState, ContractState[]> = {
   // Work underway: clock-ins, geolocation, evidence.
   IN_PROGRESS: ["SUBMITTED", "CANCELLED", "DISPUTED"],
 
-  // Tasker says it is done and has uploaded proof.
+  // Partimer says it is done and has uploaded proof.
   SUBMITTED: ["VERIFIED", "REWORK", "CANCELLED", "DISPUTED"],
 
   // Failed acceptance and sent back. Returns to IN_PROGRESS, per §4.2, rather

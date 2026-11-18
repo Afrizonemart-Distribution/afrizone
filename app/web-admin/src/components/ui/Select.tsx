@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils'
 export interface SelectOption {
   value: string
   label: string
+  /** Shown but not pickable, e.g. a country that is coming soon. */
+  disabled?: boolean
 }
 
 interface Props {
@@ -58,7 +60,7 @@ export default function Select({
       </SelectTrigger>
       <SelectContent className="rounded-[var(--r-sm)] rounded-tr-[var(--cut)] border-[var(--line)] bg-[var(--surface-3)]">
         {options.map((o) => (
-          <SelectItem key={o.value} value={o.value} className="text-[14px]">
+          <SelectItem key={o.value} value={o.value} disabled={o.disabled} className="text-[14px]">
             {o.label}
           </SelectItem>
         ))}

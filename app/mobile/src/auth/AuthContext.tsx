@@ -52,7 +52,7 @@ interface AuthState {
     accountType?: AccountType,
   ) => Promise<boolean>;
   /** PATCH /api/me: persist name/email to the backend AND the cached user. */
-  updateProfile: (patch: { name?: string; email?: string }) => Promise<void>;
+  updateProfile: (patch: { name?: string; email?: string; state?: string }) => Promise<void>;
   /** POST /api/auth/google (context:"worker"): stores session, returns isNewUser. */
   googleSignIn: (idToken: string) => Promise<boolean>;
   /** POST /api/auth/afrizone: identity token in, session or 2FA challenge out. */
@@ -195,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateProfile = useCallback(
-    async (patch: { name?: string; email?: string }) => {
+    async (patch: { name?: string; email?: string; state?: string }) => {
       // Persist to the backend (PATCH /api/me), then mirror into the cached user.
       const updated = await api.patchMe(patch);
       await updateUser({ name: updated.name, email: updated.email });

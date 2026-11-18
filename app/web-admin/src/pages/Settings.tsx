@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { CountriesTab, TiersTab } from './SettingsTiersPlaces'
+import { useTiers } from '../lib/tiers'
 import { HELD } from '../lib/held'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
-import { TIER_LABELS } from '../lib/format'
 import { useAuth } from '../auth/AuthContext'
 import { getAfrizoneIdentityToken } from '../lib/afrizone'
 import type {
@@ -41,8 +42,7 @@ import {
   TableRow,
 } from '@/components/shadcn/table'
 
-const TIERS: Tier[] = ['STUDENT', 'DISPATCH', 'REMOTE', 'PROMO', 'TRADE']
-type Tab = 'tax' | 'categories' | 'skills' | 'credentialTypes' | 'requirements' | 'checks' | 'referrals' | 'templates' | 'billing' | 'security'
+type Tab = 'tax' | 'categories' | 'tiers' | 'countries' | 'skills' | 'credentialTypes' | 'requirements' | 'checks' | 'referrals' | 'templates' | 'billing' | 'security'
 
 
 /* ===================== Tax Rates ===================== */
@@ -293,6 +293,7 @@ function AddCategoryModal({
   onClose: () => void
   onCreated: (c: Category) => void
 }) {
+  const tiers = useTiers()
   const [form, setForm] = useState<CatForm>(EMPTY_CAT)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -338,7 +339,7 @@ function AddCategoryModal({
               id="c-tier"
               value={form.tier}
               onChange={(v) => setForm((f) => ({ ...f, tier: v as Tier }))}
-              options={TIERS.map((t) => ({ value: t, label: TIER_LABELS[t] }))}
+              options={tiers.active.map((t) => ({ value: t.key, label: t.label }))}
             />
           </div>
           <div className="field">
@@ -374,6 +375,7 @@ function AddCategoryModal({
 }
 
 function CategoriesTab({ canEdit }: { canEdit: boolean }) {
+  const tiers = useTiers()
   const { data, loading, error, reload, setData } = useApi((signal) => api.categories(signal))
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -433,7 +435,7 @@ function CategoriesTab({ canEdit }: { canEdit: boolean }) {
               {cats.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell style={{ fontWeight: 600 }}>{c.name}</TableCell>
-                  <TableCell>{TIER_LABELS[c.tier] ?? c.tier}</TableCell>
+                  <TableCell>{tiers.label(c.tier)}</TableCell>
                   <TableCell>{c.defaultPayModel === 'HOURLY' ? 'Hourly' : 'Fixed'}</TableCell>
                   <TableCell>
                     <Switch
@@ -640,7 +642,7 @@ function ChecksTab({ canEdit }: { canEdit: boolean }) {
               onChange={(e) => setSelfie(e.target.value.replace(/[^0-9]/g, ''))}
             />
             <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-              A worker withdrawing this much or more takes a fresh selfie first, and the withdrawal waits in
+              A Partimer withdrawing this much or more takes a fresh selfie first, and the withdrawal waits in
               Withdrawal checks. Default ₦{SELFIE_DEFAULT.toLocaleString()}.
             </span>
           </div>
@@ -778,7 +780,7 @@ function RequirementsTab({ canEdit }: { canEdit: boolean }) {
     <>
       <div className="tabhead">
         <p className="tabhint">
-          Whether the requirements on a task actually stop a worker applying.
+          Whether the requirements on a task actually stop a Partimer applying.
         </p>
       </div>
       <Glass>
@@ -786,7 +788,7 @@ function RequirementsTab({ canEdit }: { canEdit: boolean }) {
           <div>
             <b>Enforce task requirements</b>
             <span>
-              On: a worker who does not meet a task&rsquo;s requirements cannot apply, and is
+              On: a Partimer who does not meet a task&rsquo;s requirements cannot apply, and is
               shown what is missing. Off: they still see what a task asks for, but nothing
               blocks them.
             </span>
@@ -1156,7 +1158,7 @@ function FundingModal({
   }
 
   return (
-    <Modal open={open} title="Fund platform wallet" subtitle="Top up the balance that worker withdrawals draw from" onClose={onClose}>
+    <Modal open={open} title="Fund platform wallet" subtitle="Top up the balance that Partimer withdrawals draw from" onClose={onClose}>
       <form onSubmit={submit}>
         <div className="formgrid">
           <div className="field">
@@ -1228,7 +1230,7 @@ function BillingTab({ canEdit }: { canEdit: boolean }) {
     <>
       <div className="tabhead">
         <p className="tabhint">
-          Fund the platform wallet via Paystack so worker withdrawals have a balance to draw from.
+          Fund the platform wallet via Paystack so Partimer withdrawals have a balance to draw from.
         </p>
         {canEdit && (
           <Button variant="primary" size="sm" icon="naira" onClick={() => setModalOpen(true)}>
@@ -1507,7 +1509,7 @@ function SkillsTab({ canEdit }: { canEdit: boolean }) {
     <>
       <div className="tabhead">
         <p className="tabhint">
-          What workers can say they can do. Self-declared and never checked &mdash; use credential
+          What Partimers can say they can do. Self-declared and never checked &mdash; use credential
           types for anything that has to be proven.
         </p>
         {canEdit && (
@@ -1550,7 +1552,7 @@ function SkillsTab({ canEdit }: { canEdit: boolean }) {
                     </TableCell>
                     <TableCell>
                       {/* Retiring hides it from the picker but keeps it on the
-                          workers who already declared it - retiring a catalogue
+                          Partimers who already declared it - retiring a catalogue
                           entry must not silently edit somebody's profile. */}
                       <Switch
                         checked={sk.active}
@@ -1575,7 +1577,7 @@ function SkillsTab({ canEdit }: { canEdit: boolean }) {
         <div className="field">
           <label htmlFor="sk-group">Group</label>
           <Input id="sk-group" value={group} onChange={(e) => setGroup(e.target.value)} placeholder="Logistics" />
-          <span className="help">How the picker groups it in the worker app.</span>
+          <span className="help">How the picker groups it in the Partimer app.</span>
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
           <Button
@@ -1748,13 +1750,13 @@ function CredentialTypesTab({ canEdit }: { canEdit: boolean }) {
             value={issuerMode}
             onChange={(e) => setIssuerMode(e.target.value as 'THIRD_PARTY' | 'AFRIZONE')}
           >
-            <option value="THIRD_PARTY">Somebody else (worker uploads their document)</option>
+            <option value="THIRD_PARTY">Somebody else (Partimer uploads their document)</option>
             <option value="AFRIZONE">Afrizone (awarded from work history, no document)</option>
           </select>
           <span className="help">
             {issuerMode === 'AFRIZONE'
               ? 'Awarded by an admin on the strength of work done here. This is how somebody with no formal certificate can still qualify.'
-              : 'The worker submits it with evidence, and it goes to the review queue.'}
+              : 'The Partimer submits it with evidence, and it goes to the review queue.'}
           </span>
         </div>
 
@@ -1767,7 +1769,7 @@ function CredentialTypesTab({ canEdit }: { canEdit: boolean }) {
             onChange={(e) => setReviewMode(e.target.value as 'ADMIN_REVIEW' | 'SELF_DECLARED')}
           >
             <option value="ADMIN_REVIEW">An admin reviews it</option>
-            <option value="SELF_DECLARED">Nobody &mdash; recorded on the worker&apos;s word</option>
+            <option value="SELF_DECLARED">Nobody &mdash; recorded on the Partimer&apos;s word</option>
           </select>
           <span className="help">
             {reviewMode === 'SELF_DECLARED'
@@ -1786,7 +1788,7 @@ function CredentialTypesTab({ canEdit }: { canEdit: boolean }) {
                 onChange={(e) => setIssuerHint(e.target.value)}
                 placeholder="FRSC"
               />
-              <span className="help">Shown to the worker as a placeholder.</span>
+              <span className="help">Shown to the Partimer as a placeholder.</span>
             </div>
             <div className="field" style={{ display: 'flex', gap: 16, flexDirection: 'row' }}>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -1992,6 +1994,8 @@ function ReferralsTab({ canEdit }: { canEdit: boolean }) {
 const TABS: { id: Tab; label: string; icon: 'percent' | 'tag' | 'mail' | 'naira' | 'shield' | 'lock' }[] = [
   { id: 'tax', label: 'Tax rates', icon: 'percent' },
   { id: 'categories', label: 'Categories', icon: 'tag' },
+  { id: 'tiers', label: 'Tiers', icon: 'tag' },
+  { id: 'countries', label: 'Countries', icon: 'tag' },
   { id: 'skills', label: 'Skills', icon: 'tag' },
   { id: 'credentialTypes', label: 'Credential types', icon: 'shield' },
   { id: 'requirements', label: 'Requirements', icon: 'lock' },
@@ -2008,7 +2012,11 @@ export default function Settings() {
     () => new URLSearchParams(window.location.search).has('billing_ref'),
     [],
   )
-  const [tab, setTab] = useState<Tab>(hasBillingRef ? 'billing' : 'tax')
+  // ?tab=categories opens a tab directly (the task form links here).
+  const linkedTab = new URLSearchParams(window.location.search).get('tab') as Tab | null
+  const [tab, setTab] = useState<Tab>(
+    hasBillingRef ? 'billing' : linkedTab && TABS.some((t) => t.id === linkedTab) ? linkedTab : 'tax'
+  )
   const canEdit = user?.role === 'SUPER_ADMIN'
 
   return (
@@ -2050,6 +2058,12 @@ export default function Settings() {
         </TabsContent>
         <TabsContent value="categories">
           <CategoriesTab canEdit={canEdit} />
+        </TabsContent>
+        <TabsContent value="tiers">
+          <TiersTab canEdit={canEdit} />
+        </TabsContent>
+        <TabsContent value="countries">
+          <CountriesTab canEdit={canEdit} />
         </TabsContent>
         <TabsContent value="skills">
           <SkillsTab canEdit={canEdit} />

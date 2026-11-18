@@ -4,7 +4,8 @@ import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest, publicUser } from "../auth";
 import { loadStanding, loadStandings } from "../services/standing";
 import { referralEarnings } from "../services/referrals";
-import { tiersToArray, tiersToString, TIERS, Tier, isCredentialValid, isCredentialExpiring } from "../types";
+import { tiersToArray, tiersToString, Tier, isCredentialValid, isCredentialExpiring } from "../types";
+import { isTierKey } from "../services/tiers";
 import { writeAudit, userActor } from "../util/audit";
 import { resolveUrl } from "../services/storage";
 import { buildProfile } from "../services/talentProfile";
@@ -230,8 +231,8 @@ router.patch(
 
     const tiers: Tier[] = [];
     for (const t of raw) {
-      if (typeof t !== "string" || !TIERS.includes(t as Tier)) {
-        return res.status(400).json({ error: `tiers must all be one of ${TIERS.join(", ")}` });
+      if (!(await isTierKey(t, { activeOnly: false }))) {
+        return res.status(400).json({ error: `${String(t)} is not a tier` });
       }
       if (!tiers.includes(t as Tier)) tiers.push(t as Tier);
     }

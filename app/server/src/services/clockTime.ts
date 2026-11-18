@@ -1,10 +1,10 @@
 /**
  * Which time a clock event gets (Blueprint §16, offline-tolerant flows).
  *
- * The app sends the moment the Tasker tapped, every time. Online that is a
+ * The app sends the moment the Partimer tapped, every time. Online that is a
  * second or two before it arrives and the server's own clock is used, as it
  * always was. Offline the phone keeps the event and sends it when it has
- * signal again, perhaps hours later - and a Tasker who clocked out in a
+ * signal again, perhaps hours later - and a Partimer who clocked out in a
  * basement should not be paid until they reached the street.
  *
  * AS DECIDED: the phone's time counts when it is believable, and the event is
@@ -13,7 +13,7 @@
  *   - not in the future (beyond a little drift between two clocks),
  *   - no more than MAX_AGE_HOURS old - a phone that has been off for days is
  *     not where a timesheet should come from, and
- *   - not before this Tasker's previous event on the job, so IN and OUT can
+ *   - not before this Partimer's previous event on the job, so IN and OUT can
  *     never be put in the wrong order by a phone with the wrong time.
  *
  * Anything else falls back to the time it arrived, still marked offline, which

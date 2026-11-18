@@ -44,6 +44,7 @@ export const TIER_COLORS: Record<Tier, string> = {
   TRADE: 'var(--forest)',
 }
 
+/** Built-in tier names. Use useTiers().label() so added tiers show their own names. */
 export const TIER_LABELS: Record<Tier, string> = {
   STUDENT: 'Student',
   DISPATCH: 'Dispatch',

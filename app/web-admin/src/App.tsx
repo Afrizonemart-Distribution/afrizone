@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import { TiersProvider } from './lib/tiers'
 import { ProtectedRoute } from './auth/AuthContext'
 import AppShell from './components/AppShell'
 import Login from './pages/Login'
@@ -30,7 +31,9 @@ export default function App() {
       <Route
         element={
           <ProtectedRoute>
-            <AppShell />
+            <TiersProvider>
+              <AppShell />
+            </TiersProvider>
           </ProtectedRoute>
         }
       >

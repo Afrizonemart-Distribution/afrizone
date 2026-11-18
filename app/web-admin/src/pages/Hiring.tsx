@@ -238,6 +238,7 @@ function NewJobModal({
   onClose: () => void
   onCreated: (j: Job) => void
 }) {
+  const places = useApi((signal) => api.places(signal))
   const [form, setForm] = useState<JobFormState>(EMPTY_JOB)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -330,13 +331,23 @@ function NewJobModal({
           </div>
           <div className="field">
             <Label htmlFor="j-loc">Location</Label>
-            <Input
+            <Select
               id="j-loc"
-              
               value={form.location}
-              onChange={(e) => set('location', e.target.value)}
-              placeholder="Lagos"
-              required
+              placeholder="Choose a state, or Remote"
+              onChange={(v) => set('location', v)}
+              options={[
+                { value: 'Remote', label: 'Remote (anywhere)' },
+                ...(places.data?.countries ?? [])
+                  .filter((c) => c.live)
+                  .flatMap((c) => (places.data?.states[c.code] ?? []).map((st) => ({ value: `${st}, ${c.name}`, label: `${st}, ${c.name}` }))),
+                ...(places.data?.countries ?? [])
+                  .filter((c) => !c.live)
+                  .map((c) => ({ value: c.name, label: `${c.name} (coming soon)`, disabled: true })),
+                ...(form.location && !form.location.includes(',') && form.location !== 'Remote'
+                  ? [{ value: form.location, label: form.location }]
+                  : []),
+              ]}
             />
           </div>
           <div className="field">
@@ -526,8 +537,8 @@ function JobAlertModal({
           value={audience}
           onChange={(v) => setAudience(v as AlertAudience)}
           options={[
-            { value: 'MATCHING', label: "Workers open to this kind of work (and those who haven't said)" },
-            { value: 'EVERYONE', label: 'Every worker' },
+            { value: 'MATCHING', label: "Partimers open to this kind of work (and those who haven't said)" },
+            { value: 'EVERYONE', label: 'Every Partimer' },
             { value: 'TOP', label: 'First invite: top performers only (Silver and Gold standing)' },
             { value: 'POOL', label: 'One talent pool' },
           ]}

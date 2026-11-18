@@ -56,7 +56,7 @@ router.post(
 
     // Counts only ratings OF this worker. The average used to be taken over
     // every row matching workerId, which now also matches the ratings they
-    // WROTE - a Tasker who rated three jobs one star would have dragged their
+    // WROTE - a Partimer who rated three jobs one star would have dragged their
     // own profile to one star.
     const updated = await recomputeWorkerRating(worker.id);
 

@@ -101,7 +101,7 @@ export function signatureRequired(task: TaskShape, stage: EvidenceStage): boolea
   return kindRequired(task, stage) > 0;
 }
 
-/** Who signs at each step, as the Tasker is asked for it. */
+/** Who signs at each step, as the Partimer is asked for it. */
 export const SIGNER_LABEL: Partial<Record<EvidenceStage, string>> = {
   PICKUP: "Somebody at the shop",
   DROPOFF: "The customer",

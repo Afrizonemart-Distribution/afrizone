@@ -19,7 +19,7 @@
  * listed after everybody who does qualify, with the blocker, because the
  * approval would refuse them anyway and the override is a separate, audited act.
  *
- * NO DISTANCE. Couriers send a position while online; other Taskers never do,
+ * NO DISTANCE. Couriers send a position while online; other Partimers never do,
  * and `User.location` is free text. Proximity would be a guess dressed as a
  * number, so it is left out rather than faked. On-site work still has the
  * geofence at clock-in.
@@ -196,7 +196,7 @@ export async function rankApplications(
           eligible: false,
           position: null,
           score: null,
-          reasons: [profile ? `No longer qualifies: ${blocking[0].message}` : "Tasker not found"],
+          reasons: [profile ? `No longer qualifies: ${blocking[0].message}` : "Partimer not found"],
         });
         continue;
       }

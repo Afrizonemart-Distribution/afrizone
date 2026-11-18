@@ -71,6 +71,9 @@ import type {
   DeliveryStatus,
   DeliveriesResponse,
   PurgeStatus,
+  TierRow,
+  CountryRow,
+  Places,
 } from './types'
 
 const TOKEN_KEY = 'afz_token'
@@ -463,6 +466,14 @@ export const api = {
     request<TaxRate>(`/settings/tax-rates/${id}`, { method: 'PATCH', body }),
   categories: (signal?: AbortSignal) =>
     request<Category[]>('/settings/categories', { signal }),
+  tiers: (signal?: AbortSignal) => request<TierRow[]>('/reference/tiers?all=1', { signal }),
+  createTier: (body: { label: string; description?: string; docLabel?: string }) =>
+    request<TierRow>('/reference/tiers', { method: 'POST', body }),
+  patchTier: (key: string, body: Partial<Omit<TierRow, 'key'>>) =>
+    request<TierRow>(`/reference/tiers/${key}`, { method: 'PATCH', body }),
+  places: (signal?: AbortSignal) => request<Places>('/reference/places', { signal }),
+  setCountryLive: (code: string, live: boolean) =>
+    request<CountryRow>(`/reference/countries/${code}`, { method: 'PATCH', body: { live } }),
   createCategory: (body: Partial<Category>) =>
     request<Category>('/settings/categories', { method: 'POST', body }),
   patchCategory: (id: string, body: Partial<Category>) =>

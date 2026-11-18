@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useTiers } from '../lib/tiers'
 import { api, ApiError } from '../api/client'
 import type { Blocker } from '../api/types'
 import { useApi } from '../lib/useApi'
-import { TIER_COLORS, TIER_LABELS, appPill, avatarGradient, formatNaira, initials, kycPill } from '../lib/format'
+import { appPill, avatarGradient, formatNaira, initials, kycPill } from '../lib/format'
 import PageHeader from '../components/PageHeader'
 import StandingBadge from '../components/StandingBadge'
 import Glass from '../components/ui/Glass'
@@ -25,6 +26,7 @@ import {
 } from '@/components/shadcn/table'
 
 export default function Applications() {
+  const tiers = useTiers()
   const { data, loading, error, reload, setData } = useApi((signal) =>
     api.applications('APPLIED', signal),
   )
@@ -59,7 +61,7 @@ export default function Applications() {
         const app = apps.find((a) => a.id === id)
         setOverride({
           id,
-          name: app?.worker?.name ?? 'This worker',
+          name: app?.worker?.name ?? 'This Partimer',
           message: err instanceof ApiError ? err.message : 'Requirements not met',
           blockers: body.blockers ?? [],
         })
@@ -135,7 +137,7 @@ export default function Applications() {
             </TableHeader>
             <TableBody>
               {apps.map((a) => {
-                const name = a.worker?.name ?? 'Worker'
+                const name = a.worker?.name ?? 'Partimer'
                 const pill = appPill(a.status)
                 const tier = a.worker?.tiers?.[0]
                 const kyc = a.worker?.kycStatus ? kycPill(a.worker.kycStatus) : null
@@ -193,8 +195,8 @@ export default function Applications() {
                     <TableCell>
                       {tier ? (
                         <Badge variant="outline" className="tier">
-                          <span className="d" style={{ background: TIER_COLORS[tier] }} />
-                          {TIER_LABELS[tier]}
+                          <span className="d" style={{ background: tiers.color(tier) }} />
+                          {tiers.label(tier)}
                         </Badge>
                       ) : (
                         '—'

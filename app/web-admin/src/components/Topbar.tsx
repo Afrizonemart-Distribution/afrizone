@@ -96,7 +96,7 @@ export default function Topbar({ onMenu }: { onMenu: () => void }) {
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => { if (results) setOpen(true) }}
             onKeyDown={(e) => { if (e.key === 'Escape') { clear(); inputRef.current?.blur() } }}
-            placeholder="Search tasks, workers, payments…"
+            placeholder="Search tasks, Partimers, payments…"
             aria-label="Search"
             aria-expanded={open}
             aria-autocomplete="list"
@@ -146,7 +146,7 @@ export default function Topbar({ onMenu }: { onMenu: () => void }) {
 
                 {results!.workers.length > 0 && (
                   <div className="search-group">
-                    <div className="search-group-label">Workers</div>
+                    <div className="search-group-label">Partimers</div>
                     {results!.workers.map((w) => {
                       const pill = kycPill(w.kycStatus)
                       return (

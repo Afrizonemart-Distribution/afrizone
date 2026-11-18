@@ -2,8 +2,8 @@ import type { ReactNode } from 'react'
 import Logo from './Logo'
 
 const POINTS = [
-  'Review and approve worker applications',
-  'Verify KYC documents before a worker goes live',
+  'Review and approve Partimer applications',
+  'Verify KYC documents before a Partimer goes live',
   'Release payments, net of withholding tax, in one place',
 ]
 

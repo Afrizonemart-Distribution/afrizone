@@ -126,7 +126,7 @@ export function useAuth(): AuthState {
  */
 export function homeFor(accountType: AccountType | undefined): string {
   // Store and courier accounts are on hold (server: src/util/held.ts), and their
-  // dashboards are not routed; everyone lands on the Tasker dashboard.
+  // dashboards are not routed; everyone lands on the Partimer dashboard.
   void accountType
   return '/individual'
 }

@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent } from 'react'
+import { useTiers } from '../lib/tiers'
 import { useSearchParams } from 'react-router-dom'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import EvidenceButton from '../components/EvidenceButton'
 import {
-  TIER_COLORS,
-  TIER_LABELS,
   formatDate,
   taskPay,
   taskPill,
@@ -38,9 +37,9 @@ import { Label } from '@/components/shadcn/label'
 import { Progress } from '@/components/shadcn/progress'
 import { Badge } from '@/components/shadcn/badge'
 
-const TIERS: Tier[] = ['STUDENT', 'DISPATCH', 'REMOTE', 'PROMO', 'TRADE']
 
 function TaskCard({ task, delay }: { task: Task; delay: string }) {
+  const tiers = useTiers()
   const filled = task.filledCount ?? 0
   const pct = task.slots > 0 ? Math.min(100, Math.round((filled / task.slots) * 100)) : 0
   const pill = taskPill(task.status)
@@ -60,8 +59,8 @@ function TaskCard({ task, delay }: { task: Task; delay: string }) {
     <div className={`glass tcard rv in ${delay}`} onPointerMove={onMove}>
       <div className="tc-top">
         <Badge variant="outline" className="tier">
-          <span className="d" style={{ background: TIER_COLORS[task.tier] }} />
-          {TIER_LABELS[task.tier]}
+          <span className="d" style={{ background: tiers.color(task.tier) }} />
+          {tiers.label(task.tier)}
         </Badge>
         <span className="pay">{taskPay(task.rate, task.budget, task.payModel, task.unitLabel)}</span>
       </div>
@@ -130,6 +129,7 @@ function QualifyingPanel({
   skillIds: string[]
   credentialTypeIds: string[]
 }) {
+  const tiers = useTiers()
   const [count, setCount] = useState<QualifyingCount | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -157,7 +157,7 @@ function QualifyingPanel({
         })
         .catch((e) => {
           if (ctrl.signal.aborted) return
-          setError(e instanceof ApiError ? e.message : 'Could not count workers')
+          setError(e instanceof ApiError ? e.message : 'Could not count Partimers')
         })
         .finally(() => {
           if (!ctrl.signal.aborted) setLoading(false)
@@ -198,13 +198,13 @@ function QualifyingPanel({
           <div className="rp-num">
             <strong>{q}</strong>
             <span>
-              of {pool} {TIER_LABELS[tier]} worker{pool === 1 ? '' : 's'}
+              of {pool} {tiers.label(tier)} Partimer{pool === 1 ? '' : 's'}
             </span>
           </div>
           {q === 0 && (
             <p className="rp-warn">
               No one qualifies right now. This task can be published, but nobody will be
-              able to apply until a worker meets these requirements.
+              able to apply until a Partimer meets these requirements.
             </p>
           )}
           {count.blockedBy.length > 0 && (
@@ -261,6 +261,10 @@ function ChipPicker<T extends { id: string; name: string }>({
   )
 }
 
+/** The category dropdown's "make a new one" choice. */
+const NEW_CATEGORY = '__new__'
+const FALLBACK_COUNTRIES = [{ code: 'NG', name: 'Nigeria', live: true, sortOrder: 0 }]
+
 interface FormState {
   title: string
   description: string
@@ -272,6 +276,8 @@ interface FormState {
   startDate: string
   endDate: string
   locationType: LocationType
+  country: string
+  state: string
   address: string
   lat: string
   lng: string
@@ -304,6 +310,8 @@ const EMPTY_FORM: FormState = {
   startDate: '',
   endDate: '',
   locationType: 'PHYSICAL',
+  country: 'NG',
+  state: '',
   address: '',
   lat: '',
   lng: '',
@@ -337,6 +345,8 @@ function templatePayload(f: FormState): Partial<CreateTaskBody> {
     rate: f.rate ? Number(f.rate) : undefined,
     budget: f.budget ? Number(f.budget) : undefined,
     locationType: f.locationType,
+    country: f.country,
+    state: f.state || undefined,
     address: f.address.trim() || undefined,
     lat: f.lat ? Number(f.lat) : undefined,
     lng: f.lng ? Number(f.lng) : undefined,
@@ -363,11 +373,13 @@ function formFromTemplate(t: TaskTemplate): FormState {
     title: str(p.title),
     description: str(p.description),
     category: str(p.category),
-    tier: TIERS.includes(p.tier as Tier) ? (p.tier as Tier) : EMPTY_FORM.tier,
+    tier: typeof p.tier === 'string' && p.tier ? p.tier : EMPTY_FORM.tier,
     payModel: p.payModel === 'FIXED' || p.payModel === 'PER_UNIT' ? p.payModel : 'HOURLY',
     rate: str(p.rate),
     budget: str(p.budget),
     locationType: p.locationType === 'REMOTE' ? 'REMOTE' : 'PHYSICAL',
+    country: str(p.country) || 'NG',
+    state: str(p.state),
     address: str(p.address),
     lat: str(p.lat),
     lng: str(p.lng),
@@ -394,6 +406,7 @@ function NewTaskModal({
   onClose: () => void
   onCreated: (t: Task) => void
 }) {
+  const tiers = useTiers()
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -408,6 +421,8 @@ function NewTaskModal({
   const skills = useApi((signal) => api.skills(false, signal))
   const credTypes = useApi((signal) => api.credentialTypes(false, signal))
   const categories = useApi((signal) => api.categories(signal))
+  const places = useApi((signal) => api.places(signal))
+  const [newCategory, setNewCategory] = useState(false)
   const templates = useApi((signal) => api.taskTemplates(signal))
 
   const activeCategories = useMemo(
@@ -485,7 +500,7 @@ function NewTaskModal({
     const body: CreateTaskBody = {
       title: form.title.trim(),
       description: form.description.trim(),
-      category: typedCategory || TIER_LABELS[form.tier],
+      category: typedCategory || tiers.label(form.tier),
       tier: form.tier,
       payModel: form.payModel,
       rate: form.payModel !== 'FIXED' ? Number(form.rate) || 0 : undefined,
@@ -497,6 +512,8 @@ function NewTaskModal({
       startDate: form.startDate || new Date().toISOString(),
       endDate: form.endDate || new Date().toISOString(),
       locationType: form.locationType,
+      country: form.country,
+      state: form.locationType === 'PHYSICAL' && form.state ? form.state : undefined,
       address: form.locationType === 'PHYSICAL' ? form.address.trim() : undefined,
       lat: form.locationType === 'PHYSICAL' && form.lat ? Number(form.lat) : undefined,
       lng: form.locationType === 'PHYSICAL' && form.lng ? Number(form.lng) : undefined,
@@ -589,29 +606,59 @@ function NewTaskModal({
               id="t-desc"
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
-              placeholder="What the worker will do…"
+              placeholder="What the Partimer will do…"
             />
           </div>
           <div className="field">
             <Label htmlFor="t-cat">Category</Label>
-            <Input
-              id="t-cat"
-              list="t-cat-list"
-              maxLength={60}
-              value={form.category}
-              onChange={(e) => set('category', e.target.value)}
-              placeholder="Pick or type a new one"
-            />
-            <datalist id="t-cat-list">
-              {activeCategories.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-            {isNewCategory && (
-              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                New category: “{typedCategory}” is added to the list when you publish
-              </div>
+            {!newCategory ? (
+              <Select
+                id="t-cat"
+                value={activeCategories.includes(form.category) ? form.category : ''}
+                placeholder="Choose a category"
+                onChange={(v) => {
+                  if (v === NEW_CATEGORY) {
+                    setNewCategory(true)
+                    set('category', '')
+                  } else set('category', v)
+                }}
+                options={[
+                  ...activeCategories.map((c) => ({ value: c, label: c })),
+                  { value: NEW_CATEGORY, label: '+ New category…' },
+                ]}
+              />
+            ) : (
+              <>
+                <Input
+                  id="t-cat"
+                  maxLength={60}
+                  autoFocus
+                  value={form.category}
+                  onChange={(e) => set('category', e.target.value)}
+                  placeholder="Name the new category"
+                />
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {isNewCategory ? (
+                    <span>“{typedCategory}” joins the list when you publish.</span>
+                  ) : typedCategory ? (
+                    <span>That one already exists, so it is used as it is.</span>
+                  ) : null}
+                  <button
+                    type="button"
+                    style={{ background: 'none', border: 0, padding: 0, color: 'var(--clay-deep)', cursor: 'pointer', fontSize: 11 }}
+                    onClick={() => {
+                      setNewCategory(false)
+                      set('category', '')
+                    }}
+                  >
+                    Pick from the list instead
+                  </button>
+                </div>
+              </>
             )}
+            <a href="/settings?tab=categories" style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'inline-block' }}>
+              Manage categories
+            </a>
           </div>
           <div className="field">
             <Label htmlFor="t-tier">Tier</Label>
@@ -619,7 +666,7 @@ function NewTaskModal({
               id="t-tier"
               value={form.tier}
               onChange={(v) => set('tier', v as Tier)}
-              options={TIERS.map((t) => ({ value: t, label: TIER_LABELS[t] }))}
+              options={tiers.active.map((t) => ({ value: t.key, label: t.label }))}
             />
           </div>
           <div className="field">
@@ -751,6 +798,32 @@ function NewTaskModal({
           </div>
           {form.locationType === 'PHYSICAL' && (
             <>
+              <div className="field">
+                <Label htmlFor="t-country">Country</Label>
+                <Select
+                  id="t-country"
+                  value={form.country}
+                  onChange={(v) => {
+                    set('country', v)
+                    set('state', '')
+                  }}
+                  options={(places.data?.countries ?? FALLBACK_COUNTRIES).map((c) => ({
+                    value: c.code,
+                    label: c.live ? c.name : `${c.name} (coming soon)`,
+                    disabled: !c.live,
+                  }))}
+                />
+              </div>
+              <div className="field">
+                <Label htmlFor="t-state">State</Label>
+                <Select
+                  id="t-state"
+                  value={form.state}
+                  placeholder="Choose a state"
+                  onChange={(v) => set('state', v)}
+                  options={(places.data?.states[form.country] ?? []).map((st) => ({ value: st, label: st }))}
+                />
+              </div>
               <div className="field span2">
                 <Label htmlFor="t-addr">Address</Label>
                 <Input
@@ -835,7 +908,7 @@ function NewTaskModal({
                   <div>
                     <b>Confirmed ID</b>
                     <span>
-                      Only workers whose ID we have checked can apply.
+                      Only Partimers whose ID we have checked can apply.
                     </span>
                   </div>
                   <Switch
@@ -851,7 +924,7 @@ function NewTaskModal({
                   <div>
                     <b>Documents</b>
                     <span>
-                      Checked by us before they count. A worker who has uploaded one but
+                      Checked by us before they count. A Partimer who has uploaded one but
                       is still waiting on our review cannot apply yet.
                     </span>
                   </div>
@@ -869,7 +942,7 @@ function NewTaskModal({
                   <div>
                     <b>Skills</b>
                     <span>
-                      Self-declared. Useful for matching, but a worker only has to say
+                      Self-declared. Useful for matching, but a Partimer only has to say
                       they have these - nobody checks them.
                     </span>
                   </div>
@@ -917,7 +990,7 @@ function NewTaskModal({
                   <b>Proof of work</b>
                   <span>
                     What has to be true before anyone is paid. The reviewer ticks every check
-                    before approving, and the worker sees them before they start.
+                    before approving, and the Partimer sees them before they start.
                   </span>
                 </div>
               </div>

@@ -30,7 +30,7 @@ export function isRateable(contractStatus: string): boolean {
 /**
  * Recompute the worker's public rating and completed count.
  *
- * **Only counts OF_WORKER rows.** Without that filter a Tasker who rated three
+ * **Only counts OF_WORKER rows.** Without that filter a Partimer who rated three
  * jobs one star would drag their own profile down to one star, which is both
  * absurd and the kind of bug that is very hard to see once the numbers are
  * merely plausible.

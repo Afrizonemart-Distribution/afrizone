@@ -1,7 +1,8 @@
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
-import { TIERS, REVIEW_MODES, ISSUER_MODES, slugify } from "../types";
+import { REVIEW_MODES, ISSUER_MODES, slugify } from "../types";
+import { isTierKey } from "../services/tiers";
 
 const router = Router();
 
@@ -78,8 +79,8 @@ router.post(
     if (!b.name || !b.tier || !b.defaultPayModel) {
       return res.status(400).json({ error: "name, tier, defaultPayModel are required" });
     }
-    if (!TIERS.includes(b.tier)) {
-      return res.status(400).json({ error: `tier must be one of ${TIERS.join(", ")}` });
+    if (!(await isTierKey(b.tier))) {
+      return res.status(400).json({ error: "Choose a tier that exists and is switched on" });
     }
     if (!PAY_MODELS.includes(b.defaultPayModel)) {
       return res.status(400).json({ error: `defaultPayModel must be one of ${PAY_MODELS.join(", ")}` });
@@ -106,8 +107,8 @@ router.patch(
     if (!existing) return res.status(404).json({ error: "Category not found" });
 
     const b = req.body || {};
-    if (b.tier !== undefined && !TIERS.includes(b.tier)) {
-      return res.status(400).json({ error: `tier must be one of ${TIERS.join(", ")}` });
+    if (b.tier !== undefined && !(await isTierKey(b.tier))) {
+      return res.status(400).json({ error: "Choose a tier that exists and is switched on" });
     }
     if (b.defaultPayModel !== undefined && !PAY_MODELS.includes(b.defaultPayModel)) {
       return res.status(400).json({ error: `defaultPayModel must be one of ${PAY_MODELS.join(", ")}` });

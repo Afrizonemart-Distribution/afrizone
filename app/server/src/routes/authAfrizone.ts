@@ -152,7 +152,7 @@ router.post("/afrizone", async (req, res) => {
   // identities here (phone = OTP login, email = Google/password match).
   const user = await prisma.user.create({
     data: {
-      name: claims.name || "New Tasker",
+      name: claims.name || "New Partimer",
       email: claims.email_verified && claims.email ? claims.email : placeholderEmail(claims.sub),
       passwordHash: null,
       afrizoneUserId: claims.sub,

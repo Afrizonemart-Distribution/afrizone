@@ -6,7 +6,7 @@ import { TierBadge } from '../../src/components/TierBadge';
 import { ObScreen } from '../../src/onboarding/ObUI';
 import { obColors } from '../../src/onboarding/onboardingTheme';
 import { useOnboarding } from '../../src/onboarding/OnboardingContext';
-import { TIERS } from '../../src/lib/kyc';
+import { useTiers } from '../../src/lib/tiers';
 import type { Tier } from '../../src/api/types';
 
 /**
@@ -17,6 +17,7 @@ import type { Tier } from '../../src/api/types';
 export default function ChooseTierScreen() {
   const router = useRouter();
   const { state, update } = useOnboarding();
+  const tiers = useTiers();
   const [tier, setTier] = useState<Tier | null>(state.tier);
 
   function onContinue() {
@@ -34,7 +35,7 @@ export default function ChooseTierScreen() {
       onPrimary={onContinue}
       primaryDisabled={!tier}
     >
-      {TIERS.map((t) => {
+      {tiers.map((t) => {
         const active = tier === t.key;
         return (
           <Pressable
@@ -48,7 +49,7 @@ export default function ChooseTierScreen() {
               <TierBadge tier={t.key} />
               {active ? <Icon name="check-circle" size={18} color={obColors.goldDeep} /> : null}
             </View>
-            <Text style={styles.blurb}>{t.blurb}</Text>
+            {t.description ? <Text style={styles.blurb}>{t.description}</Text> : null}
           </Pressable>
         );
       })}

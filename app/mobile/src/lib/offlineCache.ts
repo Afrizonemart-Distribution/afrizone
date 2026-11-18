@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * The last copy of a screen's data, for when there is no signal (Blueprint
  * §16). A courier at a door in a dead zone still needs the address and the
- * order; a Tasker in a basement still needs to see the job they are on.
+ * order; a Partimer in a basement still needs to see the job they are on.
  *
  * Plain AsyncStorage, not the secure store: these are API responses, too big
  * for it, and nothing here is a credential. Some of it is personal - a

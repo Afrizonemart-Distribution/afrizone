@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTiers } from '../lib/tiers'
 import { HELD } from '../lib/held'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
@@ -83,14 +84,6 @@ const ALL_RULE_KINDS: { kind: string; label: string; from: string }[] = [
 const RULE_KINDS = ALL_RULE_KINDS.filter(
   (k) => !(HELD.stores && k.kind === 'STORE_AUDIT') && !(HELD.couriers && k.kind === 'DELIVERY'),
 )
-
-const TIER_OPTIONS = [
-  { value: 'STUDENT', label: 'Student' },
-  { value: 'DISPATCH', label: 'Dispatch' },
-  { value: 'REMOTE', label: 'Remote' },
-  { value: 'PROMO', label: 'Promo' },
-  { value: 'TRADE', label: 'Trade' },
-]
 
 export default function Mart() {
   const { user } = useAuth()
@@ -309,6 +302,7 @@ function RuleCard({
   canEdit: boolean
   onSaved: () => void
 }) {
+  const tiers = useTiers()
   const [draft, setDraft] = useState<TaskRule | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -379,7 +373,7 @@ function RuleCard({
             id={`${kind}-tier`}
             value={value.tier}
             onChange={(v) => set('tier', v)}
-            options={TIER_OPTIONS}
+            options={tiers.active.map((t) => ({ value: t.key, label: t.label }))}
             disabled={!canEdit}
             ariaLabel={`${label} tier`}
           />

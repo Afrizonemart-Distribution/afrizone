@@ -113,7 +113,7 @@ router.get("/", requireAuth, async (req: AuthedRequest, res: Response) => {
  * where they can drop stock.
  *
  * OPEN TO ANY SIGNED-IN USER, WHICH IS DELIBERATE AND IS ALSO WHY THE PAYLOAD IS
- * NARROW. Every Tasker and Courier needs this, and gating it on membership would
+ * NARROW. Every Partimer and Courier needs this, and gating it on membership would
  * mean only a store's own staff could see it - the opposite of a network map. So
  * it returns exactly what somebody needs to travel to a place: name, address,
  * coordinates, and how far away it is. No payout details, no members, no contact

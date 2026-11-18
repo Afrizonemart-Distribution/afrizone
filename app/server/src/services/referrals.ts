@@ -1,18 +1,18 @@
 /**
- * The referral loop: people earn for bringing in new Taskers and stores that
+ * The referral loop: people earn for bringing in new Partimers and stores that
  * turn out to be real (Blueprint §14).
  *
  * THE SHAPE, AS DECIDED:
  *
- *   Anybody with a Tasker account - store members included, since they sign in
+ *   Anybody with a Partimer account - store members included, since they sign in
  *   the same way - has a short code to hand out. Staff do not.
  *
- *   A new Tasker enters the code at sign-up, or afterwards from their profile,
+ *   A new Partimer enters the code at sign-up, or afterwards from their profile,
  *   but only before their first job and within REFERRAL_CLAIM_DAYS of joining.
  *   A store is attributed by the admin who registers it. Whoever is claimed
  *   first keeps it: one referral per newcomer, never re-pointed.
  *
- *   It pays only when the newcomer is real. A Tasker: their first payment is
+ *   It pays only when the newcomer is real. A Partimer: their first payment is
  *   released. A store: an admin approves it, after its audit. A fake sign-up
  *   never earns, because a fake sign-up never does paid work.
  *
@@ -40,7 +40,7 @@ export const REFERRAL_KEYS = {
   storeReward: "referral.storeReward",
 } as const;
 
-/** How long after joining a Tasker may still say who sent them. */
+/** How long after joining a Partimer may still say who sent them. */
 export const REFERRAL_CLAIM_DAYS = 30;
 
 const WHT_RATE = 0.05;
@@ -103,7 +103,7 @@ async function referrerByCode(raw: unknown): Promise<{ id: string; name: string 
 }
 
 /**
- * A new Tasker says who sent them. Refused once they have had a job or are past
+ * A new Partimer says who sent them. Refused once they have had a job or are past
  * the claim window - by then they found the work themselves - and refused for
  * their own code.
  */
@@ -121,7 +121,7 @@ export async function claimForTasker(
     prisma.referral.findUnique({ where: { referredUserId: userId } }),
     prisma.contract.count({ where: { workerId: userId } }),
   ]);
-  if (!user || user.role !== "WORKER") return { ok: false, status: 404, error: "Tasker not found" };
+  if (!user || user.role !== "WORKER") return { ok: false, status: 404, error: "Partimer not found" };
   if (existing) return { ok: false, status: 409, error: "You have already said who referred you" };
   if (contracts > 0) {
     return { ok: false, status: 400, error: "A referral code can only be added before your first job" };
@@ -204,7 +204,7 @@ async function earn(
   }
 }
 
-/** A Tasker's payment was released; if it is their first, their referrer earns. */
+/** A Partimer's payment was released; if it is their first, their referrer earns. */
 export async function onPaymentReleased(workerId: string): Promise<void> {
   const released = await prisma.payment.count({ where: { workerId, status: "RELEASED" } });
   if (released < 1) return;

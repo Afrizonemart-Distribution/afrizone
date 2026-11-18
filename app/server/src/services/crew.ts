@@ -1,5 +1,5 @@
 /**
- * Crew contracts: a lead Tasker brings a small crew to a larger fixed-price job,
+ * Crew contracts: a lead Partimer brings a small crew to a larger fixed-price job,
  * and the pay is split between them (Blueprint §14).
  *
  * THE SHAPE, AS DECIDED:
@@ -19,13 +19,13 @@
  *
  *   The lead hands in once, for everybody. The members' contracts move with the
  *   lead's, and approving the hand-in pays each member their share as their own
- *   Payment with their own withholding tax. A crew member is a Tasker being
+ *   Payment with their own withholding tax. A crew member is a Partimer being
  *   paid by Afrizone, never a subcontractor being paid by the lead.
  *
  * THE GATE STILL APPLIES TO EVERYONE. Every member must meet the task's
  * requirements on their own, checked when they are named and again at
  * approval. There is no override for a crew member: an admin override is a
- * person taking responsibility for one named Tasker, and the place to do that
+ * person taking responsibility for one named Partimer, and the place to do that
  * is a solo approval.
  *
  * FIXED-PRICE ONLY, AND ONLY WHERE A MANAGER SAID SO. `Task.crewMax` is the

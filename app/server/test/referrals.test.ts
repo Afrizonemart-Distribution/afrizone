@@ -1,12 +1,12 @@
-// The referral loop: people earn for bringing in Taskers and stores that turn
+// The referral loop: people earn for bringing in Partimers and stores that turn
 // out real (Blueprint §14, services/referrals.ts).
 //
 // Five properties, and every test below is one of them:
 //
-//   ONE CODE, ONE CLAIM, EARLY. A Tasker says who sent them before their first
+//   ONE CODE, ONE CLAIM, EARLY. A Partimer says who sent them before their first
 //   job and within the window, once, and never with their own code.
 //
-//   IT PAYS WHEN THE NEWCOMER IS REAL. A Tasker's first released payment; a
+//   IT PAYS WHEN THE NEWCOMER IS REAL. A Partimer's first released payment; a
 //   store's approval. Never twice.
 //
 //   OFF UNTIL SET. With no reward amount, nothing is earned.
@@ -83,7 +83,7 @@ describe("codes", () => {
   });
 });
 
-describe("a Tasker referral", () => {
+describe("a Partimer referral", () => {
   it("pays the referrer once, on the newcomer's first released payment, and the bonus can be withdrawn", async () => {
     const admin = await createUserWithToken("SUPER_ADMIN");
     const referrer = await tasker();

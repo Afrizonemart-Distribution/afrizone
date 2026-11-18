@@ -1,4 +1,5 @@
 import React from 'react';
+import { tierName } from '../lib/tiers';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, radii } from '../theme';
 import type { Tier } from '../api/types';
@@ -11,7 +12,7 @@ import type { Tier } from '../api/types';
  * fills gave Dispatch 1.76:1, Promo 1.70:1 and Trade 3.01:1. Student and Remote
  * clear AA on their own fills, so they keep them.
  */
-const TIER_META: Record<Tier, { label: string; color: string; bg: string }> = {
+const TIER_META: Partial<Record<Tier, { label: string; color: string; bg: string }>> = {
   STUDENT: { label: 'Student', color: colors.indigo, bg: colors.indigoSoft },
   DISPATCH: { label: 'Dispatch', color: colors.goldInk, bg: colors.claySoft },
   REMOTE: { label: 'Remote', color: colors.forest, bg: colors.forestSoft },
@@ -20,7 +21,7 @@ const TIER_META: Record<Tier, { label: string; color: string; bg: string }> = {
 };
 
 export function TierBadge({ tier, small }: { tier: Tier; small?: boolean }) {
-  const m = TIER_META[tier] ?? { label: tier, color: colors.textMuted, bg: colors.surfaceSand };
+  const m = TIER_META[tier] ?? { label: tierName(tier), color: colors.textMuted, bg: colors.surfaceSand };
   return (
     <View
       style={[styles.badge, { backgroundColor: m.bg }, small && styles.small]}
@@ -32,7 +33,7 @@ export function TierBadge({ tier, small }: { tier: Tier; small?: boolean }) {
 }
 
 export function tierLabel(tier: Tier): string {
-  return TIER_META[tier]?.label ?? tier;
+  return TIER_META[tier]?.label ?? tierName(tier);
 }
 
 const styles = StyleSheet.create({

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTiers } from '../lib/tiers'
 import { api, ApiError } from '../api/client'
 import AuthedImage from '../components/ui/AuthedImage'
 import { useApi } from '../lib/useApi'
 import type { KycDocument, Worker, WorkerDetail } from '../api/types'
 import {
-  TIER_COLORS,
-  TIER_LABELS,
   avatarGradient,
   initials,
   kycPill,
@@ -275,7 +274,7 @@ function RateModal({
     api.workerDetail(worker.id).then((d) => {
       if (!cancelled) setDetail(d)
     }).catch((e) => {
-      if (!cancelled) setLoadErr(e instanceof ApiError ? e.message : 'Could not load worker tasks')
+      if (!cancelled) setLoadErr(e instanceof ApiError ? e.message : 'Could not load Partimer tasks')
     })
     return () => { cancelled = true }
   }, [worker.id])
@@ -321,7 +320,7 @@ function RateModal({
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading tasks…</p>
         ) : approvedTasks.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-            This worker has no approved tasks to rate yet.
+            This Partimer has no approved tasks to rate yet.
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -357,7 +356,7 @@ function RateModal({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={3}
-                placeholder="Any feedback for the worker…"
+                placeholder="Any feedback for the Partimer…"
               />
             </div>
 
@@ -386,6 +385,7 @@ function RateModal({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function Workers() {
+  const tiers = useTiers()
   const { data, loading, error, reload, setData } = useApi((signal) => api.workers(signal))
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -420,9 +420,9 @@ export default function Workers() {
   return (
     <>
       <PageHeader
-        crumb="People / Workers"
-        title="Worker directory & KYC"
-        sub={loading ? 'Loading…' : `${workers.length} workers · ${pendingKyc} KYC reviews pending`}
+        crumb="People / Partimers"
+        title="Partimer directory & KYC"
+        sub={loading ? 'Loading…' : `${workers.length} Partimers · ${pendingKyc} KYC reviews pending`}
         actions={
           <Button variant="glass" size="sm" icon="arrow-up">
             Export CSV
@@ -438,19 +438,19 @@ export default function Workers() {
       )}
 
       {loading ? (
-        <LoadingState label="Loading workers…" />
+        <LoadingState label="Loading Partimers…" />
       ) : error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : workers.length === 0 ? (
         <Glass>
-          <EmptyState icon="users" title="No workers yet" sub="Verified workers will appear here for KYC review." />
+          <EmptyState icon="users" title="No Partimers yet" sub="Verified Partimers will appear here for KYC review." />
         </Glass>
       ) : (
         <Glass reveal delay="d1" className="tablewrap">
           <Table className="dt">
             <TableHeader>
               <TableRow>
-                <TableHead>Worker</TableHead>
+                <TableHead>Partimer</TableHead>
                 <TableHead>Tiers</TableHead>
                 <TableHead>Standing</TableHead>
                 <TableHead>KYC</TableHead>
@@ -481,8 +481,8 @@ export default function Workers() {
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {(w.tiers ?? []).map((t) => (
                           <Badge variant="outline" className="tier" key={t}>
-                            <span className="d" style={{ background: TIER_COLORS[t] }} />
-                            {TIER_LABELS[t]}
+                            <span className="d" style={{ background: tiers.color(t) }} />
+                            {tiers.label(t)}
                           </Badge>
                         ))}
                       </div>

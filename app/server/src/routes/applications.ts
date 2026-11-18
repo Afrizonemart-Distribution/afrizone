@@ -143,7 +143,7 @@ router.post("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     loadTaskRequirements(prisma, [task]),
     isEnforcing(prisma),
   ]);
-  if (!profile) return res.status(404).json({ error: "Tasker not found" });
+  if (!profile) return res.status(404).json({ error: "Partimer not found" });
 
   const reqs = requirements.get(task.id)!;
   const eligibility = decide(profile, reqs);

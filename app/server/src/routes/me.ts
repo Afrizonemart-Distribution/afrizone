@@ -6,7 +6,9 @@ import { loadStanding } from "../services/standing";
 import { answerInvite } from "../services/crew";
 import { claimForTasker, codeFor, referralEarnings, rewardRule } from "../services/referrals";
 import { requireAuth, AuthedRequest } from "../auth";
-import { tiersToArray, tiersToString, Tier, TIERS } from "../types";
+import { tiersToArray, tiersToString, Tier } from "../types";
+import { isTierKey } from "../services/tiers";
+import { placeProblem } from "../services/places";
 import { isSmileConfigured, submitDocumentVerification, NgIdType, NG_ID_TYPES } from "../services/smileIdentity";
 import { getFileBuffer } from "../services/storage";
 import { requireAssignedTask } from "../util/assignment";
@@ -60,6 +62,8 @@ function formatUser(user: any) {
     // the client believes it has and the server does not send is worse than an
     // absent one, because nothing errors.
     accountType: user.accountType,
+    country: user.country,
+    state: user.state,
     kycStatus: user.kycStatus,
     kycNote: user.kycNote ?? null,
     location: user.location,
@@ -83,7 +87,7 @@ function formatUser(user: any) {
 router.get("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   const user = await prisma.user.findUnique({ where: { id: req.user!.id } });
   if (!user) return res.status(404).json({ error: "User not found" });
-  // Standing is shown to the Tasker with what the next level needs; staff
+  // Standing is shown to the Partimer with what the next level needs; staff
   // accounts have no work record, so they get none.
   const standing = user.role === "WORKER" ? await loadStanding(user) : null;
   res.json({ ...formatUser(user), standing });
@@ -105,8 +109,21 @@ router.patch("/", requireAuth, async (req: AuthedRequest, res: Response) => {
     jobAlertEmail,
     jobAlertSms,
     jobAlertWhatsapp,
+    country,
+    state,
   } = req.body || {};
   const data: Record<string, unknown> = {};
+
+  // Where they live: a live country and one of its states (services/places.ts).
+  if (country !== undefined || state !== undefined) {
+    const current = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { country: true, state: true } });
+    const c = typeof country === "string" && country ? country.toUpperCase() : current?.country ?? "NG";
+    const st = state === undefined ? current?.state ?? null : typeof state === "string" && state.trim() ? state.trim() : null;
+    const problem = await placeProblem(c, st);
+    if (problem) return res.status(400).json({ error: problem });
+    data.country = c;
+    data.state = st;
+  }
 
   if (name !== undefined) {
     const n = String(name).trim();
@@ -228,13 +245,13 @@ router.get("/applications", requireAuth, async (req: AuthedRequest, res: Respons
 });
 
 /**
- * GET /api/me/referral → this Tasker's code, what each kind of referral pays
+ * GET /api/me/referral → this Partimer's code, what each kind of referral pays
  * right now, who they have brought in, and whether they can still say who
  * brought THEM in. Staff get 404: they do not refer.
  */
 router.get("/referral", requireAuth, async (req: AuthedRequest, res: Response) => {
   const code = await codeFor(req.user!.id);
-  if (!code) return res.status(404).json({ error: "Referrals are for Tasker accounts" });
+  if (!code) return res.status(404).json({ error: "Referrals are for Partimer accounts" });
   const [rule, made, referredBy] = await Promise.all([
     rewardRule(),
     prisma.referral.findMany({
@@ -262,7 +279,7 @@ router.get("/referral", requireAuth, async (req: AuthedRequest, res: Response) =
       name:
         r.kind === "STORE"
           ? r.referredOrganization?.name ?? "A store"
-          : (r.referredUser?.name ?? "A Tasker").split(" ")[0],
+          : (r.referredUser?.name ?? "A Partimer").split(" ")[0],
       status: r.status,
       net: r.status === "EARNED" ? r.net : null,
       createdAt: r.createdAt,
@@ -271,7 +288,7 @@ router.get("/referral", requireAuth, async (req: AuthedRequest, res: Response) =
   });
 });
 
-// POST /api/me/referral → body {code}. A new Tasker says who sent them.
+// POST /api/me/referral → body {code}. A new Partimer says who sent them.
 router.post("/referral", requireAuth, async (req: AuthedRequest, res: Response) => {
   const r = await claimForTasker(req.user!.id, req.body?.code);
   if (!r.ok) return res.status(r.status).json({ error: r.error });
@@ -279,7 +296,7 @@ router.post("/referral", requireAuth, async (req: AuthedRequest, res: Response) 
 });
 
 /**
- * GET /api/me/crew-invites → crews this Tasker has been asked to join and has
+ * GET /api/me/crew-invites → crews this Partimer has been asked to join and has
  * not answered, plus ones they answered whose application is still open.
  */
 router.get("/crew-invites", requireAuth, async (req: AuthedRequest, res: Response) => {
@@ -443,7 +460,7 @@ router.get("/ratings", requireAuth, async (req: AuthedRequest, res: Response) =>
 });
 
 /**
- * POST /api/me/ratings → the Tasker rates the job back. Body {taskId, score, note?}.
+ * POST /api/me/ratings → the Partimer rates the job back. Body {taskId, score, note?}.
  *
  * The other half of Blueprint §9. Guarded on two things, both of which matter:
  *
@@ -485,7 +502,7 @@ router.post("/ratings", requireAuth, async (req: AuthedRequest, res: Response) =
       direction: "OF_EXPERIENCE",
       score: scoreNum,
       note: note ? String(note).trim() : null,
-      // The Tasker is the author here, which is the whole difference between
+      // The Partimer is the author here, which is the whole difference between
       // the two directions.
       createdById: workerId,
     },
@@ -613,7 +630,7 @@ function buildContractSections(
   const fmtMoney = (n: number) =>
     new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(n);
 
-  // On a crew job the contract is for this Tasker's agreed share, not the
+  // On a crew job the contract is for this Partimer's agreed share, not the
   // whole budget, and says so - it is what Afrizone owes them, not the lead.
   const pay =
     share != null
@@ -849,7 +866,7 @@ router.post("/kyc/submit", requireAuth, async (req: AuthedRequest, res: Response
   // so it needs product sign-off rather than being slipped into a security fix.
   let tiers = tiersToArray(user.tiers);
   if (tier !== undefined && tier !== null && tier !== "") {
-    if (!TIERS.includes(tier as Tier)) {
+    if (!(await isTierKey(tier))) {
       return res.status(400).json({ error: "Invalid tier" });
     }
     if (!tiers.includes(tier as Tier)) {
@@ -959,7 +976,7 @@ router.get("/tax-statement", requireAuth, async (req: AuthedRequest, res: Respon
 
   const rows = [
     "AfriZone PartTime - Annual WHT Statement",
-    `Tasker:,${user.name ?? "-"}`,
+    `Partimer:,${user.name ?? "-"}`,
     `Email/Phone:,${user.email ?? user.phone ?? "-"}`,
     `TIN:,${user.tin ?? "Not provided"}`,
     `Year:,${year}`,

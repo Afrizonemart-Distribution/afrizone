@@ -112,7 +112,7 @@ export default function Payments() {
             <Table className="dt">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Worker</TableHead>
+                  <TableHead>Partimer</TableHead>
                   <TableHead>Task</TableHead>
                   <TableHead>Gross</TableHead>
                   <TableHead>− WHT 5%</TableHead>
@@ -124,7 +124,7 @@ export default function Payments() {
               <TableBody>
                 {payments.map((p) => {
                   const pill = paymentPill(p.status)
-                  const name = p.worker?.name ?? 'Worker'
+                  const name = p.worker?.name ?? 'Partimer'
                   return (
                     <TableRow key={p.id}>
                       <TableCell>
@@ -188,7 +188,7 @@ export default function Payments() {
               }}
             >
               <span className="math">
-                <Icon name="help" size={16} style={{ color: 'var(--gold)' }} /> The worker always
+                <Icon name="help" size={16} style={{ color: 'var(--gold)' }} /> The Partimer always
                 sees the math:
               </span>
               <span className="math">

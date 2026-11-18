@@ -93,7 +93,7 @@ describe("two-way ratings", () => {
     await apiPost(`/api/workers/${worker.user.id}/rate`, { taskId: task.id, score: 5 }, admin.token);
 
     const after = await prisma().user.findUnique({ where: { id: worker.user.id } });
-    // Unfiltered this averages (1, 5) to 3: the Tasker's opinion of the job
+    // Unfiltered this averages (1, 5) to 3: the Partimer's opinion of the job
     // silently halving their own standing.
     expect(after.rating).toBe(5);
     // And completedCount counts jobs they were rated ON, not jobs they rated.

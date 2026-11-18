@@ -40,7 +40,7 @@ describe("held features", () => {
     expect(isHeld("couriers")).toBe(true);
   });
 
-  it("only opens Tasker sign-up", () => {
+  it("only opens Partimer sign-up", () => {
     expect(openAccountTypes()).toEqual(["INDIVIDUAL"]);
   });
 

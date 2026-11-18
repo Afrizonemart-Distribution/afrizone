@@ -34,7 +34,7 @@ export const ACCOUNT_COPY: Record<
   INDIVIDUAL: {
     label: 'Individual',
     registerTitle: 'Create Account',
-    registerSubtitle: "Join AfriZone PartTime as a Tasker. You'll verify your identity (KYC) right after.",
+    registerSubtitle: "Join AfriZone PartTime as a Partimer. You'll verify your identity (KYC) right after.",
   },
   STORE: {
     label: 'Store',

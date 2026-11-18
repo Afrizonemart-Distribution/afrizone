@@ -1,7 +1,9 @@
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, isAdmin, AuthedRequest } from "../auth";
-import { tiersToArray, TIERS } from "../types";
+import { tiersToArray } from "../types";
+import { isTierKey } from "../services/tiers";
+import { placeProblem } from "../services/places";
 import { userActor, writeAudit } from "../util/audit";
 import {
   decide,
@@ -233,6 +235,11 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
   if (!cleanCategoryName(b.category)) {
     return res.status(400).json({ error: "category must be 1 to 60 characters" });
   }
+  if (!(await isTierKey(b.tier))) return res.status(400).json({ error: "Choose a tier that exists and is switched on" });
+  const country = typeof b.country === "string" && b.country ? b.country.toUpperCase() : "NG";
+  const state = typeof b.state === "string" && b.state.trim() ? b.state.trim() : null;
+  const place = await placeProblem(country, state);
+  if (place) return res.status(400).json({ error: place });
   const questions = parseQuestions(b.questions);
   if (!questions.ok) return res.status(400).json({ error: questions.error });
   const pay = parsePay(b);
@@ -268,6 +275,8 @@ router.post("/", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), async 
         startDate: b.startDate ? new Date(b.startDate) : new Date(),
         endDate: b.endDate ? new Date(b.endDate) : new Date(),
         locationType: b.locationType || "PHYSICAL",
+        country,
+        state,
         address: b.address ?? null,
         lat: b.lat != null ? Number(b.lat) : null,
         lng: b.lng != null ? Number(b.lng) : null,
@@ -326,7 +335,7 @@ router.post(
   requireRole("SUPER_ADMIN", "TASK_MANAGER"),
   async (req: AuthedRequest, res: Response) => {
     const b = req.body || {};
-    if (!b.tier || !TIERS.includes(b.tier)) {
+    if (!(await isTierKey(b.tier))) {
       return res.status(400).json({ error: "A valid tier is required" });
     }
     const skillIds = idList(b.skillIds) ?? [];
@@ -418,7 +427,7 @@ router.get("/:id/eligibility", requireAuth, async (req: AuthedRequest, res: Resp
     loadWorkerProfile(prisma, workerId),
     loadTaskRequirements(prisma, [task]),
   ]);
-  if (!profile) return res.status(404).json({ error: "Tasker not found" });
+  if (!profile) return res.status(404).json({ error: "Partimer not found" });
 
   const reqs = requirements.get(task.id)!;
   res.json({
@@ -492,6 +501,17 @@ router.patch("/:id", requireAuth, requireRole("SUPER_ADMIN", "TASK_MANAGER"), as
   const data: any = {};
   const stringFields = ["title", "description", "tier", "payModel", "locationType", "address", "status"];
   for (const f of stringFields) if (b[f] !== undefined) data[f] = b[f];
+  if (b.tier !== undefined && !(await isTierKey(b.tier))) {
+    return res.status(400).json({ error: "Choose a tier that exists and is switched on" });
+  }
+  if (b.country !== undefined || b.state !== undefined) {
+    const country = typeof b.country === "string" && b.country ? b.country.toUpperCase() : existing.country;
+    const state = b.state === undefined ? existing.state : typeof b.state === "string" && b.state.trim() ? b.state.trim() : null;
+    const place = await placeProblem(country, state);
+    if (place) return res.status(400).json({ error: place });
+    data.country = country;
+    data.state = state;
+  }
   const intFields = ["rate", "budget", "geofenceRadius", "slots"];
   for (const f of intFields) if (b[f] !== undefined) data[f] = b[f];
   if (b.lat !== undefined) data.lat = b.lat != null ? Number(b.lat) : null;

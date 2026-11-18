@@ -10,7 +10,7 @@
  * "store  audit".
  */
 import { prisma } from "../prisma";
-import { TIERS } from "../types";
+import { isTierKey } from "./tiers";
 
 export const MAX_CATEGORY_NAME = 60;
 
@@ -43,7 +43,7 @@ export async function ensureCategory(
     return { name: found.name, created: false, id: found.id };
   }
 
-  const tier = defaults.tier && (TIERS as string[]).includes(defaults.tier) ? defaults.tier : "REMOTE";
+  const tier = defaults.tier && (await isTierKey(defaults.tier)) ? defaults.tier : "REMOTE";
   const payModel = defaults.payModel === "FIXED" || defaults.payModel === "PER_UNIT" ? defaults.payModel : "HOURLY";
   const created = await prisma.category.create({
     data: { name, tier, defaultPayModel: payModel, active: true },

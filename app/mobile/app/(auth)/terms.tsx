@@ -30,7 +30,7 @@ export default function TermsScreen() {
 
       <Section title="1. Who can use AfriZone PartTime">
         You must be at least 18 years old and legally able to work in Nigeria to
-        register as a Tasker. You must provide accurate information when you
+        register as a Partimer. You must provide accurate information when you
         register and complete identity verification (KYC), including a
         government-issued ID and a selfie for comparison. We may review your KYC
         submission manually, and some submissions are also checked by an
@@ -39,7 +39,7 @@ export default function TermsScreen() {
 
       <Section title="2. Tasks, applications, and approval">
         Tasks are posted by Afrizone admins. You may apply to any task that
-        matches your verified Tasker tier. An admin reviews and approves or
+        matches your verified Partimer tier. An admin reviews and approves or
         rejects applications; approval isn't guaranteed. Once approved, you're
         expected to complete the task as described, including clocking in and
         out for time-tracked tasks (which may use location to confirm you're at

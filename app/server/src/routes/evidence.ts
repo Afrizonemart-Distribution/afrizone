@@ -238,13 +238,13 @@ router.get("/", requireAuth, async (req: AuthedRequest, res: ExpressResponse) =>
 
 /**
  * POST /api/me/evidence/signature -> the other side of a handover signs on the
- * Tasker's phone. JSON: taskId, stage, signerName, path (SVG path data), width,
+ * Partimer's phone. JSON: taskId, stage, signerName, path (SVG path data), width,
  * height, and lat, lng, accuracy, capturedAt as the phone reports them.
  *
  * Ordinary JSON, so it stays on Express rather than beside the photo upload:
  * there is no file, only strokes.
  *
- * One per Tasker per step. Signing again replaces the last one - a smudged
+ * One per Partimer per step. Signing again replaces the last one - a smudged
  * signature redone is the same handover, not a second one.
  */
 router.post("/signature", requireAuth, async (req: AuthedRequest, res: ExpressResponse) => {
