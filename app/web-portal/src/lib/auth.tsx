@@ -125,7 +125,8 @@ export function useAuth(): AuthState {
  * would be building the same product twice.
  */
 export function homeFor(accountType: AccountType | undefined): string {
-  if (accountType === 'STORE') return '/store'
-  if (accountType === 'COURIER') return '/courier'
+  // Store and courier accounts are on hold (server: src/util/held.ts), and their
+  // dashboards are not routed; everyone lands on the Tasker dashboard.
+  void accountType
   return '/individual'
 }

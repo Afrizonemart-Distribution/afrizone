@@ -43,7 +43,13 @@ interface Option {
   glyph: JSX.Element
 }
 
-const OPTIONS: Option[] = [
+/**
+ * Store and courier accounts are on hold (server: src/util/held.ts), so only the
+ * Individual card is offered. Their cards stay below for the day they reopen.
+ */
+const OPEN_TYPES: AccountType[] = ['INDIVIDUAL']
+
+const ALL_OPTIONS: Option[] = [
   {
     key: 'INDIVIDUAL',
     title: 'Individual',
@@ -103,6 +109,8 @@ const OPTIONS: Option[] = [
   },
 ]
 
+const OPTIONS = ALL_OPTIONS.filter((o) => OPEN_TYPES.includes(o.key))
+
 /** One path, true for all three account types. Anything type-specific belongs
  *  on the cards, not here — four stages that only apply to a store would read
  *  as four stages a courier has to complete. */
@@ -115,12 +123,12 @@ const STAGES = [
   {
     n: '02',
     title: 'Get verified',
-    body: 'We confirm your identity, and your business registration or your licence where the work needs one. Verification happens once, not per job.',
+    body: 'We confirm your identity, and any licence or certificate the work needs. Verification happens once, not per job.',
   },
   {
     n: '03',
     title: 'Start working',
-    body: 'Orders and tasks reach you the moment you qualify for them. You accept what you can do and decline what you cannot.',
+    body: 'Tasks reach you the moment you qualify for them. You apply for what you can do and skip what you cannot.',
   },
   {
     n: '04',
@@ -132,7 +140,7 @@ const STAGES = [
 const FEATURES = [
   {
     title: 'Only work you qualify for',
-    body: 'Your skills, tier and verified credentials decide what you are shown. Nobody is offered a delivery job that needs a licence they have not given us, and no shop is asked to fulfil an order it never agreed to.',
+    body: 'Your skills, tier and verified credentials decide what you are shown. Nobody is offered a job that needs a licence or certificate they have not given us.',
     glyph: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
         <path d="M12 3.6 4.6 6.8v5c0 4.3 3 8 7.4 8.9 4.4-.9 7.4-4.6 7.4-8.9v-5L12 3.6Z" strokeLinejoin="round" />
@@ -142,7 +150,7 @@ const FEATURES = [
   },
   {
     title: 'Verified once, trusted throughout',
-    body: 'Identity, business registration and licences are checked by a person and held on your profile. A licence that expires stops counting on the day it expires, so what a buyer sees is true today rather than true when you uploaded it.',
+    body: 'Identity, licences and certificates are checked by a person and held on your profile. A licence that expires stops counting on the day it expires, so what a buyer sees is true today rather than true when you uploaded it.',
     glyph: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
         <rect x="3.4" y="5.2" width="17.2" height="13.6" rx="2.4" />
@@ -164,7 +172,7 @@ const FEATURES = [
   },
   {
     title: 'One screen for the whole job',
-    body: 'Orders, deliveries, what is packed, who is carrying it, what you are owed and what is still waiting on you — on one page that keeps itself current without being reloaded.',
+    body: 'Your tasks, your hours, your proof of work, what you are owed and what is still waiting on you — on one page that keeps itself current without being reloaded.',
     glyph: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
         <rect x="3.4" y="4.6" width="17.2" height="14.8" rx="2.4" />
@@ -184,12 +192,8 @@ const FAQS = [
     a: 'A person reviews what you submit, so it depends on the queue and on whether your documents are clear and current. You can see exactly which items are outstanding on your dashboard while you wait, and you are told what was wrong if something is rejected.',
   },
   {
-    q: 'What do I need to sign up as a store?',
-    a: 'Your business details, an address a courier can actually find, a bank account for payouts, and your CAC registration number. The registration is checked before your shop goes live, because the trust that puts orders in front of you is the same trust customers are relying on.',
-  },
-  {
-    q: 'What do I need to deliver?',
-    a: 'A verified identity, a valid driver’s licence, and a vehicle on your profile. Riding on foot or by bicycle is a real option — you are not asked to invent a vehicle you do not have.',
+    q: 'What do I need to sign up?',
+    a: 'A phone number or email address, a verified identity, and a bank account in your own name for payouts. Some tasks also ask for a licence or certificate; you only add one when you want that kind of work.',
   },
   {
     q: 'How and when am I paid?',
@@ -197,12 +201,12 @@ const FAQS = [
   },
   {
     q: 'I work at Afrizone. Do I sign up here?',
-    a: 'No. This portal is for stores, couriers and individuals. Staff accounts are created internally and used on a separate internal system — your team will tell you where.',
+    a: 'No. This portal is for Taskers. Staff accounts are created internally and used on a separate internal system — your team will tell you where.',
   },
 ]
 
 export default function Landing() {
-  const [chosen, setChosen] = useState<AccountType | null>(null)
+  const [chosen, setChosen] = useState<AccountType | null>(OPTIONS.length === 1 ? OPTIONS[0].key : null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const navigate = useNavigate()
   const selected = OPTIONS.find((o) => o.key === chosen) ?? null
@@ -227,9 +231,8 @@ export default function Landing() {
             <p className="lp-eyebrow">AfriZone PartTime</p>
             <h1>Work that finds you, and pay that is set aside before you start</h1>
             <p className="lp-sub">
-              AfriZone PartTime connects the shops, riders and Taskers behind AfriZoneMart. Sell
-              from your counter, deliver across your city, or take on paid tasks near you — verified
-              once, paid on completion.
+              AfriZone PartTime is where the Taskers behind AfriZoneMart find paid work: field
+              tasks, promotions, media and sourcing near you — verified once, paid on completion.
             </p>
             <div className="lp-facts">
               <span>Free to join</span>
@@ -328,8 +331,8 @@ export default function Landing() {
             <p className="lp-eyebrow">How it works</p>
             <h2 className="lp-h2">From signing up to getting paid</h2>
             <p className="lp-lede">
-              The same four stages whether you run a shop, ride a delivery, or take on tasks. You can
-              always see which one you are on.
+              Four stages from your first sign-up to your first payout. You can always see which one
+              you are on.
             </p>
             <ol className="lp-stages">
               {STAGES.map((s) => (

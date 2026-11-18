@@ -27,6 +27,7 @@ import { useRouter } from 'expo-router';
 import { ObScreen, ObRoleCard } from '../../src/onboarding/ObUI';
 import type { AccountType } from '../../src/api/types';
 import type { IconName } from '../../src/components/Icon';
+import { OPEN_ACCOUNT_TYPES } from '../../src/lib/accountType';
 
 type Option = {
   key: AccountType;
@@ -37,7 +38,7 @@ type Option = {
   route: string;
 };
 
-const OPTIONS: Option[] = [
+const ALL_OPTIONS: Option[] = [
   {
     key: 'INDIVIDUAL',
     icon: 'user',
@@ -63,9 +64,15 @@ const OPTIONS: Option[] = [
   },
 ];
 
+/**
+ * Store and courier accounts are on hold (server: src/util/held.ts). Welcome
+ * now goes straight to the phone screen; this list only matters for a deep link.
+ */
+const OPTIONS = ALL_OPTIONS.filter((o) => OPEN_ACCOUNT_TYPES.includes(o.key));
+
 export default function AccountTypeScreen() {
   const router = useRouter();
-  const [selected, setSelected] = useState<Option | null>(null);
+  const [selected, setSelected] = useState<Option | null>(OPTIONS.length === 1 ? OPTIONS[0] : null);
 
   function onContinue() {
     if (!selected) return;

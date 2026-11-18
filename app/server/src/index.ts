@@ -52,6 +52,7 @@ import evidenceRouter, {
   handleEvidenceFileGet,
 } from "./routes/evidence";
 import adminAuditsRouter from "./routes/audits";
+import { heldRoute } from "./util/held";
 import adminReferralsRouter from "./routes/referrals";
 
 /** Must match wrangler.jsonc's triggers.crons entry character for character. */
@@ -234,6 +235,10 @@ app.use("/api/settings", settingsRouter);
 // v3: worker-facing (mobile app)
 app.use("/api/credentials", credentialsRouter);
 // Going online for ranked delivery offers (services/ranking.ts).
+// Stores and couriers are on hold (util/held.ts). These guards sit in front of
+// every route that only exists for them, so none of it runs.
+app.use(["/api/me/presence", "/api/me/courier", "/api/me/delivery-offers", "/api/me/deliveries", "/api/deliveries", "/api/admin/deliveries"], heldRoute("couriers"));
+app.use(["/api/organizations", "/api/admin/organizations", "/api/admin/audits"], heldRoute("stores"));
 app.use("/api/me/presence", presenceRouter);
 // Proof-of-work photos. Upload and file reads are intercepted before Express,
 // like KYC documents - see the fetch handler below.

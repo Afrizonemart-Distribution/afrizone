@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Landing from './pages/Landing'
 import { Register, SignIn } from './pages/Auth'
-import { CourierDashboard, IndividualLanding, StoreDashboard } from './pages/Dashboards'
+import { IndividualLanding } from './pages/Dashboards'
 import { homeFor, useAuth } from './lib/auth'
 import PublicProfilePage from './pages/PublicProfile'
 import StaffWorkspace from './pages/Staff'
@@ -24,8 +24,6 @@ export default function App() {
       />
       <Route path="/signin" element={<SignIn />} />
       <Route path="/register/:type" element={<Register />} />
-      <Route path="/store" element={<StoreDashboard />} />
-      <Route path="/courier" element={<CourierDashboard />} />
       <Route path="/individual" element={<IndividualLanding />} />
       <Route path="/p/:slug" element={<PublicProfilePage />} />
       <Route path="/staff" element={<StaffWorkspace />} />

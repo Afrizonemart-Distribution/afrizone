@@ -531,6 +531,17 @@ HR keeps **talent pools** (People → Talent pools), and a job alert can go to o
 pool or to **top performers only** (Silver and Gold standing): the career
 ladder's first invite before everyone else hears. Migration 0039.
 
+### On hold: partner stores and couriers (decided 18 November 2026)
+
+Partner AZM Stores are not being taken on, and delivery is being built into the
+AfriZoneMart storefront rather than Part Time. Part Time launches for Taskers
+only. `server/src/util/held.ts` switches both off in one place: sign-up takes
+only INDIVIDUAL, the organization, audit, delivery, courier and presence routes
+answer 404, and Mart's `store.applied` and `order.confirmed` events are logged
+as IGNORED. The portal, admin and mobile hide their screens. The code and
+tables stay; production had no store or courier data when this went in. The
+storefront's "Send to Part Time" panel was removed with it.
+
 ### Launch to-dos (owner: Magnus)
 
 - [ ] **`ANTHROPIC_API_KEY` Worker secret**, once credits are bought. Until then
@@ -540,6 +551,16 @@ ladder's first invite before everyone else hears. Migration 0039.
   `api` service). Part Time sends from `jobs@afrizonemart.com`, a domain
   already verified on that Resend account. Until set, job-alert emails are
   SKIPPED; push and SMS still go.
+- [ ] **Payout rail (BLOCKER).** No `PAYSTACK_SECRET`, so every withdrawal
+  stays PROCESSING and there is no manual "mark paid". Decide: Paystack (code
+  ready), Squad via AfriZoneMart (to build), or a manual bank-transfer step.
+- [ ] **One AfriZoneMart service token** with scopes `parttime.staff` and
+  `parttime.staff.read` (write allowed), set as both `MART_STAFF_TOKEN` (staff
+  workspace) and `MART_STAFF_SYNC_TOKEN` (staff roles follow AfriZoneMart).
+- [ ] Deploy the portal (direct upload): the live build predates the staff
+  workspace and still offers store and courier sign-up.
+- [ ] AfriZoneMart sends no `stock.low` or `listing.needs_media` events yet, so
+  sourcing and photography tasks are only created by hand.
 - [ ] `TERMII_WHATSAPP_FROM` var, only if WhatsApp alerts are wanted.
 - [ ] EAS build of the mobile app (Find work tab, CV review, apply questions).
 - [ ] Not built: honeypot questions in labelling work, paid trials.
