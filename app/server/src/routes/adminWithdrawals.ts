@@ -8,6 +8,8 @@
  *   POST /api/admin/withdrawals/:id/reject      {reason} don't pay: the amount
  *                                               returns to the wallet
  *   POST /api/admin/withdrawals/:id/check       ask where a sent one stands
+ *   POST /api/admin/withdrawals/:id/paid-manually {reference, note?}  we paid
+ *                                               it by bank transfer ourselves
  *
  * Approving sends money, so it is SUPER_ADMIN only, as releasing a payment is.
  * HR can look.
@@ -135,6 +137,79 @@ router.post(
       "notifPay"
     ).catch(() => {});
     res.json({ ok: true });
+  })
+);
+
+/**
+ * POST /:id/paid-manually {reference, note?}
+ *
+ * Afrizone paid this Tasker itself, by bank transfer from the company account,
+ * and records it here. Nothing is sent from Part Time: this only marks the
+ * withdrawal PAID with the bank's transfer reference, so the wallet and the
+ * Tasker's statement are right.
+ *
+ * Never for one that may already have gone through Squad. A withdrawal that
+ * was ever handed to AfriZoneMart is checked there first; if AfriZoneMart has
+ * it in any state but FAILED, or cannot be asked, this refuses, because paying
+ * it by hand as well would pay the Tasker twice.
+ */
+router.post(
+  "/:id/paid-manually",
+  requireRole("SUPER_ADMIN"),
+  wrap(async (req, res) => {
+    const reference = typeof req.body?.reference === "string" ? req.body.reference.trim().slice(0, 120) : "";
+    const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 500) : "";
+    if (reference.length < 4) {
+      return res.status(400).json({ error: "Enter the bank's transfer reference (session ID) for this payment" });
+    }
+    const w = await prisma.withdrawal.findUnique({ where: { id: req.params.id } });
+    if (!w) return res.status(404).json({ error: "Withdrawal not found" });
+    if (w.status !== "REVIEW") return res.status(409).json({ error: "This withdrawal is not waiting to be paid" });
+    const hold = await payoutHold(w.workerId);
+    if (hold) return res.status(409).json({ error: "This account has an identity case open; decide it first", code: "IDENTITY_HOLD" });
+
+    if (w.provider === "afrizonemart") {
+      const answer = await martPayouts.status(w.providerRef ?? w.reference ?? w.id);
+      const neverSent = answer.kind === "REFUSED" && answer.code === "NOT_FOUND";
+      const failed = answer.kind === "ACCEPTED" && answer.status === "FAILED";
+      if (!neverSent && !failed) {
+        return res.status(409).json({
+          error:
+            answer.kind === "ACCEPTED"
+              ? `This one was already sent through Squad (${answer.status.toLowerCase()}). Don't pay it by hand as well.`
+              : "Could not confirm with AfriZoneMart that this was never sent through Squad. Try again in a minute.",
+          code: "MAYBE_SENT",
+        });
+      }
+    }
+
+    const hit = await prisma.withdrawal.updateMany({
+      where: { id: w.id, status: "REVIEW" },
+      data: {
+        status: "PAID",
+        provider: "manual",
+        providerRef: reference,
+        failureReason: null,
+        reviewedById: req.user!.id,
+        reviewedAt: new Date(),
+      },
+    });
+    if (hit.count === 0) return res.status(409).json({ error: "Somebody else has just decided this one" });
+    await writeAudit(userActor(req.user!.id), "withdrawal.paid_manually", "Withdrawal", w.id, {
+      amount: w.amount,
+      workerId: w.workerId,
+      reference,
+      ...(note ? { note } : {}),
+    });
+    await notifyWorker(
+      prisma,
+      w.workerId,
+      "Money sent ✅",
+      `Afrizone has paid your ₦${w.amount.toLocaleString()} withdrawal by bank transfer (ref ${reference}).`,
+      { screen: "wallet" },
+      "notifPay"
+    ).catch(() => {});
+    res.json(await prisma.withdrawal.findUniqueOrThrow({ where: { id: w.id } }));
   })
 );
 

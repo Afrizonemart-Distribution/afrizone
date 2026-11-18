@@ -145,3 +145,50 @@ describe("payouts through AfriZoneMart", () => {
     expect(row.failureReason).toContain("switched off");
   });
 });
+
+async function paidManually(id: string, token: string, body: unknown) {
+  const res = await SELF.fetch(`http://local.test/api/admin/withdrawals/${id}/paid-manually`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return { status: res.status, body: (await res.json()) as any };
+}
+
+describe("paid by bank transfer", () => {
+  it("records a transfer we made ourselves, without sending anything", async () => {
+    const calls = mockMart(() => ({ status: 500, body: {} }));
+    const { prisma, token, w } = await setup();
+    const { token: hr } = await createUserWithToken("HR_ADMIN");
+
+    expect((await paidManually(w.id, hr, { reference: "100004261118" })).status).toBe(403);
+    expect((await paidManually(w.id, token, {})).status).toBe(400);
+
+    const r = await paidManually(w.id, token, { reference: "100004261118", note: "GTBank app" });
+    expect(r.status).toBe(200);
+    expect(calls).toHaveLength(0);
+    const row = await prisma.withdrawal.findUnique({ where: { id: w.id } });
+    expect(row).toMatchObject({ status: "PAID", provider: "manual", providerRef: "100004261118" });
+    expect((await paidManually(w.id, token, { reference: "100004261118" })).status).toBe(409);
+  });
+
+  it("refuses when it may already have gone through Squad", async () => {
+    let mart: { status: number; body: unknown } = { status: 500, body: { error: "down" } };
+    mockMart(() => mart);
+    const { prisma, token, w } = await setup();
+    await pay(w.id, token); // no answer: back to REVIEW, but AfriZoneMart may have it
+
+    mart = { status: 200, body: { status: "PENDING", failureReason: null } };
+    const sent = await paidManually(w.id, token, { reference: "MANUAL-1" });
+    expect(sent.status).toBe(409);
+    expect(sent.body.code).toBe("MAYBE_SENT");
+
+    mart = { status: 500, body: { error: "down" } };
+    expect((await paidManually(w.id, token, { reference: "MANUAL-1" })).status).toBe(409);
+
+    mart = { status: 404, body: { code: "NOT_FOUND", error: "No payout with that reference" } };
+    expect((await paidManually(w.id, token, { reference: "MANUAL-1" })).status).toBe(200);
+    expect((await prisma.withdrawal.findUnique({ where: { id: w.id } })).status).toBe("PAID");
+  });
+});
+
