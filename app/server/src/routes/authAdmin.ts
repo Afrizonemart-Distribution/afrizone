@@ -12,6 +12,7 @@
 // Reset tokens are hashed (sha256) at rest, single-use, 30-min expiry. 2FA
 // secrets are TOTP (RFC 6238). Dev bypass 000000 lives in services/totp.ts.
 
+import { twoFactorRequired } from "../services/twoFactorPolicy";
 import { Router } from "express";
 import crypto from "crypto";
 import { prisma } from "../prisma";
@@ -186,7 +187,7 @@ router.post("/google", async (req, res) => {
   }
   // Staff with TOTP on must pass it here too, exactly like password login:
   // without this, a staff member's Google account alone skipped their 2FA.
-  if (isAdmin(user.role) && user.totpEnabled) {
+  if (isAdmin(user.role) && user.totpEnabled && (await twoFactorRequired())) {
     return res.json({ requires2fa: true, challenge: signChallenge(user.id) });
   }
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });

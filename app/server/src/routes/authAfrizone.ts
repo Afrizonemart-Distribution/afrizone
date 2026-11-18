@@ -16,6 +16,7 @@
 // The identity token is single-use: its jti is consumed before any decision,
 // so even a refused attempt burns it.
 
+import { twoFactorRequired } from "../services/twoFactorPolicy";
 import { Router } from "express";
 import type { User } from "@prisma/client";
 import { prisma } from "../prisma";
@@ -57,9 +58,9 @@ async function acceptToken(body: unknown, res: any): Promise<AfrizoneClaims | nu
   }
 }
 
-/** Same ending as password login: a 2FA challenge if TOTP is on, else a session. */
-function signIn(res: any, user: User, isNewUser: boolean) {
-  if (user.totpEnabled) {
+/** Same ending as password login: a 2FA challenge if TOTP is on (and 2FA is required), else a session. */
+async function signIn(res: any, user: User, isNewUser: boolean) {
+  if (user.totpEnabled && (await twoFactorRequired())) {
     return res.json({ requires2fa: true, challenge: signChallenge(user.id) });
   }
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });
@@ -74,7 +75,10 @@ function signIn(res: any, user: User, isNewUser: boolean) {
  * console. Removals come through the staff-roles sync (services/martStaffSync.ts).
  */
 function martRole(claims: AfrizoneClaims): Role | null {
-  return claims.mfa_session && claims.parttime_role ? (claims.parttime_role as Role) : null;
+  // While Afrizonemart has 2FA switched off everywhere (mfa_required false),
+  // its sessions carry no 2FA, so the role is honoured without it.
+  const trusted = claims.mfa_session || !claims.mfa_required;
+  return trusted && claims.parttime_role ? (claims.parttime_role as Role) : null;
 }
 
 async function applyMartRole(user: User, role: Role | null): Promise<User> {
