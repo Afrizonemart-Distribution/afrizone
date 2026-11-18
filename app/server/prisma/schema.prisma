@@ -79,6 +79,8 @@ model User {
   notifTasks        Boolean  @default(true) // push: task matches & approval status changes
   notifPay          Boolean  @default(true) // push: payment releases & withdrawal updates
   notifEmail        Boolean  @default(false) // email summary digest (future)
+  /// When the welcome email went out, so it is sent once (services/partimerEmail.ts).
+  welcomeEmailedAt  DateTime?
   referralCode      String?  @unique // handed out to bring others in (services/referrals.ts)
   // ── Talent Profile (routes/meProfile.ts) ──
   headline          String?

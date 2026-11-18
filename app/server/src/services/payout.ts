@@ -4,6 +4,7 @@
  * selfie check (routes/adminWithdrawals.ts), so the two can never pay out
  * differently.
  */
+import { emailPartimer, partimerEmails, sendWelcomeIfDue } from "./partimerEmail";
 import { prisma } from "../prisma";
 import { paystack } from "./paystack";
 import { notifyWorker } from "./push";
@@ -80,7 +81,11 @@ export async function applyMartAnswer(
   if (answer.kind === "ACCEPTED") {
     if (answer.status === "SUCCESS") {
       const hit = await prisma.withdrawal.updateMany({ where: { id: w.id, status: "PROCESSING" }, data: { status: "PAID" } });
-      if (hit.count) await tell(w.workerId, "Money sent ✅", `Your ${naira(w.amount)} withdrawal has been paid into your bank account.`);
+      if (hit.count) {
+        await tell(w.workerId, "Money sent ✅", `Your ${naira(w.amount)} withdrawal has been paid into your bank account.`);
+        const row = await prisma.withdrawal.findUnique({ where: { id: w.id }, select: { bankMasked: true } });
+        await emailPartimer(w.workerId, partimerEmails.withdrawalPaid(w.amount, row?.bankMasked ?? "your bank account"));
+      }
       return "PAID";
     }
     if (answer.status === "FAILED") {
@@ -89,7 +94,10 @@ export async function applyMartAnswer(
         where: { id: w.id, status: "PROCESSING" },
         data: { status: "FAILED", failureReason: reason },
       });
-      if (hit.count) await tell(w.workerId, "Withdrawal not sent", `Your ${naira(w.amount)} withdrawal failed at the bank. The money is back in your wallet.`);
+      if (hit.count) {
+        await tell(w.workerId, "Withdrawal not sent", `Your ${naira(w.amount)} withdrawal failed at the bank. The money is back in your wallet.`);
+        await emailPartimer(w.workerId, partimerEmails.withdrawalNotSent(w.amount, "the bank transfer failed."));
+      }
       return "FAILED";
     }
     return "PROCESSING";
@@ -105,6 +113,7 @@ export async function applyMartAnswer(
         "Check your bank details",
         `Your ${naira(w.amount)} withdrawal was not sent: ${answer.error} The money is back in your wallet; update your bank details and try again.`
       );
+      await emailPartimer(w.workerId, partimerEmails.withdrawalNotSent(w.amount, answer.error));
     }
     return "FAILED";
   }

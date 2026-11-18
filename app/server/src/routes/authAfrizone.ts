@@ -16,6 +16,7 @@
 // The identity token is single-use: its jti is consumed before any decision,
 // so even a refused attempt burns it.
 
+import { sendWelcomeIfDue } from "../services/partimerEmail";
 import { twoFactorRequired } from "../services/twoFactorPolicy";
 import { Router } from "express";
 import type { User } from "@prisma/client";
@@ -170,6 +171,7 @@ router.post("/afrizone", async (req, res) => {
     emailVerified: claims.email_verified,
     country: claims.country,
   });
+  await sendWelcomeIfDue(user.id);
   return signIn(res, await applyMartRole(user, martRole(claims)), true);
 });
 
