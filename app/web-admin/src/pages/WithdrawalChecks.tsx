@@ -1,8 +1,9 @@
 /**
- * Large withdrawals waiting for a person to compare faces (server:
- * routes/adminWithdrawals.ts). The selfie taken for the withdrawal sits next
- * to the one the account was verified with. Same person: send. Not: the money
- * goes back into their wallet and they are told why.
+ * Withdrawals waiting to be paid (server: routes/adminWithdrawals.ts). Every
+ * withdrawal waits here until a Super Admin presses Pay; nothing is sent on a
+ * Tasker's request alone. A large one also carries a selfie to compare with the
+ * one the account was verified with. Pay sends it through AfriZoneMart's Squad
+ * account; "Don't pay" puts the money back in their wallet with the reason.
  */
 import { useState } from 'react'
 import { api, ApiError } from '../api/client'
@@ -45,7 +46,8 @@ function Face({ url, caption }: { url: string | null; caption: string }) {
 }
 
 export default function WithdrawalChecks() {
-  const { data, loading, error, reload } = useApi((signal) => api.withdrawalChecks(signal))
+  const { data, loading, error, reload } = useApi((signal) => api.withdrawalChecks(signal, 'REVIEW'))
+  const sent = useApi((signal) => api.withdrawalChecks(signal, 'PROCESSING'))
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<WithdrawalCheck | null>(null)
@@ -58,11 +60,25 @@ export default function WithdrawalChecks() {
     setActionError(null)
     try {
       await api.approveWithdrawal(id)
-      reload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not send it')
     } finally {
       setBusy(null)
+      reload()
+      sent.reload()
+    }
+  }
+
+  async function check(id: string) {
+    setBusy(id)
+    setActionError(null)
+    try {
+      await api.checkWithdrawal(id)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not check it')
+    } finally {
+      setBusy(null)
+      sent.reload()
     }
   }
 
@@ -85,9 +101,9 @@ export default function WithdrawalChecks() {
   return (
     <>
       <PageHeader
-        crumb="Operations / Withdrawal checks"
-        title="Large withdrawals"
-        sub="Each comes with a selfie taken for it. Compare it with the face the account was verified with before the money leaves."
+        crumb="Operations / Withdrawals"
+        title="Withdrawals"
+        sub="Nothing is paid until you press Pay. Large ones come with a selfie: compare it with the face the account was verified with first."
       />
 
       {actionError && (
@@ -103,7 +119,7 @@ export default function WithdrawalChecks() {
         <ErrorState message={error} onRetry={reload} />
       ) : rows.length === 0 ? (
         <Glass>
-          <EmptyState icon="lock" title="Nothing waiting" sub="Large withdrawals appear here with both selfies." />
+          <EmptyState icon="lock" title="Nothing waiting" sub="Withdrawals Taskers ask for appear here until you pay them." />
         </Glass>
       ) : (
         <div style={{ display: 'grid', gap: 14 }}>
@@ -117,10 +133,15 @@ export default function WithdrawalChecks() {
                 </span>
                 {r.identityHold && <StatusPill variant="danger" label="Identity case open" />}
               </div>
-              <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
-                <Face url={r.kycSelfieUrl} caption="Verified with" />
-                <Face url={r.payoutSelfieUrl} caption="Taken for this withdrawal" />
-              </div>
+              {r.hasSelfie && (
+                <div style={{ display: 'flex', gap: 20, marginTop: 14, flexWrap: 'wrap' }}>
+                  <Face url={r.kycSelfieUrl} caption="Verified with" />
+                  <Face url={r.payoutSelfieUrl} caption="Taken for this withdrawal" />
+                </div>
+              )}
+              {r.failureReason && (
+                <p style={{ fontSize: 13, color: 'var(--danger, #b42318)', marginTop: 10 }}>Last try: {r.failureReason}</p>
+              )}
               {r.identityHold && (
                 <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 10 }}>
                   Decide the case on Identity checks before sending: {r.identityHold}
@@ -135,7 +156,7 @@ export default function WithdrawalChecks() {
                     setReason('')
                   }}
                 >
-                  Not the same person
+                  {r.hasSelfie ? 'Not the same person' : "Don't pay"}
                 </Button>
                 <Button
                   variant="money"
@@ -146,7 +167,40 @@ export default function WithdrawalChecks() {
                   onClick={() => approve(r.id)}
                   title="Super Admin only"
                 >
-                  Same person: send
+                  {r.hasSelfie ? 'Same person: pay' : `Pay ${formatNaira(r.amount)}`}
+                </Button>
+              </div>
+            </Glass>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 18, margin: '28px 0 4px' }}>Sent, waiting for the bank</h2>
+      <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 14px' }}>
+        Checked with Squad every 5 minutes. Paid ones drop off this list; failed ones go back to the Tasker&rsquo;s wallet.
+      </p>
+      {sent.loading ? (
+        <LoadingState label="Loading…" />
+      ) : sent.error ? (
+        <ErrorState message={sent.error} onRetry={sent.reload} />
+      ) : (sent.data ?? []).length === 0 ? (
+        <Glass>
+          <EmptyState icon="check" title="Nothing in flight" sub="Payouts you send show here until the bank confirms them." />
+        </Glass>
+      ) : (
+        <div style={{ display: 'grid', gap: 10 }}>
+          {(sent.data ?? []).map((r) => (
+            <Glass key={r.id}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <b>{formatNaira(r.amount)}</b>
+                <span>to {r.worker.name}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 13 }}>
+                  {r.bankMasked} · asked {formatDate(r.createdAt)}
+                </span>
+                <StatusPill variant="pending" label="With the bank" />
+                <span style={{ flex: 1 }} />
+                <Button variant="glass" size="sm" loading={busy === r.id} onClick={() => check(r.id)}>
+                  Check now
                 </Button>
               </div>
             </Glass>
@@ -156,7 +210,7 @@ export default function WithdrawalChecks() {
 
       <Modal
         open={rejecting !== null}
-        title="Don't send this withdrawal"
+        title="Don't pay this withdrawal"
         subtitle="The amount goes back into their wallet, and they are told the reason."
         onClose={() => setRejecting(null)}
       >

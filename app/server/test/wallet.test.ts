@@ -63,8 +63,8 @@ describe("wallet withdrawals", () => {
 
     const withdraw = await apiPost("/api/wallet/withdraw", { amount: 9500 }, token);
     expect(withdraw.status).toBe(201);
-    expect(withdraw.body.status).toBe("PROCESSING");
-    expect(withdraw.body.simulated).toBe(true);
+    // Every withdrawal waits for an admin to press Pay; nothing is sent yet.
+    expect(withdraw.body.status).toBe("REVIEW");
 
     // Available balance is now fully committed: a second withdrawal should fail.
     const again = await apiPost("/api/wallet/withdraw", { amount: 5000 }, token);
@@ -78,6 +78,10 @@ describe("wallet withdrawals", () => {
     expect(workerSettle.status).toBe(403);
 
     const { token: adminToken } = await createUserWithToken("SUPER_ADMIN");
+    const paid = await apiPost(`/api/admin/withdrawals/${withdraw.body.id}/approve`, {}, adminToken);
+    expect(paid.status).toBe(200);
+    expect(paid.body.status).toBe("PROCESSING");
+    expect(paid.body.simulated).toBe(true);
     const settle = await apiPost("/api/wallet/dev/settle", { workerId: user.id }, adminToken);
     expect(settle.status).toBe(200);
     expect(settle.body.settled).toBe(1);

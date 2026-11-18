@@ -42,7 +42,7 @@ const TIMEOUT_MS = 8000;
  * permanently. Same pattern as paystack.ts, smileIdentity.ts and
  * cacVerification.ts.
  */
-function config() {
+export function config() {
   return {
     base: (process.env.MART_BASE_URL || "").replace(/\/+$/, ""),
     secret: process.env.MART_OUTBOUND_SECRET || "",
@@ -72,7 +72,7 @@ export type OutboundEvent = (typeof OUTBOUND_EVENTS)[number];
  * HMAC-SHA256 over "{timestamp}.{rawBody}", with the timestamp INSIDE the
  * signed string rather than merely alongside it.
  */
-function sign(body: string, secret: string): { timestamp: string; signature: string } {
+export function sign(body: string, secret: string): { timestamp: string; signature: string } {
   const timestamp = String(Math.floor(Date.now() / 1000));
   const signature = crypto
     .createHmac("sha256", secret)

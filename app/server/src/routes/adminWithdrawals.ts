@@ -1,11 +1,13 @@
 /**
- * Large withdrawals waiting for a person to compare faces (routes/wallet.ts
- * puts them in REVIEW with a fresh selfie).
+ * Withdrawals waiting for an admin to press Pay. Every withdrawal lands here
+ * in REVIEW (routes/wallet.ts); a large one also carries a fresh selfie to
+ * compare with the KYC one. Nothing is sent until Pay.
  *
- *   GET  /api/admin/withdrawals?status=REVIEW   with both selfies to compare
- *   POST /api/admin/withdrawals/:id/approve     same person: send the money
- *   POST /api/admin/withdrawals/:id/reject      {reason} not them: the amount
+ *   GET  /api/admin/withdrawals?status=REVIEW|PROCESSING
+ *   POST /api/admin/withdrawals/:id/approve     Pay: send the money
+ *   POST /api/admin/withdrawals/:id/reject      {reason} don't pay: the amount
  *                                               returns to the wallet
+ *   POST /api/admin/withdrawals/:id/check       ask where a sent one stands
  *
  * Approving sends money, so it is SUPER_ADMIN only, as releasing a payment is.
  * HR can look.
@@ -15,7 +17,8 @@ import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
 import { resolveUrl } from "../services/storage";
 import { payoutHold } from "../services/identityGuard";
-import { sendPayout } from "../services/payout";
+import { applyMartAnswer, sendPayout } from "../services/payout";
+import { martPayouts } from "../services/martPayout";
 import { notifyWorker } from "../services/push";
 import { userActor, writeAudit } from "../util/audit";
 
@@ -58,6 +61,9 @@ router.get(
         amount: r.amount,
         bankMasked: r.bankMasked,
         status: r.status,
+        provider: r.provider,
+        failureReason: r.failureReason,
+        hasSelfie: !!r.selfieDocumentId,
         createdAt: r.createdAt,
         worker: r.worker,
         identityHold: await payoutHold(r.workerId),
@@ -75,7 +81,7 @@ router.post(
   wrap(async (req, res) => {
     const w = await prisma.withdrawal.findUnique({ where: { id: req.params.id } });
     if (!w) return res.status(404).json({ error: "Withdrawal not found" });
-    if (w.status !== "REVIEW") return res.status(409).json({ error: "This withdrawal is not waiting for a check" });
+    if (w.status !== "REVIEW") return res.status(409).json({ error: "This withdrawal is not waiting to be paid" });
     const hold = await payoutHold(w.workerId);
     if (hold) return res.status(409).json({ error: "This account has an identity case open; decide it first", code: "IDENTITY_HOLD" });
 
@@ -85,17 +91,18 @@ router.post(
       data: { status: "PROCESSING", reviewedById: req.user!.id, reviewedAt: new Date() },
     });
     if (claimed.count === 0) return res.status(409).json({ error: "Somebody else has just decided this one" });
-    await writeAudit(userActor(req.user!.id), "withdrawal.selfie_approved", "Withdrawal", w.id, {
+    await writeAudit(userActor(req.user!.id), "withdrawal.approved", "Withdrawal", w.id, {
       amount: w.amount,
       workerId: w.workerId,
     });
 
     const worker = await prisma.user.findUniqueOrThrow({
       where: { id: w.workerId },
-      select: { name: true, bankAccountNumber: true, bankCode: true },
+      select: { name: true, bankAccountNumber: true, bankCode: true, bankName: true },
     });
+    const admin = await prisma.user.findUnique({ where: { id: req.user!.id }, select: { email: true, name: true } });
     const fresh = await prisma.withdrawal.findUniqueOrThrow({ where: { id: w.id } });
-    const out = await sendPayout(fresh, worker);
+    const out = await sendPayout(fresh, worker, admin?.email ?? admin?.name ?? req.user!.id);
     res.status(out.status === 201 ? 200 : out.status).json(out.body);
   })
 );
@@ -128,6 +135,21 @@ router.post(
       "notifPay"
     ).catch(() => {});
     res.json({ ok: true });
+  })
+);
+
+router.post(
+  "/:id/check",
+  wrap(async (req, res) => {
+    const w = await prisma.withdrawal.findUnique({ where: { id: req.params.id } });
+    if (!w) return res.status(404).json({ error: "Withdrawal not found" });
+    if (w.status !== "PROCESSING" || w.provider !== "afrizonemart") {
+      return res.json(w);
+    }
+    const answer = await martPayouts.status(w.providerRef ?? w.reference ?? w.id);
+    if (answer.kind === "ACCEPTED") await applyMartAnswer(w, answer);
+    const row = await prisma.withdrawal.findUniqueOrThrow({ where: { id: w.id } });
+    res.json({ ...row, answer });
   })
 );
 

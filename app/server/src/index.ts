@@ -53,6 +53,7 @@ import evidenceRouter, {
 } from "./routes/evidence";
 import adminAuditsRouter from "./routes/audits";
 import { heldRoute } from "./util/held";
+import { reconcileMartPayouts } from "./services/payout";
 import adminReferralsRouter from "./routes/referrals";
 
 /** Must match wrangler.jsonc's triggers.crons entry character for character. */
@@ -399,6 +400,17 @@ export default {
           })
           .catch((e) => console.error(`[proof-check] FAILED: ${e instanceof Error ? e.message : String(e)}`))
       );
+      // Payouts sent through AfriZoneMart settle when Squad says so, checked
+      // every 5 minutes (services/payout.ts).
+      if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0) {
+        ctx.waitUntil(
+          reconcileMartPayouts()
+            .then((r) => {
+              if (r.paid || r.failed) console.log(`[payouts] checked ${r.checked}, paid ${r.paid}, failed ${r.failed}`);
+            })
+            .catch((e) => console.error(`[payouts] FAILED: ${e instanceof Error ? e.message : String(e)}`))
+        );
+      }
       // Staff roles follow Afrizonemart, every 5 minutes (services/martStaffSync.ts).
       if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0) {
         ctx.waitUntil(

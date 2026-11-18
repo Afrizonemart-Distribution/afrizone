@@ -77,6 +77,12 @@ export interface WithdrawalCheck {
   amount: number
   bankMasked: string
   status: string
+  /** "afrizonemart" once sent through AfriZoneMart's Squad account. */
+  provider: string | null
+  /** Why the last attempt did not go through, if one did not. */
+  failureReason: string | null
+  /** Large withdrawals carry a selfie to compare before paying. */
+  hasSelfie: boolean
   createdAt: string
   worker: { id: string; name: string; kycStatus: string; bankMasked?: string | null }
   /** Why payouts are held on this account, when an identity case is open. */

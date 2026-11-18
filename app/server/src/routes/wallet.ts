@@ -1,5 +1,5 @@
 import { payoutHold } from "../services/identityGuard";
-import { SELFIE_MAX_AGE_MS, selfieLine, sendPayout } from "../services/payout";
+import { SELFIE_MAX_AGE_MS, selfieLine } from "../services/payout";
 import { Router, Response } from "express";
 import crypto from "crypto";
 import { prisma } from "../prisma";
@@ -20,9 +20,8 @@ const MIN_WITHDRAWAL = 5000; // ₦5,000 minimum.
 // view, wallet() in routes/workers.ts. If you change one, change them all.
 
 // POST /api/wallet/withdraw → body {amount}. Acting worker = req.user.id.
-// Guards: integer, ≥ ₦5,000, ≤ available. Creates a Withdrawal and (when
-// PAYSTACK_SECRET is set) initiates a real Paystack transfer; otherwise runs
-// in SIMULATED mode (status stays PROCESSING until settled).
+// Guards: integer, ≥ ₦5,000, ≤ available. Creates a Withdrawal in REVIEW; an
+// admin sends it (routes/adminWithdrawals.ts, services/payout.ts).
 router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) => {
   const workerId = req.user!.id;
   const { amount } = req.body || {};
@@ -71,7 +70,10 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
     }
     selfieDocumentId = doc.id;
   }
-  const initialStatus = selfieDocumentId ? "REVIEW" : "PROCESSING";
+  // EVERY withdrawal waits for an admin to press Pay (decided 2026-11-18): a
+  // request alone never moves money, however small. REVIEW reserves the amount
+  // against the balance until it is paid or refused.
+  const initialStatus = "REVIEW";
 
   const provider = paystack.enabled ? "paystack" : "simulated";
 
@@ -124,14 +126,8 @@ router.post("/withdraw", requireAuth, async (req: AuthedRequest, res: Response) 
 
   const withdrawal = await prisma.withdrawal.findUniqueOrThrow({ where: { id } });
 
-  // Held for the selfie check: the money is reserved (REVIEW counts against
-  // the balance) but nothing is sent until staff approve it.
-  if (withdrawal.status === "REVIEW") {
-    return res.status(201).json({ ...withdrawal, review: true });
-  }
-
-  const out = await sendPayout(withdrawal, worker);
-  return res.status(out.status).json(out.body);
+  // Reserved, not sent: an admin pays it from Withdrawals in the admin console.
+  return res.status(201).json({ ...withdrawal, review: true });
 });
 
 // DEV ONLY, ADMIN ONLY: settle PROCESSING withdrawals to PAID so the full
