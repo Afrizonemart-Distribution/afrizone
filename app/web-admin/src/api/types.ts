@@ -83,6 +83,10 @@ export interface WithdrawalCheck {
   failureReason: string | null
   /** Large withdrawals carry a selfie to compare before paying. */
   hasSelfie: boolean
+  /** At or over the two-person line: one admin signs off, a different one pays. */
+  needsTwo: boolean
+  signedOffById: string | null
+  signedOffBy: string | null
   createdAt: string
   worker: { id: string; name: string; kycStatus: string; bankMasked?: string | null }
   /** Why payouts are held on this account, when an identity case is open. */

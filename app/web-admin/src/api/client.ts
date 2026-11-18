@@ -358,6 +358,7 @@ export const api = {
     request<IdentityFlag>(`/admin/identity-flags/${id}/decide`, { method: 'POST', body: { decision, note } }),
   withdrawalChecks: (signal?: AbortSignal, status: 'REVIEW' | 'PROCESSING' = 'REVIEW') =>
     request<WithdrawalCheck[]>(`/admin/withdrawals?status=${status}`, { signal }),
+  signOffWithdrawal: (id: string) => request<unknown>(`/admin/withdrawals/${id}/sign-off`, { method: 'POST' }),
   checkWithdrawal: (id: string) => request<unknown>(`/admin/withdrawals/${id}/check`, { method: 'POST' }),
   paidManually: (id: string, reference: string, note: string) =>
     request<unknown>(`/admin/withdrawals/${id}/paid-manually`, { method: 'POST', body: { reference, note } }),

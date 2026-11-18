@@ -8,6 +8,7 @@
 import { useState } from 'react'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
+import { useAuth } from '../auth/AuthContext'
 import { formatDate, formatNaira } from '../lib/format'
 import type { WithdrawalCheck } from '../api/types'
 import PageHeader from '../components/PageHeader'
@@ -49,6 +50,7 @@ function Face({ url, caption }: { url: string | null; caption: string }) {
 export default function WithdrawalChecks() {
   const { data, loading, error, reload } = useApi((signal) => api.withdrawalChecks(signal, 'REVIEW'))
   const sent = useApi((signal) => api.withdrawalChecks(signal, 'PROCESSING'))
+  const { user } = useAuth()
   const [busy, setBusy] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<WithdrawalCheck | null>(null)
@@ -58,6 +60,8 @@ export default function WithdrawalChecks() {
   const [manualNote, setManualNote] = useState('')
 
   const rows = data ?? []
+  // The server enforces this too; the buttons only stop a click that would be refused.
+  const payable = (r: WithdrawalCheck) => !r.needsTwo || (!!r.signedOffById && r.signedOffById !== user?.id)
 
   async function approve(id: string) {
     setBusy(id)
@@ -85,6 +89,19 @@ export default function WithdrawalChecks() {
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Could not record that')
       setManual(null)
+    } finally {
+      setBusy(null)
+      reload()
+    }
+  }
+
+  async function signOff(id: string) {
+    setBusy(id)
+    setActionError(null)
+    try {
+      await api.signOffWithdrawal(id)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not sign it off')
     } finally {
       setBusy(null)
       reload()
@@ -169,7 +186,16 @@ export default function WithdrawalChecks() {
                   Decide the case on Identity checks before sending: {r.identityHold}
                 </p>
               )}
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+              {r.needsTwo && (
+                <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 10 }}>
+                  {!r.signedOffBy
+                    ? 'Two people: one admin signs this off, then a different Super Admin pays it.'
+                    : r.signedOffById === user?.id
+                      ? 'You signed this off. A different Super Admin has to pay it.'
+                      : `Signed off by ${r.signedOffBy}. Ready to pay.`}
+                </p>
+              )}
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>
                 <Button
                   variant="danger"
                   size="sm"
@@ -180,10 +206,22 @@ export default function WithdrawalChecks() {
                 >
                   {r.hasSelfie ? 'Not the same person' : "Don't pay"}
                 </Button>
+                {r.needsTwo && !r.signedOffBy && (
+                  <Button
+                    variant="glass"
+                    size="sm"
+                    icon="check"
+                    loading={busy === r.id}
+                    disabled={!!r.identityHold}
+                    onClick={() => signOff(r.id)}
+                  >
+                    {r.hasSelfie ? 'Same person: sign off' : 'Sign off'}
+                  </Button>
+                )}
                 <Button
                   variant="glass"
                   size="sm"
-                  disabled={!!r.identityHold}
+                  disabled={!!r.identityHold || !payable(r)}
                   onClick={() => {
                     setManual(r)
                     setTransferRef('')
@@ -198,11 +236,11 @@ export default function WithdrawalChecks() {
                   size="sm"
                   icon="check"
                   loading={busy === r.id}
-                  disabled={!!r.identityHold}
+                  disabled={!!r.identityHold || !payable(r)}
                   onClick={() => approve(r.id)}
                   title="Super Admin only"
                 >
-                  {r.hasSelfie ? 'Same person: pay' : `Pay ${formatNaira(r.amount)}`}
+                  {r.hasSelfie && !r.needsTwo ? 'Same person: pay' : `Pay ${formatNaira(r.amount)}`}
                 </Button>
               </div>
             </Glass>

@@ -98,6 +98,8 @@ describe("selfie before a large withdrawal", () => {
     expect(row.worker.id).toBe(w.user.id);
 
     expect((await apiPost(`/api/admin/withdrawals/${wd.body.id}/approve`, {}, hr.token)).status).toBe(403);
+    // Two people: HR compares the faces and signs off, the Super Admin pays.
+    expect((await apiPost(`/api/admin/withdrawals/${wd.body.id}/sign-off`, {}, hr.token)).status).toBe(200);
     const approved = await apiPost(`/api/admin/withdrawals/${wd.body.id}/approve`, {}, sa.token);
     expect(approved.status).toBe(200);
     expect(approved.body.status).toBe("PROCESSING");

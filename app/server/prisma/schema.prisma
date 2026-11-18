@@ -524,6 +524,10 @@ model Withdrawal {
   selfieDocumentId String?   @unique
   reviewedById     String?
   reviewedAt       DateTime?
+  /// Two people for a payout: who signed it off, before a different Super
+  /// Admin paid it (routes/adminWithdrawals.ts).
+  signedOffById    String?
+  signedOffAt      DateTime?
   createdAt     DateTime @default(now())
 
   worker User @relation(fields: [workerId], references: [id])

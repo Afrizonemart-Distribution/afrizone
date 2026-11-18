@@ -538,6 +538,8 @@ const SECOND_APPROVAL_KEY = 'payments.secondApprovalOver'
 const SECOND_APPROVAL_DEFAULT = 50_000
 const SELFIE_KEY = 'payouts.selfieOver'
 const SELFIE_DEFAULT = 100_000
+const TWO_PERSON_KEY = 'payouts.twoPersonOver'
+const TWO_PERSON_DEFAULT = 0
 const EVIDENCE_KEY = 'evidence.enforce'
 const PROOF_AI_KEY = 'ai.proofCheck'
 
@@ -545,6 +547,7 @@ function ChecksTab({ canEdit }: { canEdit: boolean }) {
   const { data, loading, error, reload, setData } = useApi((signal) => api.templates(signal))
   const [second, setSecond] = useState<string | null>(null)
   const [selfie, setSelfie] = useState<string | null>(null)
+  const [two, setTwo] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -565,9 +568,13 @@ function ChecksTab({ canEdit }: { canEdit: boolean }) {
   const selfieLine = amount(SELFIE_KEY, SELFIE_DEFAULT)
   const secondValue = second ?? String(secondLine)
   const selfieValue = selfie ?? String(selfieLine)
+  const twoLine = amount(TWO_PERSON_KEY, TWO_PERSON_DEFAULT)
+  const twoValue = two ?? String(twoLine)
   const valid = (v: string) => v.trim() !== '' && Number.isFinite(Number(v)) && Number(v) >= 0
   const dirty =
-    (second !== null && Number(second) !== secondLine) || (selfie !== null && Number(selfie) !== selfieLine)
+    (second !== null && Number(second) !== secondLine) ||
+    (selfie !== null && Number(selfie) !== selfieLine) ||
+    (two !== null && Number(two) !== twoLine)
 
   function store(row: { key: string; value: string }) {
     setData((prev) => {
@@ -583,8 +590,10 @@ function ChecksTab({ canEdit }: { canEdit: boolean }) {
     try {
       if (second !== null) store(await api.putTemplate(SECOND_APPROVAL_KEY, String(Math.round(Number(second)))))
       if (selfie !== null) store(await api.putTemplate(SELFIE_KEY, String(Math.round(Number(selfie)))))
+      if (two !== null) store(await api.putTemplate(TWO_PERSON_KEY, String(Math.round(Number(two)))))
       setSecond(null)
       setSelfie(null)
+      setTwo(null)
       setSaved(true)
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Could not save')
@@ -644,6 +653,20 @@ function ChecksTab({ canEdit }: { canEdit: boolean }) {
               Withdrawal checks. Default ₦{SELFIE_DEFAULT.toLocaleString()}.
             </span>
           </div>
+          <div className="field">
+            <Label htmlFor="chk-two">Two people for payouts from (₦)</Label>
+            <Input
+              id="chk-two"
+              inputMode="numeric"
+              value={twoValue}
+              disabled={!canEdit}
+              onChange={(e) => setTwo(e.target.value.replace(/[^0-9]/g, ''))}
+            />
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              A withdrawal this large or larger is signed off by one admin and paid by a different Super Admin,
+              by Squad or by bank transfer. 0 means every payout. Default 0.
+            </span>
+          </div>
         </div>
         {canEdit && (
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', marginTop: 12 }}>
@@ -652,7 +675,7 @@ function ChecksTab({ canEdit }: { canEdit: boolean }) {
               variant="primary"
               size="sm"
               loading={busy}
-              disabled={!dirty || !valid(secondValue) || !valid(selfieValue)}
+              disabled={!dirty || !valid(secondValue) || !valid(selfieValue) || !valid(twoValue)}
               onClick={saveAmounts}
             >
               Save amounts

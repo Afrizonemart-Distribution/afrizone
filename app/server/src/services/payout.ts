@@ -21,6 +21,34 @@ export async function selfieLine(): Promise<number> {
   return Number.isFinite(n) && n >= 0 ? n : DEFAULT_SELFIE_LINE;
 }
 
+export const TWO_PERSON_KEY = "payouts.twoPersonOver";
+/** ₦. From this amount up, one admin signs a payout off and a different one pays it. 0 = every payout. */
+export const DEFAULT_TWO_PERSON_LINE = 0;
+
+export async function twoPersonLine(): Promise<number> {
+  const row = await prisma.setting.findUnique({ where: { key: TWO_PERSON_KEY } });
+  const n = row ? Number(row.value) : NaN;
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_TWO_PERSON_LINE;
+}
+
+/**
+ * Why `payerId` may not pay this withdrawal yet, or null when they may.
+ * Shared by Pay and "Paid by bank transfer", so neither path is a way round it.
+ */
+export async function twoPersonProblem(
+  w: { amount: number; signedOffById: string | null },
+  payerId: string
+): Promise<{ error: string; code: string } | null> {
+  if (w.amount < (await twoPersonLine())) return null;
+  if (!w.signedOffById) {
+    return { code: "SIGN_OFF_NEEDED", error: "Another admin has to sign this payout off before it is paid." };
+  }
+  if (w.signedOffById === payerId) {
+    return { code: "SAME_PERSON", error: "You signed this one off, so a different Super Admin has to pay it." };
+  }
+  return null;
+}
+
 type WithdrawalRow = { id: string; amount: number; reference: string | null; workerId: string };
 type WorkerRow = { name: string; bankAccountNumber: string | null; bankCode: string | null; bankName?: string | null };
 
