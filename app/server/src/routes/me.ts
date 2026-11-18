@@ -1,4 +1,5 @@
 import { idNumberFrom, recordSignal } from "../services/identityGuard";
+import { sendWelcomeIfDue } from "../services/partimerEmail";
 import { Router, Response } from "express";
 import { prisma } from "../prisma";
 import { requireEvidence } from "../services/evidence";
@@ -175,6 +176,8 @@ router.patch("/", requireAuth, async (req: AuthedRequest, res: Response) => {
   }
 
   const user = await prisma.user.update({ where: { id: req.user!.id }, data });
+  // A phone sign-up adds their real email here: that is when the welcome goes.
+  if (data.email) await sendWelcomeIfDue(user.id);
   // The payout account belongs to one person (services/identityGuard.ts).
   if ((bankAccountNumber !== undefined || bankCode !== undefined) && user.bankAccountNumber && user.bankCode) {
     await recordSignal(user.id, "BANK", `${user.bankCode}:${user.bankAccountNumber}`);

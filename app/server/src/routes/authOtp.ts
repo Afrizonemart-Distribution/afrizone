@@ -8,6 +8,7 @@
 // Dev/sim: code is returned as devCode when SMS is not configured; master code
 // 123456 works ONLY when NODE_ENV is explicitly "development" or "test".
 
+import { sendWelcomeIfDue } from "../services/partimerEmail";
 import { Router } from "express";
 import { claimForTasker } from "../services/referrals";
 import crypto from "crypto";
@@ -190,6 +191,7 @@ router.post("/register", async (req, res) => {
     referral = r.ok ? { referredBy: r.referrerName } : { error: r.error };
   }
 
+  await sendWelcomeIfDue(user.id);
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });
   return res.json({ token, user: publicUser(user), isNewUser: true, referral });
 });
