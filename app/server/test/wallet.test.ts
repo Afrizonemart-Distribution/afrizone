@@ -78,6 +78,8 @@ describe("wallet withdrawals", () => {
     expect(workerSettle.status).toBe(403);
 
     const { token: adminToken } = await createUserWithToken("SUPER_ADMIN");
+    const { token: signer } = await createUserWithToken("HR_ADMIN");
+    await apiPost(`/api/admin/withdrawals/${withdraw.body.id}/sign-off`, {}, signer);
     const paid = await apiPost(`/api/admin/withdrawals/${withdraw.body.id}/approve`, {}, adminToken);
     expect(paid.status).toBe(200);
     expect(paid.body.status).toBe("PROCESSING");

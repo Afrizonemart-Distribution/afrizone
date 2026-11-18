@@ -41,7 +41,7 @@ afterEach(() => {
   }
 });
 
-async function setup(amount = 6000) {
+async function setup(amount = 6000, opts: { signOff?: boolean } = {}) {
   const prisma = testPrisma() as any;
   const { user: worker } = await createUserWithToken("WORKER", { name: "Ada Obi", bankMasked: "GTBank ••89" });
   await prisma.user.update({
@@ -58,7 +58,16 @@ async function setup(amount = 6000) {
       reference: `afz_wd_${worker.id}_${Date.now()}`,
     },
   });
-  return { prisma, worker, admin, token, w };
+  // Two people for every payout by default: HR signs off, the Super Admin pays.
+  const { token: signer } = await createUserWithToken("HR_ADMIN");
+  if (opts.signOff !== false) {
+    const res = await SELF.fetch(`http://local.test/api/admin/withdrawals/${w.id}/sign-off`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${signer}` },
+    });
+    expect(res.status).toBe(200);
+  }
+  return { prisma, worker, admin, token, w, signer };
 }
 
 async function pay(id: string, token: string) {
@@ -192,3 +201,51 @@ describe("paid by bank transfer", () => {
   });
 });
 
+describe("two people for a payout", () => {
+  async function signOff(id: string, token: string) {
+    const res = await SELF.fetch(`http://local.test/api/admin/withdrawals/${id}/sign-off`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return { status: res.status, body: (await res.json()) as any };
+  }
+
+  it("will not pay, by Squad or by hand, until another admin signs it off", async () => {
+    const calls = mockMart(() => ({ status: 201, body: { status: "PENDING" } }));
+    const { token, w } = await setup(6000, { signOff: false });
+    const r = await pay(w.id, token);
+    expect(r.status).toBe(409);
+    expect(r.body.code).toBe("SIGN_OFF_NEEDED");
+    expect((await paidManually(w.id, token, { reference: "REF-12345" })).body.code).toBe("SIGN_OFF_NEEDED");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("will not let the admin who signed it off also pay it", async () => {
+    const calls = mockMart(() => ({ status: 201, body: { status: "PENDING" } }));
+    const { token, w } = await setup(6000, { signOff: false });
+    expect((await signOff(w.id, token)).status).toBe(200);
+    const r = await pay(w.id, token);
+    expect(r.body.code).toBe("SAME_PERSON");
+    expect((await paidManually(w.id, token, { reference: "REF-12345" })).body.code).toBe("SAME_PERSON");
+    expect(calls).toHaveLength(0);
+
+    const { token: other } = await createUserWithToken("SUPER_ADMIN");
+    expect((await pay(w.id, other)).status).toBe(200);
+  });
+
+  it("only needs one person below the line set in Settings", async () => {
+    mockMart(() => ({ status: 201, body: { status: "PENDING" } }));
+    const prisma = testPrisma() as any;
+    await prisma.setting.upsert({
+      where: { key: "payouts.twoPersonOver" },
+      update: { value: "10000" },
+      create: { key: "payouts.twoPersonOver", value: "10000" },
+    });
+    try {
+      const { token, w } = await setup(6000, { signOff: false });
+      expect((await pay(w.id, token)).status).toBe(200);
+    } finally {
+      await prisma.setting.delete({ where: { key: "payouts.twoPersonOver" } });
+    }
+  });
+});

@@ -4,7 +4,9 @@
  * compare with the KYC one. Nothing is sent until Pay.
  *
  *   GET  /api/admin/withdrawals?status=REVIEW|PROCESSING
- *   POST /api/admin/withdrawals/:id/approve     Pay: send the money
+ *   POST /api/admin/withdrawals/:id/sign-off    first of two people: it's right
+ *   POST /api/admin/withdrawals/:id/approve     Pay: send the money (a different
+ *                                               Super Admin from the sign-off)
  *   POST /api/admin/withdrawals/:id/reject      {reason} don't pay: the amount
  *                                               returns to the wallet
  *   POST /api/admin/withdrawals/:id/check       ask where a sent one stands
@@ -19,7 +21,7 @@ import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
 import { resolveUrl } from "../services/storage";
 import { payoutHold } from "../services/identityGuard";
-import { applyMartAnswer, sendPayout } from "../services/payout";
+import { applyMartAnswer, sendPayout, twoPersonLine, twoPersonProblem } from "../services/payout";
 import { martPayouts } from "../services/martPayout";
 import { notifyWorker } from "../services/push";
 import { userActor, writeAudit } from "../util/audit";
@@ -42,6 +44,11 @@ router.get(
       take: 100,
       include: { worker: { select: { id: true, name: true, kycStatus: true, bankMasked: true } } },
     });
+    const line = await twoPersonLine();
+    const signerIds = [...new Set(rows.map((r) => r.signedOffById).filter((x): x is string => !!x))];
+    const signers = signerIds.length
+      ? await prisma.user.findMany({ where: { id: { in: signerIds } }, select: { id: true, name: true } })
+      : [];
     const docIds = rows.map((r) => r.selfieDocumentId).filter((x): x is string => !!x);
     const workerIds = [...new Set(rows.map((r) => r.workerId))];
     const [payoutSelfies, kycSelfies] = await Promise.all([
@@ -66,6 +73,9 @@ router.get(
         provider: r.provider,
         failureReason: r.failureReason,
         hasSelfie: !!r.selfieDocumentId,
+        needsTwo: r.amount >= line,
+        signedOffById: r.signedOffById,
+        signedOffBy: r.signedOffById ? (signers.find((u) => u.id === r.signedOffById)?.name ?? "An admin") : null,
         createdAt: r.createdAt,
         worker: r.worker,
         identityHold: await payoutHold(r.workerId),
@@ -86,6 +96,8 @@ router.post(
     if (w.status !== "REVIEW") return res.status(409).json({ error: "This withdrawal is not waiting to be paid" });
     const hold = await payoutHold(w.workerId);
     if (hold) return res.status(409).json({ error: "This account has an identity case open; decide it first", code: "IDENTITY_HOLD" });
+    const twoPerson = await twoPersonProblem(w, req.user!.id);
+    if (twoPerson) return res.status(409).json(twoPerson);
 
     // Claim it first, so two admins approving at once cannot send it twice.
     const claimed = await prisma.withdrawal.updateMany({
@@ -141,6 +153,32 @@ router.post(
 );
 
 /**
+ * POST /:id/sign-off - the first of two people. A Super Admin or HR Admin says
+ * this withdrawal is right (and, for a large one, that the selfie matches).
+ * A different Super Admin then pays it. Nothing is sent here.
+ */
+router.post(
+  "/:id/sign-off",
+  wrap(async (req, res) => {
+    const w = await prisma.withdrawal.findUnique({ where: { id: req.params.id } });
+    if (!w) return res.status(404).json({ error: "Withdrawal not found" });
+    if (w.status !== "REVIEW") return res.status(409).json({ error: "This withdrawal is not waiting to be paid" });
+    const hold = await payoutHold(w.workerId);
+    if (hold) return res.status(409).json({ error: "This account has an identity case open; decide it first", code: "IDENTITY_HOLD" });
+    const hit = await prisma.withdrawal.updateMany({
+      where: { id: w.id, status: "REVIEW", signedOffById: null },
+      data: { signedOffById: req.user!.id, signedOffAt: new Date() },
+    });
+    if (hit.count === 0) return res.status(409).json({ error: "Somebody has already signed this one off" });
+    await writeAudit(userActor(req.user!.id), "withdrawal.signed_off", "Withdrawal", w.id, {
+      amount: w.amount,
+      workerId: w.workerId,
+    });
+    res.json(await prisma.withdrawal.findUniqueOrThrow({ where: { id: w.id } }));
+  })
+);
+
+/**
  * POST /:id/paid-manually {reference, note?}
  *
  * Afrizone paid this Tasker itself, by bank transfer from the company account,
@@ -167,6 +205,8 @@ router.post(
     if (w.status !== "REVIEW") return res.status(409).json({ error: "This withdrawal is not waiting to be paid" });
     const hold = await payoutHold(w.workerId);
     if (hold) return res.status(409).json({ error: "This account has an identity case open; decide it first", code: "IDENTITY_HOLD" });
+    const twoPerson = await twoPersonProblem(w, req.user!.id);
+    if (twoPerson) return res.status(409).json(twoPerson);
 
     if (w.provider === "afrizonemart") {
       const answer = await martPayouts.status(w.providerRef ?? w.reference ?? w.id);
