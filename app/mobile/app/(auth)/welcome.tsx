@@ -41,7 +41,7 @@ export default function WelcomeScreen() {
         <Text style={styles.forgot} onPress={() => router.push('/(auth)/forgot')}>Forgot password?</Text>
         <Text style={styles.footnote}>
           Don't have an account?{' '}
-          <Text style={styles.footnoteLink} onPress={() => router.push('/(auth)/account-type')}>Create account</Text>
+          <Text style={styles.footnoteLink} onPress={() => router.push({ pathname: '/(auth)/phone', params: { accountType: 'INDIVIDUAL' } })}>Create account</Text>
         </Text>
       </View>
     </View>

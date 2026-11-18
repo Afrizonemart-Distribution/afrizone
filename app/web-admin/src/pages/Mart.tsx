@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { HELD } from '../lib/held'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import { useAuth } from '../auth/AuthContext'
@@ -70,13 +71,18 @@ const EVENT_TYPES: { key: string; label: string; makes: string }[] = [
  * triggers each one. GENERAL is last because nothing from Mart uses it — it is
  * the fallback for a kind of work with no rule of its own.
  */
-const RULE_KINDS: { kind: string; label: string; from: string }[] = [
+const ALL_RULE_KINDS: { kind: string; label: string; from: string }[] = [
   { kind: 'SOURCING', label: 'Sourcing', from: 'stock.low' },
   { kind: 'STORE_AUDIT', label: 'Store audit', from: 'store.applied' },
   { kind: 'MEDIA', label: 'Photography', from: 'listing.needs_media' },
   { kind: 'DELIVERY', label: 'Delivery', from: 'order.confirmed — once the store accepts' },
   { kind: 'GENERAL', label: 'General', from: 'fallback' },
 ]
+
+// Store audits and deliveries are on hold (lib/held.ts).
+const RULE_KINDS = ALL_RULE_KINDS.filter(
+  (k) => !(HELD.stores && k.kind === 'STORE_AUDIT') && !(HELD.couriers && k.kind === 'DELIVERY'),
+)
 
 const TIER_OPTIONS = [
   { value: 'STUDENT', label: 'Student' },
@@ -270,13 +276,17 @@ export default function Mart() {
                 onSaved={rules.reload}
               />
             ))}
-            <OfferCard rule={rules.data!.offer} canEdit={canEdit} onSaved={rules.reload} />
-            <SurgeCard
-              rule={rules.data!.surge}
-              baseFee={rules.data!.kinds.DELIVERY?.fee ?? 0}
-              canEdit={canEdit}
-              onSaved={rules.reload}
-            />
+            {!HELD.couriers && (
+              <>
+                <OfferCard rule={rules.data!.offer} canEdit={canEdit} onSaved={rules.reload} />
+                <SurgeCard
+                  rule={rules.data!.surge}
+                  baseFee={rules.data!.kinds.DELIVERY?.fee ?? 0}
+                  canEdit={canEdit}
+                  onSaved={rules.reload}
+                />
+              </>
+            )}
           </div>
         )}
       </div>

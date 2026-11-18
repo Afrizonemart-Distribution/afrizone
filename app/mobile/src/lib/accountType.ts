@@ -17,7 +17,9 @@
  */
 import type { AccountType } from '../api/types';
 
-const TYPES: AccountType[] = ['INDIVIDUAL', 'STORE', 'COURIER'];
+/** Store and courier sign-up are on hold (server: src/util/held.ts). */
+export const OPEN_ACCOUNT_TYPES: AccountType[] = ['INDIVIDUAL'];
+const TYPES = OPEN_ACCOUNT_TYPES;
 
 /** A route param, of whatever shape expo-router hands over, as a real type. */
 export function readAccountType(raw: unknown): AccountType {

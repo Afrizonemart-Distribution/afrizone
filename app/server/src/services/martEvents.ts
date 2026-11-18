@@ -10,6 +10,7 @@
  * emitting stock.low every hour. Neither substitutes for the other, and a system
  * with only the first sends four auditors to one shop.
  */
+import { isHeld } from "../util/held";
 import crypto from "crypto";
 import { prisma } from "../prisma";
 import { generateTask } from "./taskGenerator";
@@ -209,10 +210,12 @@ async function handle(
     case "stock.low":
       return handleStockLow(data, actor);
     case "store.applied":
+      if (isHeld("stores")) return { status: "IGNORED", taskId: null, note: "Partner stores are on hold" };
       return handleStoreApplied(data, actor);
     case "listing.needs_media":
       return handleNeedsMedia(data, actor);
     case "order.confirmed":
+      if (isHeld("couriers")) return { status: "IGNORED", taskId: null, note: "Part Time deliveries are on hold" };
       return handleOrderConfirmed(data, actor);
   }
 }

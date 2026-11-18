@@ -8,7 +8,8 @@ import type { AccountType } from '../lib/types'
 /** Build-time switch; turn on once the server's AFRIZONE_LOGIN_ENABLED is. */
 const AFRIZONE_LOGIN_ON = import.meta.env.VITE_AFRIZONE_LOGIN === 'true'
 
-const TYPES: AccountType[] =['INDIVIDUAL', 'STORE', 'COURIER']
+// Store and courier sign-up are on hold (server: src/util/held.ts).
+const TYPES: AccountType[] = ['INDIVIDUAL']
 
 const COPY: Record<AccountType, { label: string; title: string; lede: string }> = {
   INDIVIDUAL: {

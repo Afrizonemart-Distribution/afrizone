@@ -10,6 +10,7 @@
  * system, not a user, and giving it a session token would mean a credential that
  * can do everything a person can.
  */
+import { heldRoute } from "../util/held";
 import { Router, Request, Response } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
@@ -73,7 +74,7 @@ router.post("/events", async (req: Request, res: Response) => {
  * order.confirmed is always one we know. Signed like the events endpoint, over
  * an empty body ("{timestamp}.").
  */
-router.get("/stores", async (req: Request, res: Response) => {
+router.get("/stores", heldRoute("stores"), async (req: Request, res: Response) => {
   const verified = verifyMartSignature(
     "",
     req.header("x-afz-timestamp"),

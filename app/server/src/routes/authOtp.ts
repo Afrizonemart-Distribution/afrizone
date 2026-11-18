@@ -13,7 +13,8 @@ import { claimForTasker } from "../services/referrals";
 import crypto from "crypto";
 import { prisma } from "../prisma";
 import { signToken, publicUser, hashPassword } from "../auth";
-import { AccountType, ACCOUNT_TYPES, Role } from "../types";
+import { AccountType, Role } from "../types";
+import { openAccountTypes } from "../util/held";
 import { sms } from "../services/sms";
 import { devAuthShortcutsEnabled } from "../env";
 
@@ -146,7 +147,9 @@ function normalisePhone(raw: string): string {
  */
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body || {};
-  const accountType: AccountType = ACCOUNT_TYPES.includes(req.body?.accountType)
+  // Only the types that are open (util/held.ts). An old app build that still
+  // offers Store or Courier gets an ordinary Tasker account rather than an error.
+  const accountType: AccountType = openAccountTypes().includes(req.body?.accountType)
     ? req.body.accountType
     : "INDIVIDUAL";
   if (!name || !email || !password) {

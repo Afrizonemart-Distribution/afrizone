@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { HELD } from '../lib/held'
 import { api, ApiError } from '../api/client'
 import { useApi } from '../lib/useApi'
 import { TIER_LABELS } from '../lib/format'
@@ -816,6 +817,7 @@ function RequirementsTab({ canEdit }: { canEdit: boolean }) {
         </p>
       </Glass>
 
+      {!HELD.couriers && (
       <Glass style={{ marginTop: 16 }}>
         <div className="gate-row">
           <div>
@@ -848,6 +850,7 @@ function RequirementsTab({ canEdit }: { canEdit: boolean }) {
           switches, so they are edited on the Mart rules screen.
         </p>
       </Glass>
+      )}
     </>
   )
 }
@@ -1894,6 +1897,7 @@ function ReferralsTab({ canEdit }: { canEdit: boolean }) {
               onChange={(e) => setTasker(e.target.value)}
             />
           </div>
+          {!HELD.stores && (
           <div className="field">
             <Label htmlFor="ref-store">New store, once approved (₦)</Label>
             <Input
@@ -1906,6 +1910,7 @@ function ReferralsTab({ canEdit }: { canEdit: boolean }) {
               onChange={(e) => setStore(e.target.value)}
             />
           </div>
+          )}
         </div>
         {err && (
           <div className="login-error" role="alert" style={{ marginTop: 12 }}>
