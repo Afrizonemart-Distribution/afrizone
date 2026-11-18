@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { twoFactorRequired } from "./services/twoFactorPolicy";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
@@ -245,8 +246,9 @@ export async function login(req: Request, res: Response) {
   const ok = await verifyPassword(String(password), user.passwordHash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
-  // 2FA gate: issue a short-lived challenge instead of a full token.
-  if (user.totpEnabled) {
+  // 2FA gate: issue a short-lived challenge instead of a full token. Skipped
+  // while Afrizonemart has 2FA switched off everywhere (twoFactorPolicy.ts).
+  if (user.totpEnabled && (await twoFactorRequired())) {
     return res.json({ requires2fa: true, challenge: signChallenge(user.id) });
   }
 

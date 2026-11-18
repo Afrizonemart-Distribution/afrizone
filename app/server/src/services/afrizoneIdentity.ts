@@ -36,6 +36,11 @@ export interface AfrizoneClaims {
   /** The AfriZone session behind this token passed its 2FA challenge (amr). */
   mfa_session: boolean;
   /**
+   * false only while Afrizonemart has 2FA switched off everywhere (Admin →
+   * Feature flags). Missing (older Afrizonemart) = required.
+   */
+  mfa_required: boolean;
+  /**
    * Part-Time staff role decided by Afrizonemart (null = none). Afrizonemart
    * is the source of truth for staff roles (2026-11-17); only honoured
    * together with mfa_session.
@@ -119,6 +124,7 @@ export async function verifyAfrizoneToken(identityToken: string): Promise<Afrizo
     country: typeof claims.country === "string" ? claims.country : null,
     mfa_enabled: claims.mfa_enabled === true,
     mfa_session: Array.isArray(claims.amr) && claims.amr.includes("mfa"),
+    mfa_required: claims.mfa_required !== false,
     parttime_role: (MART_STAFF_ROLES as readonly string[]).includes(claims.parttime_role)
       ? (claims.parttime_role as AfrizoneClaims["parttime_role"])
       : null,
