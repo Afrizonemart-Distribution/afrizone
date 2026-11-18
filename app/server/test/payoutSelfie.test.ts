@@ -57,7 +57,9 @@ describe("selfie before a large withdrawal", () => {
     const w = await richWorker();
     const small = await withdraw(w.token, 20000);
     expect(small.status).toBe(201);
-    expect(small.body.status).toBe("PROCESSING");
+    // No selfie below the line, but it still waits for an admin to press Pay.
+    expect(small.body.status).toBe("REVIEW");
+    expect(small.body.selfieDocumentId).toBeNull();
 
     const big = await withdraw(w.token, 100000);
     expect(big.status).toBe(403);

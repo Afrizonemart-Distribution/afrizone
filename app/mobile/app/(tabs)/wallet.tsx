@@ -283,7 +283,8 @@ function WithdrawSheet({
     }
     try {
       const w = await api.withdraw(value, idemKeyRef.current, selfieDocumentId);
-      setInReview((w as { status?: string }).status === 'REVIEW');
+      // Every withdrawal waits for Afrizone to pay it; only a large one has a selfie to check.
+      setInReview(!!(w as { selfieDocumentId?: string | null }).selfieDocumentId);
       setNeedSelfie(null);
       setDone(true);
       onWithdrawn();
@@ -358,11 +359,11 @@ function WithdrawSheet({
             <View style={styles.doneIcon}>
               <Icon name="check" size={30} color={obColors.mgreen} strokeWidth={3} />
             </View>
-            <Text style={styles.sheetTitle}>{inReview ? 'Selfie sent for checking' : 'Withdrawal queued'}</Text>
+            <Text style={styles.sheetTitle}>{inReview ? 'Selfie sent for checking' : 'Withdrawal requested'}</Text>
             <Text style={styles.sheetSub}>
               {inReview
                 ? `${formatNaira(value)} is set aside. We compare your selfie with your verified photo, usually within a working day, then send it to ${bankMasked ?? 'your bank'}.`
-                : `${formatNaira(value)} to ${bankMasked ?? 'your bank'}: arrives T+1 (next business day).`}
+                : `${formatNaira(value)} is set aside. Afrizone pays withdrawals on working days, and we'll tell you when it reaches ${bankMasked ?? 'your bank'}.`}
             </Text>
             <AppPrimaryButton label="Done" onPress={close} variant="outline" />
           </View>
