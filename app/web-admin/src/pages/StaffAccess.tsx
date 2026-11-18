@@ -28,6 +28,7 @@ import {
   disconnectMart,
   martStaff,
   MartError,
+  setMartStepUpPrompter,
   type MartManagerScope,
   type MartMembership,
   type MartProduct,
@@ -70,6 +71,12 @@ const endIso = (d: string) => (d ? new Date(`${d}T23:59:59`).toISOString() : nul
 
 export default function StaffAccess() {
   const [connected, setConnected] = useState<boolean | null>(null)
+  // 2FA code for sensitive changes (afrizonemart-api#242).
+  const [stepUpAsk, setStepUpAsk] = useState<{ verify: (code: string) => Promise<string | null>; done: (ok: boolean) => void } | null>(null)
+  useEffect(() => {
+    setMartStepUpPrompter((verify) => new Promise<boolean>((resolve) => setStepUpAsk({ verify, done: resolve })))
+    return () => setMartStepUpPrompter(null)
+  }, [])
   const [connecting, setConnecting] = useState(false)
   const [connectErr, setConnectErr] = useState<string | null>(null)
 
@@ -319,7 +326,44 @@ export default function StaffAccess() {
           }}
         />
       )}
+      {stepUpAsk && (
+        <StepUpCodeModal
+          verify={stepUpAsk.verify}
+          onDone={(ok) => {
+            stepUpAsk.done(ok)
+            setStepUpAsk(null)
+          }}
+        />
+      )}
     </>
+  )
+}
+
+/** "Confirm it's you": a fresh 2FA code before a staff-access change. One code covers 15 minutes. */
+function StepUpCodeModal({ verify, onDone }: { verify: (code: string) => Promise<string | null>; onDone: (ok: boolean) => void }) {
+  const [code, setCode] = useState('')
+  const [err, setErr] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const confirm = async () => {
+    setBusy(true)
+    setErr(null)
+    const problem = await verify(code).catch(() => 'Couldn’t reach Afrizonemart. Try again.')
+    setBusy(false)
+    if (problem) setErr(problem)
+    else onDone(true)
+  }
+  return (
+    <Modal open title="Confirm it’s you" subtitle="This change needs your two-factor code" onClose={() => onDone(false)}>
+      <div className="flex flex-col gap-3">
+        <p>Type the 6-digit code from your authenticator app, or a recovery code. You won’t be asked again for 15 minutes.</p>
+        <Input aria-label="Two-factor code" inputMode="numeric" autoComplete="one-time-code" autoFocus value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && code.trim().length >= 6) void confirm() }} />
+        <ErrorLine err={err} />
+        <div className="flex gap-2">
+          <Button variant="primary" size="sm" loading={busy} disabled={code.trim().length < 6} onClick={() => void confirm()}>Confirm</Button>
+          <Button size="sm" onClick={() => onDone(false)}>Cancel</Button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
