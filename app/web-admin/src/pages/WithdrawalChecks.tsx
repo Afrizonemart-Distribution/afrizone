@@ -16,6 +16,7 @@ import Button from '../components/ui/Button'
 import StatusPill from '../components/ui/StatusPill'
 import Modal from '../components/ui/Modal'
 import Textarea from '../components/ui/Textarea'
+import Input from '../components/ui/Input'
 import AuthedImage from '../components/ui/AuthedImage'
 import Icon from '../components/Icon'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/StateView'
@@ -52,6 +53,9 @@ export default function WithdrawalChecks() {
   const [actionError, setActionError] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState<WithdrawalCheck | null>(null)
   const [reason, setReason] = useState('')
+  const [manual, setManual] = useState<WithdrawalCheck | null>(null)
+  const [transferRef, setTransferRef] = useState('')
+  const [manualNote, setManualNote] = useState('')
 
   const rows = data ?? []
 
@@ -66,6 +70,24 @@ export default function WithdrawalChecks() {
       setBusy(null)
       reload()
       sent.reload()
+    }
+  }
+
+  async function recordManual() {
+    if (!manual) return
+    setBusy(manual.id)
+    setActionError(null)
+    try {
+      await api.paidManually(manual.id, transferRef.trim(), manualNote.trim())
+      setManual(null)
+      setTransferRef('')
+      setManualNote('')
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Could not record that')
+      setManual(null)
+    } finally {
+      setBusy(null)
+      reload()
     }
   }
 
@@ -159,6 +181,19 @@ export default function WithdrawalChecks() {
                   {r.hasSelfie ? 'Not the same person' : "Don't pay"}
                 </Button>
                 <Button
+                  variant="glass"
+                  size="sm"
+                  disabled={!!r.identityHold}
+                  onClick={() => {
+                    setManual(r)
+                    setTransferRef('')
+                    setManualNote('')
+                  }}
+                  title="Super Admin only"
+                >
+                  Paid by bank transfer
+                </Button>
+                <Button
                   variant="money"
                   size="sm"
                   icon="check"
@@ -207,6 +242,47 @@ export default function WithdrawalChecks() {
           ))}
         </div>
       )}
+
+      <Modal
+        open={manual !== null}
+        title="Paid by bank transfer"
+        subtitle={
+          manual
+            ? `Record that Afrizone paid ${formatNaira(manual.amount)} to ${manual.worker.name} (${manual.bankMasked}) from the company account. Nothing is sent from here.`
+            : ''
+        }
+        onClose={() => setManual(null)}
+      >
+        <div className="field" style={{ marginBottom: 14 }}>
+          <Label htmlFor="wd-ref">Bank transfer reference (session ID)</Label>
+          <Input
+            id="wd-ref"
+            value={transferRef}
+            onChange={(e) => setTransferRef(e.target.value)}
+            placeholder="From the bank app's receipt"
+          />
+        </div>
+        <div className="field" style={{ marginBottom: 18 }}>
+          <Label htmlFor="wd-note">Note (optional)</Label>
+          <Textarea id="wd-note" value={manualNote} onChange={(e) => setManualNote(e.target.value)} />
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--muted)', margin: '0 0 14px' }}>
+          Only once the money has actually left. The Tasker is told it was paid, with this reference.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Button variant="glass" onClick={() => setManual(null)}>
+            Cancel
+          </Button>
+          <Button
+            variant="money"
+            loading={busy === manual?.id}
+            disabled={transferRef.trim().length < 4}
+            onClick={recordManual}
+          >
+            Mark paid
+          </Button>
+        </div>
+      </Modal>
 
       <Modal
         open={rejecting !== null}

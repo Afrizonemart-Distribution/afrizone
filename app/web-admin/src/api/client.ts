@@ -359,6 +359,8 @@ export const api = {
   withdrawalChecks: (signal?: AbortSignal, status: 'REVIEW' | 'PROCESSING' = 'REVIEW') =>
     request<WithdrawalCheck[]>(`/admin/withdrawals?status=${status}`, { signal }),
   checkWithdrawal: (id: string) => request<unknown>(`/admin/withdrawals/${id}/check`, { method: 'POST' }),
+  paidManually: (id: string, reference: string, note: string) =>
+    request<unknown>(`/admin/withdrawals/${id}/paid-manually`, { method: 'POST', body: { reference, note } }),
   approveWithdrawal: (id: string) => request<unknown>(`/admin/withdrawals/${id}/approve`, { method: 'POST' }),
   rejectWithdrawal: (id: string, reason: string) =>
     request<unknown>(`/admin/withdrawals/${id}/reject`, { method: 'POST', body: { reason } }),
