@@ -56,11 +56,12 @@ router.get("/config", (_req: Request, res: Response) => {
         ? "Document Verification (ID + selfie) enabled."
         : "Simulated: KYC relies on manual admin review only. Set SMILE_PARTNER_ID + SMILE_API_KEY to enable.",
     },
-    smtp: {
-      ok: !!process.env.SMTP_URL,
-      note: process.env.SMTP_URL
-        ? "Email delivery enabled."
-        : "Simulated: devToken returned in reset response, link logged to console. Set SMTP_URL to enable email.",
+    // Email goes through Resend (services/email.ts); SMTP_URL was never read.
+    email: {
+      ok: !!process.env.RESEND_API_KEY,
+      note: process.env.RESEND_API_KEY
+        ? "Resend configured: password resets and job alerts are emailed."
+        : "Not sending: password resets and job alerts are not emailed. Set RESEND_API_KEY.",
     },
     storage: {
       ok: !!env.BUCKET,

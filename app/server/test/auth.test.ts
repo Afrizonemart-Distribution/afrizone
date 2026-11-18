@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { apiGet, apiPost } from "./http";
 
 describe("POST /api/auth/register", () => {
@@ -95,6 +95,24 @@ describe("password forgot/reset", () => {
 
     const loginNew = await apiPost("/api/auth/login", { email, password: "newpassword456" });
     expect(loginNew.status).toBe(200);
+  });
+
+  it("never writes the reset token to the log", async () => {
+    const email = `reset-log-${Date.now()}@afrizone.work`;
+    await apiPost("/api/auth/register", { name: "Reset Log", email, password: "password123" });
+    const lines: string[] = [];
+    const spies = (["log", "error", "warn", "info"] as const).map((k) =>
+      vi.spyOn(console, k).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(" "));
+      })
+    );
+    try {
+      const forgot = await apiPost("/api/auth/password/forgot", { email });
+      expect(forgot.body.devToken).toBeDefined();
+      expect(lines.some((l) => l.includes(forgot.body.devToken))).toBe(false);
+    } finally {
+      spies.forEach((s) => s.mockRestore());
+    }
   });
 
   it("never reveals whether an email exists", async () => {
