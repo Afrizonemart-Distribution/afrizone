@@ -29,6 +29,7 @@ import { Role } from "../types";
 import { totp } from "../services/totp";
 import { google } from "../services/google";
 import { devAuthShortcutsEnabled } from "../env";
+import { email as mailer } from "../services/email";
 
 const router = Router();
 
@@ -192,6 +193,36 @@ router.post("/google", async (req, res) => {
   return res.json({ token, user: publicUser(user), isNewUser });
 });
 
+/**
+ * The reset email. Staff reset on the admin console from a link; everyone else
+ * pastes the code into the app's "Enter reset token" screen, which is what the
+ * mobile forgot-password flow already offers.
+ */
+function resetEmail(to: string, role: string, token: string) {
+  const minutes = Math.round(RESET_TTL_MS / 60000);
+  const admin = (process.env.WEB_ADMIN_URL || "").replace(/\/+$/, "");
+  const staff = role !== "WORKER" && !!admin;
+  const link = `${admin}/reset-password?token=${token}`;
+  const text = staff
+    ? `Someone asked to reset the password on your Afrizone Part Time account.
+
+Reset it here: ${link}
+
+The link works once and expires in ${minutes} minutes. If this was not you, ignore this email and your password stays as it is.`
+    : `Someone asked to reset the password on your Afrizone Part Time account.
+
+In the app, tap "Enter reset token" and paste this code:
+
+${token}
+
+The code works once and expires in ${minutes} minutes. If this was not you, ignore this email and your password stays as it is.`;
+  const body = staff
+    ? `<p><a href="${link}">Reset your password</a></p>`
+    : `<p>In the app, tap <b>Enter reset token</b> and paste this code:</p><p style="font-family:monospace;font-size:14px;word-break:break-all">${token}</p>`;
+  const html = `<p>Someone asked to reset the password on your Afrizone Part Time account.</p>${body}<p>It works once and expires in ${minutes} minutes. If this was not you, ignore this email and your password stays as it is.</p>`;
+  return { to, subject: "Reset your Afrizone Part Time password", text, html };
+}
+
 // POST /api/auth/password/forgot: no account enumeration.
 router.post("/password/forgot", async (req, res) => {
   const { email } = req.body || {};
@@ -212,7 +243,16 @@ router.post("/password/forgot", async (req, res) => {
         expiresAt: new Date(Date.now() + RESET_TTL_MS),
       },
     });
-    console.log(`[auth] password reset link for ${user.email}: token=${rawToken}`);
+    // The token goes to the person by email and nowhere else. It used to be
+    // written to the Worker log, where anyone who can read Cloudflare logs
+    // could take over the account; only the user id is logged now.
+    console.log(`[auth] password reset requested for user ${user.id}`);
+    try {
+      const went = await mailer.sendBatch([resetEmail(user.email, user.role, rawToken)]);
+      if (!went) console.error("[auth] reset email not sent: RESEND_API_KEY is not set");
+    } catch (e) {
+      console.error(`[auth] reset email failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
     if (isDev()) payload.devToken = rawToken;
   }
   // Always the same response shape: never reveal whether the email exists.
