@@ -19,6 +19,10 @@ function config() {
   return {
     key: process.env.RESEND_API_KEY || "",
     from: process.env.EMAIL_FROM || "AfriZone Jobs <jobs@afrizonemart.com>",
+    // No Reply-To was ever set, so a Partimer hitting "reply" on any of
+    // these had nowhere real to land unless jobs@ is itself a monitored
+    // inbox. Defaults to the same support inbox AfriZoneMart already uses.
+    replyTo: process.env.EMAIL_REPLY_TO || "support@afrizonemart.com",
   };
 }
 
@@ -45,12 +49,12 @@ export const email = {
       for (const m of messages) console.log(`[email:sim] to ${m.to}: ${m.subject}`);
       return false;
     }
-    const { key, from } = config();
+    const { key, from, replyTo } = config();
     const res = await fetch("https://api.resend.com/emails/batch", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify(
-        messages.slice(0, 100).map((m) => ({ from, to: [m.to], subject: m.subject, text: m.text, html: m.html }))
+        messages.slice(0, 100).map((m) => ({ from, to: [m.to], subject: m.subject, text: m.text, html: m.html, reply_to: replyTo }))
       ),
     });
     if (!res.ok) {
