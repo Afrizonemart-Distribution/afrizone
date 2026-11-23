@@ -9,9 +9,9 @@ import Glass from '../components/ui/Glass'
 import StatusPill from '../components/ui/StatusPill'
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/StateView'
 import type { IconName } from '../components/Icon'
-import Icon from '../components/Icon'
 import type { PillVariant } from '../lib/format'
 import { Label } from '@/components/shadcn/label'
+import { KpiCard, type KpiCardProps } from './charts'
 
 // ── Async results ───────────────────────────────────────────────────────────
 
@@ -76,25 +76,9 @@ export function Grid({ min = 220, gap = 12, children }: { min?: number; gap?: nu
   return <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${min}px, 100%), 1fr))`, gap }}>{children}</div>
 }
 
-export function Stat({ label, value, icon, tone = 'var(--navy)', hint, onClick }: { label: string; value: ReactNode; icon?: IconName; tone?: string; hint?: ReactNode; onClick?: () => void }) {
-  return (
-    <Glass style={{ padding: 16, cursor: onClick ? 'pointer' : undefined }}>
-      <div onClick={onClick} role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(e) => onClick && e.key === 'Enter' && onClick()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 12.5, fontWeight: 600 }}>
-          {icon && (
-            <span style={{ color: tone, display: 'inline-flex' }}>
-              <Icon name={icon} size={16} />
-            </span>
-          )}
-          {label}
-        </div>
-        <div className="tnum" style={{ fontSize: 26, fontWeight: 800, marginTop: 6, color: 'var(--text)' }}>
-          {value}
-        </div>
-        {hint && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>{hint}</div>}
-      </div>
-    </Glass>
-  )
+/** Every HR stat renders as the 21st-derived KPI card (charts.tsx). */
+export function Stat(props: KpiCardProps) {
+  return <KpiCard {...props} />
 }
 
 export function Tabs<T extends string>({ value, onChange, tabs }: { value: T; onChange: (v: T) => void; tabs: { value: T; label: string; count?: number }[] }) {

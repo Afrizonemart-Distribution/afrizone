@@ -11,6 +11,7 @@ import { useApi } from '../../lib/useApi'
 import { fileToBase64, hr, hrFile, niceDate, productLabel, STAFF_TYPES, typeLabel } from '../api'
 import { useHr } from '../HrContext'
 import { ErrorLine, Field, FormGrid, Load, Muted, Section, Status, Table, Tabs, Tag, useAction } from '../ui'
+import { PersonCell } from '../charts'
 import type { DirPerson } from './People'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -188,7 +189,7 @@ export function HrTraining() {
                 rowKey={(t: Any) => t.id}
                 empty="Nothing here"
                 cols={[
-                  { label: 'Person', render: (t: Any) => <Link to={`/hr/people/${t.userId}`} style={{ fontWeight: 700 }}>{t.name}</Link> },
+                  { label: 'Person', render: (t: Any) => <PersonCell userId={t.userId} name={t.name} /> },
                   { label: 'Course', render: (t: Any) => <div>{t.url ? <a href={t.url} target="_blank" rel="noreferrer">{t.title}</a> : t.title}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{t.provider ?? ''}</div></div> },
                   { label: tab === 'done' ? 'Done' : 'Due', render: (t: Any) => (tab === 'done' ? niceDate(t.completedAt) : t.overdue ? <Tag tone="bad">Overdue {niceDate(t.dueAt)}</Tag> : niceDate(t.dueAt)) },
                   { label: 'Certificate', render: (t: Any) => (t.certDocId ? <Button size="sm" icon="eye" onClick={() => act.run('c' + t.id, () => hrFile(`/documents/${t.certDocId}/file`))}>Open</Button> : <Muted>—</Muted>) },

@@ -1,6 +1,5 @@
 /** Reports, HR settings (workday, statutory rates, Telegram alerts) and the HR audit log. */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import PageHeader from '../../components/PageHeader'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -8,25 +7,10 @@ import { useApi } from '../../lib/useApi'
 import { hr, niceDate, productLabel, typeLabel } from '../api'
 import { useHr } from '../HrContext'
 import { ErrorLine, Field, FormGrid, Grid, Load, Muted, Section, Stat, Table, Tabs, useAction } from '../ui'
+import { BarList, ChartCard, Donut, PersonCell } from '../charts'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
-
-function Bars({ data, label }: { data: Record<string, number>; label: (k: string) => string }) {
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1])
-  const max = Math.max(1, ...entries.map((e) => e[1]))
-  return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      {entries.map(([k, v]) => (
-        <div key={k} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 40px', gap: 10, alignItems: 'center', fontSize: 13 }}>
-          <span>{label(k)}</span>
-          <div style={{ background: 'var(--track)', borderRadius: 99, height: 10 }}><div style={{ width: `${(v / max) * 100}%`, height: 10, borderRadius: 99, background: 'var(--navy)' }} /></div>
-          <span className="tnum" style={{ textAlign: 'right' }}>{v}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 export function HrReports() {
   const r = useApi((signal) => hr<Any>('/reports', { signal }), [])
@@ -46,13 +30,13 @@ export function HrReports() {
             </Grid>
             <div style={{ height: 16 }} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 16 }}>
-              <Section title="By staff type"><Bars data={d.byType} label={typeLabel} /></Section>
-              <Section title="By product"><Bars data={d.byProduct} label={(k) => (k === 'NONE' ? 'No access' : productLabel(k))} /></Section>
-              <Section title="By department"><Bars data={d.byDepartment} label={(k) => k} /></Section>
-              <Section title="Why people left (12 months)">{Object.keys(d.last12Months.leaversByReason).length ? <Bars data={d.last12Months.leaversByReason} label={(k) => k.replace(/_/g, ' ').toLowerCase()} /> : <Muted>Nobody left in the last 12 months.</Muted>}</Section>
+              <ChartCard title="By staff type" subtitle="Current headcount"><Donut data={d.byType} label={typeLabel} centerLabel="Staff" description="Current headcount by staff type" /></ChartCard>
+              <ChartCard title="By product" subtitle="Where each person has admin access"><BarList data={d.byProduct} label={(k) => (k === 'NONE' ? 'No access' : productLabel(k))} description="Staff by product access" /></ChartCard>
+              <ChartCard title="By department"><BarList data={d.byDepartment} color="var(--indigo)" description="Staff by department" /></ChartCard>
+              <ChartCard title="Why people left" subtitle="Last 12 months">{Object.keys(d.last12Months.leaversByReason).length ? <BarList data={d.last12Months.leaversByReason} color="var(--gold)" label={(k) => k.replace(/_/g, ' ').toLowerCase()} description="Leavers in the last 12 months by reason" /> : <span style={{ color: 'var(--muted)', fontSize: 13 }}>Nobody left in the last 12 months.</span>}</ChartCard>
             </div>
             <Section title="Intern pipeline" sub="Active interns, soonest ending first. Decide in time: extend, hire, or let it end." pad={false}>
-              <Table rows={d.internPipeline} rowKey={(i: Any) => i.userId} empty="No active interns" cols={[{ label: 'Intern', render: (i: Any) => <Link to={`/hr/people/${i.userId}`} style={{ fontWeight: 700 }}>{i.name}</Link> }, { label: 'Started', render: (i: Any) => niceDate(i.startDate) }, { label: 'Ends', render: (i: Any) => (i.endsAt ? niceDate(i.endsAt) : <Muted>No end date set</Muted>) }]} />
+              <Table rows={d.internPipeline} rowKey={(i: Any) => i.userId} empty="No active interns" cols={[{ label: 'Intern', render: (i: Any) => <PersonCell userId={i.userId} name={i.name} /> }, { label: 'Started', render: (i: Any) => niceDate(i.startDate) }, { label: 'Ends', render: (i: Any) => (i.endsAt ? niceDate(i.endsAt) : <Muted>No end date set</Muted>) }]} />
             </Section>
           </>
         )}

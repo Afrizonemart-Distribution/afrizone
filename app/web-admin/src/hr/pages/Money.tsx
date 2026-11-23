@@ -14,6 +14,7 @@ import { useApi } from '../../lib/useApi'
 import { hr, hrFile, naira, niceDate } from '../api'
 import { useHr } from '../HrContext'
 import { ErrorLine, Field, Grid, Load, Muted, NoAccess, Section, Stat, Status, Table, Tabs, Tag, useAction } from '../ui'
+import { PersonCell } from '../charts'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
@@ -111,7 +112,7 @@ export function HrPayrollRun() {
                 rows={d.slips}
                 rowKey={(s: Any) => s.id}
                 cols={[
-                  { label: 'Person', render: (s: Any) => <Link to={`/hr/people/${s.userId}`} style={{ fontWeight: 700 }}>{s.name}</Link> },
+                  { label: 'Person', render: (s: Any) => <PersonCell userId={s.userId} name={s.name} /> },
                   { label: 'Gross', render: (s: Any) => naira(s.grossKobo), align: 'right' },
                   { label: 'Pension', render: (s: Any) => naira(s.pensionEeKobo), align: 'right' },
                   { label: 'NHF', render: (s: Any) => naira(s.nhfKobo), align: 'right' },
@@ -193,7 +194,7 @@ export function HrClaims() {
               empty="Nothing here"
               emptyIcon="naira"
               cols={[
-                { label: 'Person', render: (c: Any) => <Link to={`/hr/people/${c.userId}`} style={{ fontWeight: 700 }}>{c.name}</Link> },
+                { label: 'Person', render: (c: Any) => <PersonCell userId={c.userId} name={c.name} /> },
                 { label: 'Claim', render: (c: Any) => <div>{c.title}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{CLAIM_KIND[c.kind]} · {niceDate(c.spentOn ?? c.createdAt)} · {c.receiptIds.length} receipt(s)</div></div> },
                 { label: 'Amount', render: (c: Any) => <b>{naira(c.amountKobo)}</b>, align: 'right' },
                 { label: 'Status', render: (c: Any) => <Status s={c.status} /> },
