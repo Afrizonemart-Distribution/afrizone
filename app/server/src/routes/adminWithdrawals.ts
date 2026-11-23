@@ -16,6 +16,7 @@
  * Approving sends money, so it is SUPER_ADMIN only, as releasing a payment is.
  * HR can look.
  */
+import { emailPartimer, partimerEmails, sendWelcomeIfDue } from "../services/partimerEmail";
 import { Router, Response, NextFunction } from "express";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
@@ -148,6 +149,7 @@ router.post(
       { screen: "wallet" },
       "notifPay"
     ).catch(() => {});
+    await emailPartimer(w.workerId, partimerEmails.withdrawalNotSent(w.amount, `${reason}.`));
     res.json({ ok: true });
   })
 );
@@ -249,6 +251,7 @@ router.post(
       { screen: "wallet" },
       "notifPay"
     ).catch(() => {});
+    await emailPartimer(w.workerId, partimerEmails.withdrawalPaid(w.amount, w.bankMasked, reference));
     res.json(await prisma.withdrawal.findUniqueOrThrow({ where: { id: w.id } }));
   })
 );

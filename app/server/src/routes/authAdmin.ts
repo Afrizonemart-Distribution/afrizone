@@ -12,6 +12,7 @@
 // Reset tokens are hashed (sha256) at rest, single-use, 30-min expiry. 2FA
 // secrets are TOTP (RFC 6238). Dev bypass 000000 lives in services/totp.ts.
 
+import { sendWelcomeIfDue } from "../services/partimerEmail";
 import { twoFactorRequired } from "../services/twoFactorPolicy";
 import { Router } from "express";
 import crypto from "crypto";
@@ -176,6 +177,7 @@ router.post("/google", async (req, res) => {
         kycStatus: "PENDING",
       },
     });
+    await sendWelcomeIfDue(user.id);
   }
 
   // Link the googleId on first SSO sign-in (matched-by-email case).

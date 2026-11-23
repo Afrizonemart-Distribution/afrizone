@@ -24,6 +24,7 @@
  * holding a signed contract for an order the board says nobody took is
  * recoverable, and refusing the whole assignment over a status field is not.
  */
+import { emailPartimer, partimerEmails, sendWelcomeIfDue } from "./partimerEmail";
 import { prisma } from "../prisma";
 import { notifyWorker } from "./push";
 import { writeAudit, type AuditActor } from "../util/audit";
@@ -276,6 +277,7 @@ export async function assignWorker(input: AssignInput): Promise<AssignResult> {
         { screen: "tasks" },
         "notifTasks"
       );
+      await emailPartimer(workerId, partimerEmails.approved(task.title));
     }
 
     return {

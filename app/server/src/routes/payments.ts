@@ -1,4 +1,5 @@
 import { Router, Response } from "express";
+import { emailPartimer, partimerEmails, sendWelcomeIfDue } from "../services/partimerEmail";
 import { onPaymentReleased } from "../services/referrals";
 import { prisma } from "../prisma";
 import { requireAuth, requireRole, AuthedRequest } from "../auth";
@@ -108,6 +109,8 @@ router.post("/:id/release", requireAuth, requireRole("SUPER_ADMIN"), async (req:
     { screen: "wallet" },
     "notifPay"
   );
+  const paidTask = await prisma.task.findUnique({ where: { id: payment.taskId }, select: { title: true } });
+  await emailPartimer(payment.workerId, partimerEmails.paymentReleased(payment.net, paidTask?.title));
 
   res.json(updated);
 });
@@ -174,6 +177,10 @@ router.post("/release-all", requireAuth, requireRole("SUPER_ADMIN"), async (req:
     { screen: "wallet" },
     "notifPay"
   );
+  for (const id of workerIds) {
+    const net = approved.filter((p) => p.workerId === id).reduce((s, p) => s + p.net, 0);
+    await emailPartimer(id, partimerEmails.paymentReleased(net));
+  }
 
   res.json({ released: approved.length, totalNet, heldBack });
 });

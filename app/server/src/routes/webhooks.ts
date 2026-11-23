@@ -1,4 +1,5 @@
 import { idNumberFrom, recordSignal } from "../services/identityGuard";
+import { emailPartimer, partimerEmails, sendWelcomeIfDue } from "../services/partimerEmail";
 import { Router, Request, Response } from "express";
 import { prisma } from "../prisma";
 import { paystack } from "../services/paystack";
@@ -50,6 +51,7 @@ router.post("/paystack", async (req: Request, res: Response) => {
   if (withdrawal) {
     if (type === "transfer.success") {
       await prisma.withdrawal.update({ where: { id: withdrawal.id }, data: { status: "PAID" } });
+      await emailPartimer(withdrawal.workerId, partimerEmails.withdrawalPaid(withdrawal.amount, withdrawal.bankMasked));
     } else if (type === "transfer.failed" || type === "transfer.reversed") {
       await prisma.withdrawal.update({
         where: { id: withdrawal.id },
