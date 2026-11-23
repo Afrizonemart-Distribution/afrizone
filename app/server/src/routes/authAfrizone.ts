@@ -187,8 +187,10 @@ router.post("/afrizone", async (req, res) => {
     emailVerified: claims.email_verified,
     country: claims.country,
   });
-  await sendWelcomeIfDue(user.id);
-  return signIn(res, await applyMartRole(user, martRole(claims)), true, surface);
+  const created = await applyMartRole(user, martRole(claims));
+  // The Partimer welcome is for Partimers only: never for a staff or HR account.
+  if (created.role === "WORKER") await sendWelcomeIfDue(created.id);
+  return signIn(res, created, true, surface);
 });
 
 // Link from Settings: the caller is signed in to Part-Time AND just signed in
