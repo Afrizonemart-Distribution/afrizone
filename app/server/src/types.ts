@@ -1,6 +1,11 @@
 // Enum union types (SQLite stores these as String: see schema.prisma notes).
 
-export type Role = "SUPER_ADMIN" | "TASK_MANAGER" | "HR_ADMIN" | "WORKER";
+/**
+ * AZM_HR (2026-11-23): AZM HR Console only. Signs in to the admin console but
+ * sees just the AZM Staff side; never an admin of Partimers (not in
+ * ADMIN_ROLES) and refused on every Part-Time route (see hrRoleFence).
+ */
+export type Role = "SUPER_ADMIN" | "TASK_MANAGER" | "HR_ADMIN" | "WORKER" | "AZM_HR";
 /** A tier key. The five built-ins plus any an admin adds (services/tiers.ts). */
 export type Tier = string;
 export type BuiltInTier = "STUDENT" | "DISPATCH" | "REMOTE" | "PROMO" | "TRADE";
@@ -21,7 +26,7 @@ export const EMPLOYMENT_TYPES: EmploymentType[] = ["FULL_TIME", "PART_TIME", "CO
 export const JOB_STATUSES: JobStatus[] = ["OPEN", "CLOSED"];
 export const STAGES: Stage[] = ["SCREENING", "INTERVIEW", "OFFER", "HIRED", "REJECTED"];
 
-export const ROLES: Role[] = ["SUPER_ADMIN", "TASK_MANAGER", "HR_ADMIN", "WORKER"];
+export const ROLES: Role[] = ["SUPER_ADMIN", "TASK_MANAGER", "HR_ADMIN", "WORKER", "AZM_HR"];
 /** The tiers that always exist. Validate against services/tiers.ts isTierKey, not this. */
 export const BUILT_IN_TIERS: BuiltInTier[] = ["STUDENT", "DISPATCH", "REMOTE", "PROMO", "TRADE"];
 /** @deprecated The built-ins only; admins can add tiers. Use services/tiers.ts. */

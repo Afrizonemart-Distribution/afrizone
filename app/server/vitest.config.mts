@@ -26,6 +26,7 @@ export default defineConfig(async () => {
             MART_INBOUND_SECRET: "local-dev-mart-inbound-secret",
             AFRIZONE_LOGIN_ENABLED: "true",
             MART_STAFF_TOKEN: "azm_sk_test-staff-token",
+            MART_HR_TOKEN: "azm_sk_test-hr-token",
             AFRIZONE_API_URL: "http://mart.test",
             // Runs the held store/courier code (src/util/held.ts); test/held.test.ts clears it.
             PARTTIME_UNHOLD: "all",

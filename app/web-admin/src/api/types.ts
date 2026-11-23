@@ -1,6 +1,7 @@
 // TS types mirroring API_CONTRACT.md entities & responses.
 
-export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER'
+/** AZM_HR: AZM HR Console only (sees just the AZM Staff side). */
+export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER' | 'AZM_HR'
 /** A tier key: the five built-ins plus any an admin adds (Settings > Tiers). */
 export type Tier = string
 

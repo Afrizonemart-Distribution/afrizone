@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ApiError } from '../api/client'
+import { ApiError, api, clearToken } from '../api/client'
+import { getAfrizoneIdentityToken } from '../lib/afrizone'
 import { isTwoFactorRequired } from '../api/types'
 import GoogleButton from '../auth/GoogleButton'
 import Button from '../components/ui/Button'
@@ -28,6 +29,7 @@ export default function Login() {
   const [challenge, setChallenge] = useState<string | null>(null)
   const [code, setCode] = useState('')
   const [verifying, setVerifying] = useState(false)
+  const [afzBusy, setAfzBusy] = useState(false)
 
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
@@ -195,6 +197,34 @@ export default function Login() {
                 isTwoFactorRequired(res) ? setChallenge(res.challenge) : applySession(res)
               }
             />
+
+            {/* AZM staff (HR) sign in with their AfriZone account. Not async:
+                the AfriZone pop-up has to open in the click's own tick. */}
+            <Button
+              type="button"
+              variant="glass"
+              icon="users"
+              loading={afzBusy}
+              style={{ width: '100%', marginTop: 10 }}
+              onClick={() => {
+                setError(null)
+                setAfzBusy(true)
+                getAfrizoneIdentityToken()
+                  .then((t) => api.afrizoneSignIn(t))
+                  .then((res) => {
+                    if (isTwoFactorRequired(res)) return setChallenge(res.challenge)
+                    if (res.user.role === 'WORKER') {
+                      clearToken()
+                      throw new Error('This AfriZone account has no access to the console. Ask an Owner to grant it in Staff access.')
+                    }
+                    applySession(res)
+                  })
+                  .catch((err) => setError(err instanceof Error ? err.message : 'AfriZone sign-in failed'))
+                  .finally(() => setAfzBusy(false))
+              }}
+            >
+              Continue with AfriZone
+            </Button>
 
             {DEV && (
               <div className="login-hint">
