@@ -8,6 +8,7 @@ import Switch from '../../components/ui/Switch'
 import { useApi } from '../../lib/useApi'
 import { ago, hr, hrFile, niceDate, productLabel, STAFF_TYPES } from '../api'
 import { ErrorLine, Load, Muted, Section, Status, Table, Tabs, Tag, TypeTag, useAction } from '../ui'
+import { PersonCell } from '../charts'
 
 export interface DirPerson {
   userId: string
@@ -89,10 +90,10 @@ export default function HrPeople() {
                   {
                     label: 'Person',
                     render: (p) => (
-                      <div>
-                        <b>{p.name ?? 'Unnamed'}</b> <TypeTag t={p.staffType} /> {p.owner && <Tag tone="warn">Owner</Tag>}
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.email}</div>
-                      </div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <PersonCell name={p.name} sub={p.email} intern={p.staffType === 'INTERN'} />
+                        <TypeTag t={p.staffType} /> {p.owner && <Tag tone="warn">Owner</Tag>}
+                      </span>
                     ),
                   },
                   { label: 'Role', render: (p) => <div>{p.jobTitle ?? <Muted>—</Muted>}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{p.department ?? ''}</div></div> },

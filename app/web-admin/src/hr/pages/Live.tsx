@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../../components/PageHeader'
 import Select from '../../components/ui/Select'
 import { useApi } from '../../lib/useApi'
 import { ago, hours, hr, niceTime, productLabel } from '../api'
 import { Grid, Load, Muted, Section, Stat, Status, Table, Tag, Tabs, TypeTag } from '../ui'
+import { PersonCell, PresenceBoard, type Presence } from '../charts'
+
+const PRESENCE: Record<Person['state'], Presence> = { ONLINE: 'online', AWAY: 'away', ON_LEAVE: 'leave', NOT_IN: 'off', OFF_DAY: 'off' }
 
 interface Person {
   userId: string
@@ -59,6 +62,15 @@ export default function HrLive() {
               <Stat label="Late today" value={d.totals.late} icon="alert" tone="var(--amber)" hint={`after ${d.workday.start} + ${d.workday.graceMinutes} min`} />
             </Grid>
             <div style={{ height: 16 }} />
+            <PresenceBoard
+              people={d.people.map((p) => ({
+                userId: p.userId,
+                name: p.name,
+                presence: PRESENCE[p.state],
+                intern: p.staffType === 'INTERN',
+                detail: p.state === 'ONLINE' && p.workingIn ? `in ${productLabel(p.workingIn)}` : p.state === 'ON_LEAVE' ? (p.leave ?? 'on leave') : p.state === 'NOT_IN' ? 'not in yet' : p.state === 'AWAY' ? `last seen ${ago(p.lastSeenAt)}` : 'day off',
+              }))}
+            />
             <Section
               pad={false}
               title={`Today · ${d.people.length} staff`}
@@ -91,11 +103,10 @@ export default function HrLive() {
                   {
                     label: 'Person',
                     render: (p) => (
-                      <div>
-                        <Link to={`/hr/people/${p.userId}`} style={{ fontWeight: 700 }} onClick={(e) => e.stopPropagation()}>{p.name ?? 'Unnamed'}</Link>{' '}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <PersonCell userId={p.userId} name={p.name} presence={PRESENCE[p.state]} intern={p.staffType === 'INTERN'} sub={[p.jobTitle, p.department].filter(Boolean).join(' · ') || '—'} />
                         <TypeTag t={p.staffType} />
-                        <div style={{ fontSize: 12, color: 'var(--muted)' }}>{[p.jobTitle, p.department].filter(Boolean).join(' · ') || '—'}</div>
-                      </div>
+                      </span>
                     ),
                   },
                   { label: 'Now', render: (p) => <Status s={p.state} label={p.state === 'ON_LEAVE' && p.leave ? p.leave : undefined} /> },

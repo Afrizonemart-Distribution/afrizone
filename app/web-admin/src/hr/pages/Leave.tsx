@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import PageHeader from '../../components/PageHeader'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -10,6 +9,7 @@ import { useApi } from '../../lib/useApi'
 import { addDays, hr, niceDate, STAFF_TYPES, today } from '../api'
 import { useHr } from '../HrContext'
 import { ErrorLine, Field, FormGrid, Load, Muted, Section, Status, Table, Tabs, Tag, useAction } from '../ui'
+import { PersonCell } from '../charts'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
@@ -46,7 +46,7 @@ function Queue() {
             empty="Nothing waiting"
             emptyIcon="calendar"
             cols={[
-              { label: 'Person', render: (l: Any) => <Link to={`/hr/people/${l.userId}`} style={{ fontWeight: 700 }}>{l.name}</Link> },
+              { label: 'Person', render: (l: Any) => <PersonCell userId={l.userId} name={l.name} /> },
               { label: 'Leave', render: (l: Any) => <div>{l.type}<div style={{ fontSize: 12, color: 'var(--muted)' }}>{l.reason ?? ''}</div></div> },
               { label: 'Dates', render: (l: Any) => <span className="tnum">{niceDate(l.startDate)} → {niceDate(l.endDate)}</span> },
               { label: 'Days', render: (l: Any) => l.days, align: 'right' },
@@ -91,7 +91,7 @@ function OffList() {
             rowKey={(l: Any) => l.id}
             empty="Nobody is off in the next 60 days"
             cols={[
-              { label: 'Person', render: (l: Any) => <Link to={`/hr/people/${l.userId}`} style={{ fontWeight: 700 }}>{l.name}</Link> },
+              { label: 'Person', render: (l: Any) => <PersonCell userId={l.userId} name={l.name} /> },
               { label: 'Leave', render: (l: Any) => l.type },
               { label: 'From', render: (l: Any) => niceDate(l.startDate) },
               { label: 'To', render: (l: Any) => niceDate(l.endDate) },

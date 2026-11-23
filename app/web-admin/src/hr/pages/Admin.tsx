@@ -1,6 +1,5 @@
-/** Reports, HR settings (workday + statutory rates) and the HR audit log. */
+/** Reports, HR settings (workday, statutory rates, Telegram alerts) and the HR audit log. */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import PageHeader from '../../components/PageHeader'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
@@ -8,25 +7,10 @@ import { useApi } from '../../lib/useApi'
 import { hr, niceDate, productLabel, typeLabel } from '../api'
 import { useHr } from '../HrContext'
 import { ErrorLine, Field, FormGrid, Grid, Load, Muted, Section, Stat, Table, Tabs, useAction } from '../ui'
+import { BarList, ChartCard, Donut, PersonCell } from '../charts'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Any = any
-
-function Bars({ data, label }: { data: Record<string, number>; label: (k: string) => string }) {
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1])
-  const max = Math.max(1, ...entries.map((e) => e[1]))
-  return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      {entries.map(([k, v]) => (
-        <div key={k} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 40px', gap: 10, alignItems: 'center', fontSize: 13 }}>
-          <span>{label(k)}</span>
-          <div style={{ background: 'var(--track)', borderRadius: 99, height: 10 }}><div style={{ width: `${(v / max) * 100}%`, height: 10, borderRadius: 99, background: 'var(--navy)' }} /></div>
-          <span className="tnum" style={{ textAlign: 'right' }}>{v}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 export function HrReports() {
   const r = useApi((signal) => hr<Any>('/reports', { signal }), [])
@@ -46,13 +30,13 @@ export function HrReports() {
             </Grid>
             <div style={{ height: 16 }} />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: 16 }}>
-              <Section title="By staff type"><Bars data={d.byType} label={typeLabel} /></Section>
-              <Section title="By product"><Bars data={d.byProduct} label={(k) => (k === 'NONE' ? 'No access' : productLabel(k))} /></Section>
-              <Section title="By department"><Bars data={d.byDepartment} label={(k) => k} /></Section>
-              <Section title="Why people left (12 months)">{Object.keys(d.last12Months.leaversByReason).length ? <Bars data={d.last12Months.leaversByReason} label={(k) => k.replace(/_/g, ' ').toLowerCase()} /> : <Muted>Nobody left in the last 12 months.</Muted>}</Section>
+              <ChartCard title="By staff type" subtitle="Current headcount"><Donut data={d.byType} label={typeLabel} centerLabel="Staff" description="Current headcount by staff type" /></ChartCard>
+              <ChartCard title="By product" subtitle="Where each person has admin access"><BarList data={d.byProduct} label={(k) => (k === 'NONE' ? 'No access' : productLabel(k))} description="Staff by product access" /></ChartCard>
+              <ChartCard title="By department"><BarList data={d.byDepartment} color="var(--indigo)" description="Staff by department" /></ChartCard>
+              <ChartCard title="Why people left" subtitle="Last 12 months">{Object.keys(d.last12Months.leaversByReason).length ? <BarList data={d.last12Months.leaversByReason} color="var(--gold)" label={(k) => k.replace(/_/g, ' ').toLowerCase()} description="Leavers in the last 12 months by reason" /> : <span style={{ color: 'var(--muted)', fontSize: 13 }}>Nobody left in the last 12 months.</span>}</ChartCard>
             </div>
             <Section title="Intern pipeline" sub="Active interns, soonest ending first. Decide in time: extend, hire, or let it end." pad={false}>
-              <Table rows={d.internPipeline} rowKey={(i: Any) => i.userId} empty="No active interns" cols={[{ label: 'Intern', render: (i: Any) => <Link to={`/hr/people/${i.userId}`} style={{ fontWeight: 700 }}>{i.name}</Link> }, { label: 'Started', render: (i: Any) => niceDate(i.startDate) }, { label: 'Ends', render: (i: Any) => (i.endsAt ? niceDate(i.endsAt) : <Muted>No end date set</Muted>) }]} />
+              <Table rows={d.internPipeline} rowKey={(i: Any) => i.userId} empty="No active interns" cols={[{ label: 'Intern', render: (i: Any) => <PersonCell userId={i.userId} name={i.name} /> }, { label: 'Started', render: (i: Any) => niceDate(i.startDate) }, { label: 'Ends', render: (i: Any) => (i.endsAt ? niceDate(i.endsAt) : <Muted>No end date set</Muted>) }]} />
             </Section>
           </>
         )}
@@ -64,16 +48,80 @@ export function HrReports() {
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 export function HrSettings() {
-  const [tab, setTab] = useState<'workday' | 'rates' | 'audit'>('workday')
+  const [tab, setTab] = useState<'workday' | 'rates' | 'telegram' | 'audit'>('workday')
   const { can } = useHr()
   return (
     <>
       <PageHeader crumb="AZM HR Console" title="HR settings" sub="The workday that decides late and absent, and the tax and pension rates payroll uses. Changing them needs no deploy." />
-      <Tabs value={tab} onChange={setTab} tabs={[{ value: 'workday', label: 'Workday' }, { value: 'rates', label: 'Tax & pension' }, ...(can('hr.manage') ? [{ value: 'audit' as const, label: 'Audit log' }] : [])]} />
+      <Tabs value={tab} onChange={setTab} tabs={[{ value: 'workday', label: 'Workday' }, { value: 'rates', label: 'Tax & pension' }, { value: 'telegram', label: 'Telegram alerts' }, ...(can('hr.manage') ? [{ value: 'audit' as const, label: 'Audit log' }] : [])]} />
       {tab === 'workday' && <WorkdaySettings />}
       {tab === 'rates' && <RateSettings />}
+      {tab === 'telegram' && <TelegramSettings />}
       {tab === 'audit' && <Audit />}
     </>
+  )
+}
+
+const EVENTS: { key: string; label: string; help: string }[] = [
+  { key: 'leave', label: 'Leave waiting for HR', help: 'After the line manager approves, or straight away if there is none' },
+  { key: 'claims', label: 'Expense claims waiting for HR', help: 'Who and what kind; never the amount' },
+  { key: 'payroll', label: 'Payroll', help: 'Submitted for approval, approved, sent back, fully paid' },
+  { key: 'documents', label: 'Documents signed', help: 'Who signed what kind of document' },
+  { key: 'queries', label: 'Query responses', help: 'Who responded; the response stays in the console' },
+  { key: 'people', label: 'Leavers', help: 'A reminder to check every product removed their access' },
+  { key: 'digest', label: 'Morning digest', help: 'What needs HR today, who is on leave, birthdays' },
+]
+
+function TelegramSettings() {
+  const r = useApi((signal) => hr<Any>('/settings/notify', { signal }), [])
+  const { can } = useHr()
+  const act = useAction()
+  const [n, setN] = useState<Any | null>(null)
+  const [chats, setChats] = useState('')
+  const [tested, setTested] = useState<string | null>(null)
+  useEffect(() => {
+    if (r.data) {
+      setN({ events: { ...r.data.events }, digestAt: r.data.digestAt })
+      setChats(r.data.chatIds.join(', '))
+    }
+  }, [r.data])
+  const edit = can('hr.manage')
+  const chatIds = chats.split(/[\s,]+/).map((c) => c.trim()).filter(Boolean)
+  return (
+    <Load r={r}>
+      {(d) =>
+        n && (
+          <Section title="Telegram alerts" sub="HR news goes to the HR heads' Telegram chat through the Afrizonemart bot. Messages say who and what happened and link back here. They never include pay, bank details, NIN, leave reasons or what a query says.">
+            {!d.botConfigured && <div className="login-error" role="status" style={{ margin: '0 0 14px' }}>The Telegram bot isn't set up on the server yet (TELEGRAM_BOT_TOKEN). Settings save, but nothing is sent.</div>}
+            {d.killSwitchOn && <div className="login-error" role="status" style={{ margin: '0 0 14px' }}>HR Telegram alerts are switched off in Feature flags (hr_telegram_alerts).</div>}
+            <ErrorLine error={act.error} />
+            {tested && <div role="status" style={{ margin: '0 0 14px', fontSize: 13.5, color: 'var(--money)' }}>{tested}</div>}
+            <Field label="Chat ids" htmlFor="tg-chats" help="Up to 5, separated by commas. A person's id is digits; a group's starts with a minus sign. Each person, or the group, must press Start on the bot first. Ask the person who looks after the bot for the id.">
+              <Input id="tg-chats" value={chats} onChange={(e) => setChats(e.target.value)} disabled={!edit} placeholder="e.g. -1001234567890" />
+            </Field>
+            <Field label="Send">
+              <div style={{ display: 'grid', gap: 10 }}>
+                {EVENTS.map((e) => (
+                  <label key={e.key} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 13.5 }}>
+                    <input type="checkbox" style={{ marginTop: 3 }} disabled={!edit} checked={!!n.events[e.key]} onChange={(ev) => setN({ ...n, events: { ...n.events, [e.key]: ev.target.checked } })} />
+                    <span><strong>{e.label}</strong><br /><Muted>{e.help}</Muted></span>
+                  </label>
+                ))}
+              </div>
+            </Field>
+            <FormGrid>
+              <Field label="Morning digest at (Lagos)" htmlFor="tg-at"><Input id="tg-at" type="time" value={n.digestAt} onChange={(e) => setN({ ...n, digestAt: e.target.value })} disabled={!edit || !n.events.digest} /></Field>
+            </FormGrid>
+            {edit && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <Button variant="primary" loading={act.busy === 's'} onClick={() => { setTested(null); void act.run('s', () => hr('/settings/notify', { method: 'PUT', body: { chatIds, events: n.events, digestAt: n.digestAt } }), r.reload) }}>Save</Button>
+                <Button loading={act.busy === 't'} disabled={!d.chatIds.length} onClick={() => { setTested(null); void act.run('t', async () => { const res = await hr<Any>('/settings/notify/test', { method: 'POST' }); setTested(`Test sent to ${res.sent} of ${res.of} chat(s).`) }) }}>Send a test</Button>
+              </div>
+            )}
+          </Section>
+        )
+      }
+    </Load>
   )
 }
 

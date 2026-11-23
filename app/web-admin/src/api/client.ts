@@ -224,7 +224,7 @@ export const api = {
     request<{ user: User }>('/auth/afrizone/link', { method: 'POST', body: { identityToken } }),
   /** Console sign-in with AfriZone (AZM HR staff have no Part-Time password). */
   afrizoneSignIn: (identityToken: string) =>
-    request<LoginResponse>('/auth/afrizone', { method: 'POST', body: { identityToken } }),
+    request<LoginResponse>('/auth/afrizone', { method: 'POST', body: { identityToken, surface: 'console' } }),
 
   // Auth: password reset
   passwordForgot: (email: string) =>
