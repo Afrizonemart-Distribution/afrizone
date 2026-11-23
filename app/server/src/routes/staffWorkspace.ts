@@ -38,7 +38,22 @@ export function staffWorkspaceEnabled(): boolean {
 }
 
 /** Only these paths go through, so this is never an open proxy. */
-const ALLOWED: { method: "GET" | "POST"; path: RegExp }[] = [
+const ALLOWED: { method: "GET" | "POST" | "PUT" | "PATCH"; path: RegExp }[] = [
+  // My HR (AZM HR Console): the person's own file, leave, documents, pay,
+  // claims, reviews, queries, policies, training, surveys, and their team.
+  { method: "GET", path: /^hr(\/(leave|documents|payslips|claims|reviews|queries|policies|training|surveys|celebrations|team))?$/ },
+  { method: "GET", path: /^hr\/documents\/[\w-]{1,64}\/file$/ },
+  { method: "PATCH", path: /^hr\/file$/ },
+  { method: "POST", path: /^hr\/(leave|documents|claims)$/ },
+  { method: "POST", path: /^hr\/(leave|claims)\/[\w-]{1,64}\/cancel$/ },
+  { method: "POST", path: /^hr\/documents\/[\w-]{1,64}\/sign$/ },
+  { method: "POST", path: /^hr\/queries\/[\w-]{1,64}\/respond$/ },
+  { method: "POST", path: /^hr\/policies\/[\w-]{1,64}\/ack$/ },
+  { method: "POST", path: /^hr\/training\/[\w-]{1,64}\/complete$/ },
+  { method: "POST", path: /^hr\/surveys\/[\w-]{1,64}$/ },
+  { method: "PUT", path: /^hr\/reviews\/[\w-]{1,64}$/ },
+  { method: "POST", path: /^hr\/team\/(leave|claims)\/[\w-]{1,64}\/decide$/ },
+  { method: "PUT", path: /^hr\/team\/reviews\/[\w-]{1,64}$/ },
   { method: "GET", path: /^me$/ },
   { method: "GET", path: /^tasks$/ },
   { method: "GET", path: /^tasks\/summary$/ },
@@ -111,7 +126,14 @@ router.use(requireStaff, async (req: StaffRequest, res: Response) => {
   if (!staffWorkspaceEnabled()) return res.status(503).json({ error: "The staff workspace isn't switched on yet" });
   const query = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
   try {
-    const r = await callMart(req.method, path, req.staff!.sub, query, req.method === "POST" ? req.body ?? {} : undefined);
+    const r = await callMart(req.method, path, req.staff!.sub, query, req.method === "GET" ? undefined : req.body ?? {});
+    const type = r.headers.get("content-type") || "application/json";
+    if (!type.includes("application/json")) {
+      // A My HR document: pass the bytes through.
+      res.status(r.status).setHeader("Content-Type", type);
+      res.setHeader("Cache-Control", "private, no-store");
+      return res.send(Buffer.from(await r.arrayBuffer()));
+    }
     const text = await r.text();
     res.status(r.status).type("application/json").send(text || "{}");
   } catch (e) {

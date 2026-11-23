@@ -45,10 +45,10 @@ export interface AfrizoneClaims {
    * is the source of truth for staff roles (2026-11-17); only honoured
    * together with mfa_session.
    */
-  parttime_role: "SUPER_ADMIN" | "HR_ADMIN" | "TASK_MANAGER" | null;
+  parttime_role: "SUPER_ADMIN" | "HR_ADMIN" | "TASK_MANAGER" | "AZM_HR" | null;
 }
 
-const MART_STAFF_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGER"] as const;
+const MART_STAFF_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGER", "AZM_HR"] as const;
 
 export class AfrizoneTokenError extends Error {}
 

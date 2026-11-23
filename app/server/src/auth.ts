@@ -156,6 +156,32 @@ export function isAdmin(role?: string | null): boolean {
   return !!role && ADMIN_ROLES.includes(role as Role);
 }
 
+/** May sign in to the admin console at all: Part-Time admins, plus AZM HR (HR side only). */
+export function isConsoleRole(role?: string | null): boolean {
+  return isAdmin(role) || role === "AZM_HR";
+}
+
+/**
+ * AZM_HR holds a console session but must never reach Part-Time data. Every
+ * /api path except these is refused for that role, whatever the route's own
+ * checks say (several Part-Time routes treat "not an admin" as "a worker").
+ */
+const AZM_HR_PATHS = [/^\/api\/admin\/hr(\/|$)/, /^\/api\/admin\/presence$/, /^\/api\/auth(\/|$)/, /^\/api\/health(\/|$)/];
+export function hrRoleFence(req: Request, res: Response, next: NextFunction) {
+  const header = req.headers.authorization || "";
+  if (!header.startsWith("Bearer ")) return next();
+  let role: string | undefined;
+  try {
+    role = verifyToken(header.slice(7)).role;
+  } catch {
+    return next(); // not a session token: the route's own auth decides
+  }
+  if (role !== "AZM_HR") return next();
+  const path = req.originalUrl.split("?")[0];
+  if (AZM_HR_PATHS.some((p) => p.test(path))) return next();
+  return res.status(403).json({ error: "AZM HR accounts only open the AZM Staff side", code: "AZM_HR_ONLY" });
+}
+
 export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;

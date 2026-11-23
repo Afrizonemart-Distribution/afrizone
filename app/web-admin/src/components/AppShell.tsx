@@ -3,9 +3,11 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Topbar from './Topbar'
 import './AppShell.css'
+import { useConsolePresence } from '../hr/routes'
 
 export default function AppShell() {
   const [menuOpen, setMenuOpen] = useState(false)
+  useConsolePresence()
 
   return (
     <div className="app">

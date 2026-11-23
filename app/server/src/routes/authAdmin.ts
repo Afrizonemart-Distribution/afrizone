@@ -25,6 +25,7 @@ import {
   publicUser,
   hashPassword,
   isAdmin,
+  isConsoleRole,
 } from "../auth";
 import { Role } from "../types";
 import { totp } from "../services/totp";
@@ -159,7 +160,7 @@ router.post("/google", async (req, res) => {
     // Allow-by-list. `user.role === "WORKER"` refused exactly one role and
     // admitted every other, so adding any new non-admin role (COURIER is on
     // the roadmap) would have let holders of it sign in to the admin console.
-    if (!user || !isAdmin(user.role)) {
+    if (!user || !isConsoleRole(user.role)) {
       return res.status(400).json({ error: "No admin account for this Google email" });
     }
   } else if (!user) {
@@ -187,7 +188,7 @@ router.post("/google", async (req, res) => {
   }
   // Staff with TOTP on must pass it here too, exactly like password login:
   // without this, a staff member's Google account alone skipped their 2FA.
-  if (isAdmin(user.role) && user.totpEnabled && (await twoFactorRequired())) {
+  if (isConsoleRole(user.role) && user.totpEnabled && (await twoFactorRequired())) {
     return res.json({ requires2fa: true, challenge: signChallenge(user.id) });
   }
   const token = signToken({ sub: user.id, role: user.role as Role, email: user.email });

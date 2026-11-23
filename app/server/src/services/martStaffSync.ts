@@ -17,7 +17,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { SYSTEM_ACTORS, auditData } from "../util/audit";
 
-const STAFF_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGER"] as const;
+const STAFF_ROLES = ["SUPER_ADMIN", "HR_ADMIN", "TASK_MANAGER", "AZM_HR"] as const;
 type StaffRole = (typeof STAFF_ROLES)[number];
 const MAX_DEMOTIONS = 5;
 
@@ -54,7 +54,9 @@ export function parseStaffRoles(body: unknown): MartStaffEntry[] | null {
 
 export async function fetchMartStaffRoles(fetchImpl: typeof fetch = fetch): Promise<MartStaffEntry[] | null> {
   const base = (process.env.AFRIZONE_API_URL || "https://api.afrizonemart.com").replace(/\/+$/, "");
-  const res = await fetchImpl(`${base}/api/integrations/parttime/staff-roles`, {
+  // include=azm_hr: we understand the AZM_HR role. An older Worker that
+  // doesn't send it never receives that role, so its strict parser can't trip.
+  const res = await fetchImpl(`${base}/api/integrations/parttime/staff-roles?include=azm_hr`, {
     headers: { Authorization: `Bearer ${process.env.MART_STAFF_SYNC_TOKEN}` },
   });
   if (!res.ok) throw new Error(`staff-roles fetch failed: ${res.status}`);

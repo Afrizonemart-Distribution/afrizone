@@ -21,6 +21,8 @@ import Mart from './pages/Mart'
 import IdentityChecks from './pages/IdentityChecks'
 import WithdrawalChecks from './pages/WithdrawalChecks'
 import StaffAccess from './pages/StaffAccess'
+import { HrProvider } from './hr/HrContext'
+import { hrRoutes, PartTimeOnly } from './hr/routes'
 
 export default function App() {
   return (
@@ -32,27 +34,30 @@ export default function App() {
         element={
           <ProtectedRoute>
             <TiersProvider>
-              <AppShell />
+              <HrProvider>
+                <AppShell />
+              </HrProvider>
             </TiersProvider>
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/applications" element={<Applications />} />
-        <Route path="/timesheets" element={<Timesheets />} />
-        <Route path="/payments" element={<Payments />} />
-        <Route path="/disputes" element={<Disputes />} />
-        <Route path="/verification" element={<Verification />} />
-        <Route path="/identity" element={<IdentityChecks />} />
-        <Route path="/withdrawals" element={<WithdrawalChecks />} />
-        <Route path="/workers" element={<Workers />} />
-        <Route path="/mart" element={<Mart />} />
-        <Route path="/hiring" element={<Hiring />} />
-        <Route path="/talent-pools" element={<TalentPools />} />
-        <Route path="/staff-access" element={<StaffAccess />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/" element={<PartTimeOnly><Dashboard /></PartTimeOnly>} />
+        <Route path="/tasks" element={<PartTimeOnly><Tasks /></PartTimeOnly>} />
+        <Route path="/applications" element={<PartTimeOnly><Applications /></PartTimeOnly>} />
+        <Route path="/timesheets" element={<PartTimeOnly><Timesheets /></PartTimeOnly>} />
+        <Route path="/payments" element={<PartTimeOnly><Payments /></PartTimeOnly>} />
+        <Route path="/disputes" element={<PartTimeOnly><Disputes /></PartTimeOnly>} />
+        <Route path="/verification" element={<PartTimeOnly><Verification /></PartTimeOnly>} />
+        <Route path="/identity" element={<PartTimeOnly><IdentityChecks /></PartTimeOnly>} />
+        <Route path="/withdrawals" element={<PartTimeOnly><WithdrawalChecks /></PartTimeOnly>} />
+        <Route path="/workers" element={<PartTimeOnly><Workers /></PartTimeOnly>} />
+        <Route path="/mart" element={<PartTimeOnly><Mart /></PartTimeOnly>} />
+        <Route path="/hiring" element={<PartTimeOnly><Hiring /></PartTimeOnly>} />
+        <Route path="/talent-pools" element={<PartTimeOnly><TalentPools /></PartTimeOnly>} />
+        <Route path="/staff-access" element={<PartTimeOnly><StaffAccess /></PartTimeOnly>} />
+        <Route path="/reports" element={<PartTimeOnly><Reports /></PartTimeOnly>} />
+        <Route path="/settings" element={<PartTimeOnly><Settings /></PartTimeOnly>} />
+        {hrRoutes}
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
