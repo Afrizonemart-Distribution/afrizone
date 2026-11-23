@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Banner } from '../../src/components/Feedback';
+import MyHr from '../../src/staff/MyHr';
 import { ObButton, ObField, ObPasswordField, ObScreen } from '../../src/onboarding/ObUI';
 import { obColors } from '../../src/onboarding/onboardingTheme';
 import { afrizoneIdentityToken, afrizoneLogin, afrizoneMfa } from '../../src/lib/afrizone';
@@ -154,7 +155,7 @@ function StaffSignIn({ onSignedIn }: { onSignedIn: (me: StaffMe) => void }) {
   );
 }
 
-type Tab = 'tasks' | 'review' | 'kpi' | 'team';
+type Tab = 'tasks' | 'review' | 'kpi' | 'team' | 'hr';
 
 function Workspace({ me, onSignOut }: { me: StaffMe; onSignOut: () => void }) {
   const insets = useSafeAreaInsets();
@@ -166,6 +167,7 @@ function Workspace({ me, onSignOut }: { me: StaffMe; onSignOut: () => void }) {
     ...(reviews ? [{ id: 'review' as Tab, label: 'To review' }] : []),
     { id: 'kpi', label: 'My KPI' },
     ...(reviews ? [{ id: 'team' as Tab, label: me.monitor ? 'Everyone' : 'Team' }] : []),
+    { id: 'hr', label: 'My HR' },
   ];
 
   return (
@@ -178,7 +180,7 @@ function Workspace({ me, onSignOut }: { me: StaffMe; onSignOut: () => void }) {
           <Text style={styles.link}>Sign out</Text>
         </Pressable>
       </View>
-      <Text style={styles.eyebrow}>AfriZone staff</Text>
+      <Text style={styles.eyebrow}>AZM staff</Text>
       <Text style={styles.h1}>Hello, {(me.name ?? '').split(' ')[0] || 'there'}</Text>
       <View style={styles.tabs}>
         {tabs.map((t) => (
@@ -197,6 +199,7 @@ function Workspace({ me, onSignOut }: { me: StaffMe; onSignOut: () => void }) {
       {tab === 'review' && <Tasks scope="review" />}
       {tab === 'kpi' && <MyKpi />}
       {tab === 'team' && <Team monitor={me.monitor} />}
+      {tab === 'hr' && <MyHr />}
     </ScrollView>
   );
 }

@@ -25,7 +25,7 @@ export async function clearStaffSession(): Promise<void> {
   await deleteItem(KEY);
 }
 
-async function call<T>(path: string, opts: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<T> {
+async function call<T>(path: string, opts: { method?: 'GET' | 'POST' | 'PUT' | 'PATCH'; body?: unknown } = {}): Promise<T> {
   const token = await getItem(KEY);
   const res = await fetch(`${API_BASE_URL}/staff${path}`, {
     method: opts.method ?? 'GET',
@@ -41,6 +41,20 @@ async function call<T>(path: string, opts: { method?: 'GET' | 'POST'; body?: unk
     throw new StaffApiError(json.error ?? json.message ?? 'Something went wrong', res.status);
   }
   return json as T;
+}
+
+/** My HR (AZM HR Console) and anything else under /api/staff. */
+export const staffCall = call;
+
+/** Download a My HR document with the staff session and open the share sheet. */
+export async function staffOpenFile(path: string, filename: string): Promise<void> {
+  const FileSystem = await import('expo-file-system/legacy');
+  const Sharing = await import('expo-sharing');
+  const token = await getItem(KEY);
+  const dest = `${FileSystem.cacheDirectory}${filename.replace(/[^\w.-]/g, '_')}`;
+  const res = await FileSystem.downloadAsync(`${API_BASE_URL}/staff${path}`, dest, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (res.status !== 200) throw new StaffApiError('Could not open the document', res.status);
+  await Sharing.shareAsync(res.uri, { mimeType: res.headers['Content-Type'] ?? res.headers['content-type'] });
 }
 
 export interface StaffMe {
