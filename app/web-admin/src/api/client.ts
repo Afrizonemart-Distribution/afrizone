@@ -74,6 +74,8 @@ import type {
   TierRow,
   CountryRow,
   Places,
+  StaffMember,
+  StaffRole,
 } from './types'
 
 const TOKEN_KEY = 'afz_token'
@@ -218,13 +220,14 @@ export const api = {
   googleSignIn: (idToken: string) =>
     request<LoginResponse>('/auth/google', { method: 'POST', body: { idToken } }),
 
-  // Auth: tie the signed-in account to an AfriZone account (identity token
-  // from lib/afrizone.ts). 409 when either side is already linked elsewhere.
-  afrizoneLink: (identityToken: string) =>
-    request<{ user: User }>('/auth/afrizone/link', { method: 'POST', body: { identityToken } }),
-  /** Console sign-in with AfriZone (AZM HR staff have no Part-Time password). */
-  afrizoneSignIn: (identityToken: string) =>
-    request<LoginResponse>('/auth/afrizone', { method: 'POST', body: { identityToken, surface: 'console' } }),
+  // Staff access: Part-Time's own staff, managed by a SUPER_ADMIN.
+  staffList: () => request<{ staff: StaffMember[] }>('/admin/staff'),
+  staffAdd: (body: { name: string; email: string; role: StaffRole }) =>
+    request<{ member: StaffMember; inviteSent: boolean }>('/admin/staff', { method: 'POST', body }),
+  staffSetRole: (id: string, role: StaffRole) =>
+    request<{ member: StaffMember }>(`/admin/staff/${id}`, { method: 'PATCH', body: { role } }),
+  staffInvite: (id: string) => request<{ sent: true }>(`/admin/staff/${id}/invite`, { method: 'POST' }),
+  staffRemove: (id: string) => request<{ removed: true }>(`/admin/staff/${id}/remove`, { method: 'POST' }),
 
   // Auth: password reset
   passwordForgot: (email: string) =>

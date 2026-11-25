@@ -1,7 +1,20 @@
 // TS types mirroring API_CONTRACT.md entities & responses.
 
-/** AZM_HR: AZM HR Console only (sees just the AZM Staff side). */
 export type Role = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN' | 'WORKER' | 'AZM_HR'
+
+/** Part-Time staff roles a SUPER_ADMIN can hand out in Staff access. */
+export type StaffRole = 'SUPER_ADMIN' | 'TASK_MANAGER' | 'HR_ADMIN'
+
+export interface StaffMember {
+  id: string
+  name: string
+  email: string
+  role: StaffRole
+  twoFactor: boolean
+  /** Has set a password (or linked Google): false until they open their invite. */
+  canSignIn: boolean
+  createdAt: string
+}
 /** A tier key: the five built-ins plus any an admin adds (Settings > Tiers). */
 export type Tier = string
 

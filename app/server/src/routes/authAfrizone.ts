@@ -23,7 +23,7 @@ import type { User } from "@prisma/client";
 import { prisma } from "../prisma";
 import { AuthedRequest, requireAuth, signToken, signChallenge, publicUser } from "../auth";
 import { Role } from "../types";
-import { SYSTEM_ACTORS, userActor, writeAudit } from "../util/audit";
+import { userActor, writeAudit } from "../util/audit";
 import {
   afrizoneLoginEnabled,
   verifyAfrizoneToken,
@@ -59,22 +59,8 @@ async function acceptToken(body: unknown, res: any): Promise<AfrizoneClaims | nu
   }
 }
 
-/** Where the sign-in came from. Only the admin console sends "console"; the Partimer app sends nothing. */
-type Surface = "console" | "app";
-const surfaceOf = (body: unknown): Surface => ((body as { surface?: unknown } | undefined)?.surface === "console" ? "console" : "app");
-
 /** Same ending as password login: a 2FA challenge if TOTP is on (and 2FA is required), else a session. */
-async function signIn(res: any, user: User, isNewUser: boolean, surface: Surface) {
-  // AZM staff policy (2026-11-24): an HR head's AfriZone account opens the
-  // HR console and nothing else (AZM_HR is fenced off every Part-Time route).
-  // In the Partimer app it would be a dead end, so say what to do instead.
-  if (user.role === "AZM_HR" && surface !== "console") {
-    return res.status(409).json({
-      error:
-        "This AfriZone account is set up for the AZM HR console. To work as a Partimer, sign up with a different email or phone number.",
-      code: "HR_ACCOUNT_CONSOLE_ONLY",
-    });
-  }
+async function signIn(res: any, user: User, isNewUser: boolean) {
   if (user.totpEnabled && (await twoFactorRequired())) {
     return res.json({ requires2fa: true, challenge: signChallenge(user.id) });
   }
@@ -82,30 +68,12 @@ async function signIn(res: any, user: User, isNewUser: boolean, surface: Surface
   return res.json({ token, user: publicUser(user), isNewUser });
 }
 
-/**
- * Afrizonemart decides staff roles (2026-11-17): a role it vouches for in the
- * identity token is applied here, but ONLY when that AfriZone session passed
- * its 2FA challenge (mfa_session). A role from a password-only AfriZone
- * session is ignored, so a stolen AfriZone password still can't open the
- * console. Removals come through the staff-roles sync (services/martStaffSync.ts).
+/*
+ * Staff roles are Part-Time's own (2026-11-25): a Part-Time admin adds staff
+ * in the console's Staff access (routes/staffAccess.ts). Afrizonemart no
+ * longer decides them, so a parttime_role claim in the identity token is
+ * ignored and Continue with AfriZone only ever signs in Partimers.
  */
-function martRole(claims: AfrizoneClaims): Role | null {
-  // While Afrizonemart has 2FA switched off everywhere (mfa_required false),
-  // its sessions carry no 2FA, so the role is honoured without it.
-  const trusted = claims.mfa_session || !claims.mfa_required;
-  return trusted && claims.parttime_role ? (claims.parttime_role as Role) : null;
-}
-
-async function applyMartRole(user: User, role: Role | null): Promise<User> {
-  if (!role || user.role === role) return user;
-  const updated = await prisma.user.update({ where: { id: user.id }, data: { role } });
-  await writeAudit(SYSTEM_ACTORS.afrizonemart, "STAFF_ROLE_FROM_AFRIZONEMART", "User", user.id, {
-    from: user.role,
-    to: role,
-    via: "afrizone_sign_in",
-  });
-  return updated;
-}
 
 /** Placeholder for accounts with no verified email (email is NOT NULL + unique). */
 function placeholderEmail(sub: string): string {
@@ -115,16 +83,11 @@ function placeholderEmail(sub: string): string {
 router.post("/afrizone", async (req, res) => {
   const claims = await acceptToken(req.body, res);
   if (!claims) return;
-  const surface = surfaceOf(req.body);
 
   // 1. Already linked.
   const linked = await prisma.user.findUnique({ where: { afrizoneUserId: claims.sub } });
   if (linked) {
-    // Afrizonemart vouches for a staff role AND the AfriZone session passed
-    // 2FA: that is the staff front door now (role applied, then signed in).
-    const role = martRole(claims);
-    if (role) return signIn(res, await applyMartRole(linked, role), false, surface);
-    // Otherwise a linked STAFF account still signs in on the console only.
+    // A linked STAFF account signs in on the console only.
     // Linking is identity, not a second front door: otherwise anyone holding
     // the AfriZone password (no 2FA) would get a full staff session from the
     // portal or the app. Fail closed on any non-WORKER.
@@ -135,7 +98,7 @@ router.post("/afrizone", async (req, res) => {
         code: "STAFF_USE_CONSOLE",
       });
     }
-    return signIn(res, linked, false, surface);
+    return signIn(res, linked, false);
   }
 
   // 2-3. Verified email match.
@@ -145,7 +108,7 @@ router.post("/afrizone", async (req, res) => {
       if (byEmail.role !== "WORKER") {
         return res.status(409).json({
           error:
-            "This email belongs to a staff account. Sign in to Part-Time the usual way, then link AfriZone from Settings.",
+            "This email belongs to a Part-Time staff account, which signs in on the staff console. To work as a Partimer, sign up with a different email or phone number.",
           code: "STAFF_LINK_FROM_SETTINGS",
         });
       }
@@ -164,7 +127,7 @@ router.post("/afrizone", async (req, res) => {
         via: "verified_email",
         afrizoneUserId: claims.sub,
       });
-      return signIn(res, await applyMartRole(user, martRole(claims)), false, surface);
+      return signIn(res, user, false);
     }
   }
 
@@ -187,10 +150,8 @@ router.post("/afrizone", async (req, res) => {
     emailVerified: claims.email_verified,
     country: claims.country,
   });
-  const created = await applyMartRole(user, martRole(claims));
-  // The Partimer welcome is for Partimers only: never for a staff or HR account.
-  if (created.role === "WORKER") await sendWelcomeIfDue(created.id);
-  return signIn(res, created, true, surface);
+  await sendWelcomeIfDue(user.id);
+  return signIn(res, user, true);
 });
 
 // Link from Settings: the caller is signed in to Part-Time AND just signed in

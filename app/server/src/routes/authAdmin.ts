@@ -27,8 +27,9 @@ import {
   hashPassword,
   isAdmin,
   isConsoleRole,
+  ACCOUNT_CLOSED,
 } from "../auth";
-import { Role } from "../types";
+import { Role, ROLES } from "../types";
 import { totp } from "../services/totp";
 import { google } from "../services/google";
 import { devAuthShortcutsEnabled } from "../env";
@@ -155,6 +156,9 @@ router.post("/google", async (req, res) => {
     (await prisma.user.findUnique({ where: { googleId: verified.sub } })) ||
     (await prisma.user.findUnique({ where: { email: verified.email } }));
   let isNewUser = false;
+  if (user && !ROLES.includes(user.role as Role)) {
+    return res.status(403).json({ error: ACCOUNT_CLOSED, code: "ACCOUNT_CLOSED" });
+  }
 
   if (ctx === "admin") {
     // Invite-only: must already exist as an admin. Do NOT auto-create.
