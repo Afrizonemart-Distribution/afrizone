@@ -20,6 +20,8 @@ const GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Operations',
     items: [
       { to: '/', label: 'Dashboard', icon: 'grid' },
+      // Every staff member: their own leave, pay, documents and claims.
+      { to: '/my-hr', label: 'My HR', icon: 'calendar', roles: ['SUPER_ADMIN', 'HR_ADMIN', 'TASK_MANAGER'] },
       { to: '/tasks', label: 'Tasks', icon: 'tasks' },
       { to: '/applications', label: 'Applications', icon: 'file' },
       { to: '/timesheets', label: 'Timesheets', icon: 'clock' },

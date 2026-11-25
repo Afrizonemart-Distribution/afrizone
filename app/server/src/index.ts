@@ -18,6 +18,7 @@ import paymentsRouter from "./routes/payments";
 import workersRouter from "./routes/workers";
 import jobsRouter from "./routes/jobs";
 import staffWorkspaceRouter from "./routes/staffWorkspace";
+import consoleMyHrRouter from "./routes/consoleMyHr";
 import hrConsoleRouter from "./routes/hrConsole";
 import { hrRoleFence } from "./auth";
 import talentPoolsRouter from "./routes/talentPools";
@@ -120,7 +121,7 @@ app.use(
 app.use("/api/webhooks/paystack", express.raw({ type: "*/*" }));
 app.use("/api/integrations/mart/events", express.raw({ type: "*/*" }));
 // AZM HR document uploads are base64 JSON (files up to 6 MB).
-app.use(["/api/admin/hr", "/api/staff/hr"], express.json({ limit: "9mb" }));
+app.use(["/api/admin/hr", "/api/staff/hr", "/api/admin/my-hr"], express.json({ limit: "9mb" }));
 app.use(express.json());
 // AZM_HR sessions reach only the AZM Staff side (auth.ts hrRoleFence).
 app.use("/api", hrRoleFence);
@@ -236,6 +237,7 @@ app.use("/api/payments", paymentsRouter);
 app.use("/api/workers", workersRouter);
 app.use("/api/jobs", jobsRouter);
 app.use("/api/staff", staffWorkspaceRouter);
+app.use("/api/admin/my-hr", consoleMyHrRouter);
 app.use("/api/admin", hrConsoleRouter);
 app.use("/api/talent-pools", talentPoolsRouter);
 app.use("/api/candidates", candidatesRouter);

@@ -68,13 +68,19 @@ export function isAllowed(method: string, path: string): boolean {
   return ALLOWED.some((a) => a.method === method && a.path.test(path));
 }
 
-async function callMart(method: string, path: string, user: string, query: string, body?: unknown) {
+/**
+ * Who the call is for: an AfriZone user id (staff workspace sessions) or the
+ * proven work email of a Part Time console account (routes/consoleMyHr.ts).
+ */
+export type MartStaffIdentity = string | { email: string };
+
+export async function callMart(method: string, path: string, who: MartStaffIdentity, query: string, body?: unknown) {
   const { base, token } = config();
   return fetch(`${base}/api/integrations/parttime/staff/${path}${query}`, {
     method,
     headers: {
       Authorization: `Bearer ${token}`,
-      "X-Afz-User": user,
+      ...(typeof who === "string" ? { "X-Afz-User": who } : { "X-Afz-Staff-Email": who.email }),
       ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
