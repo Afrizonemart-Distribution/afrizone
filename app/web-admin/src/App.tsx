@@ -20,6 +20,7 @@ import Verification from './pages/Verification'
 import Mart from './pages/Mart'
 import IdentityChecks from './pages/IdentityChecks'
 import WithdrawalChecks from './pages/WithdrawalChecks'
+import MyHr from './pages/MyHr'
 import StaffAccess from './pages/StaffAccess'
 
 export default function App() {
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/hiring" element={<Hiring />} />
         <Route path="/talent-pools" element={<TalentPools />} />
         <Route path="/staff-access" element={<StaffAccess />} />
+        <Route path="/my-hr" element={<MyHr />} />
         <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
