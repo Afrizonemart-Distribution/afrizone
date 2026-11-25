@@ -10,6 +10,7 @@ import tasksRouter from "./routes/tasks";
 import taskTemplatesRouter from "./routes/taskTemplates";
 import identityFlagsRouter from "./routes/identityFlags";
 import adminWithdrawalsRouter from "./routes/adminWithdrawals";
+import staffAccessRouter from "./routes/staffAccess";
 import opportunitiesRouter from "./routes/opportunities";
 import applicationsRouter from "./routes/applications";
 import timesheetsRouter from "./routes/timesheets";
@@ -43,7 +44,6 @@ import searchRouter from "./routes/search";
 import healthRouter from "./routes/health";
 import fundingRouter from "./routes/funding";
 import { purgeCustomerData } from "./services/deliveryPurge";
-import { syncMartStaffRoles } from "./services/martStaffSync";
 import { advanceRankedOffers } from "./services/ranking";
 import { sendDueJobAlerts } from "./services/jobAlerts";
 import { checkDueProofPhotos } from "./services/proofCheck";
@@ -228,6 +228,7 @@ app.use("/api/tasks", tasksRouter);
 app.use("/api/task-templates", taskTemplatesRouter);
 app.use("/api/admin/identity-flags", identityFlagsRouter);
 app.use("/api/admin/withdrawals", adminWithdrawalsRouter);
+app.use("/api/admin/staff", staffAccessRouter);
 app.use("/api/opportunities", opportunitiesRouter);
 app.use("/api/applications", applicationsRouter);
 app.use("/api/timesheets", timesheetsRouter);
@@ -418,17 +419,6 @@ export default {
               if (r.paid || r.failed) console.log(`[payouts] checked ${r.checked}, paid ${r.paid}, failed ${r.failed}`);
             })
             .catch((e) => console.error(`[payouts] FAILED: ${e instanceof Error ? e.message : String(e)}`))
-        );
-      }
-      // Staff roles follow Afrizonemart, every 5 minutes (services/martStaffSync.ts).
-      if (new Date(controller.scheduledTime).getUTCMinutes() % 5 === 0) {
-        ctx.waitUntil(
-          syncMartStaffRoles(cronPrisma as any)
-            .then((r) => {
-              if (r.skipped && r.skipped !== "MART_STAFF_SYNC_TOKEN not set") console.error(`[mart-staff-sync] SKIPPED: ${r.skipped}`);
-              if (r.changed) console.log(`[mart-staff-sync] promoted ${r.promoted}, demoted ${r.demoted}`);
-            })
-            .catch((e) => console.error(`[mart-staff-sync] FAILED: ${e instanceof Error ? e.message : String(e)}`))
         );
       }
       return;

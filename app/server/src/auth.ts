@@ -204,8 +204,8 @@ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunctio
 /**
  * READS THE CURRENT ROLE FROM THE DATABASE, not the token (2026-11-17), for
  * the same reason as requireAccountType below: sessions last seven days, and
- * staff roles are now decided by Afrizonemart and synced in every few minutes
- * (services/martStaffSync.ts). Trusting the token would let someone whose
+ * a Part-Time admin can change or remove a staff role at any time (Staff
+ * access, routes/staffAccess.ts). Trusting the token would let someone whose
  * access was removed keep it for up to a week. One primary-key lookup per
  * staff request. req.user.role is refreshed for the handlers that follow.
  */
@@ -261,6 +261,9 @@ export function requireAccountType(...types: AccountType[]) {
   };
 }
 
+/** Said to a removed staff member (role REMOVED, routes/staffAccess.ts) who tries to sign in. */
+export const ACCOUNT_CLOSED = "This account no longer has access to Part Time.";
+
 // POST /api/auth/login
 export async function login(req: Request, res: Response) {
   const { email, password } = req.body || {};
@@ -271,6 +274,7 @@ export async function login(req: Request, res: Response) {
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = await verifyPassword(String(password), user.passwordHash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+  if (!ROLES.includes(user.role as Role)) return res.status(403).json({ error: ACCOUNT_CLOSED, code: "ACCOUNT_CLOSED" });
 
   // 2FA gate: issue a short-lived challenge instead of a full token. Skipped
   // while Afrizonemart has 2FA switched off everywhere (twoFactorPolicy.ts).
